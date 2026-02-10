@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="96" fill="#0a0a12"/>
+  <!-- Football shape -->
+  <ellipse cx="256" cy="256" rx="155" ry="100" transform="rotate(-35 256 256)" fill="#06b6d4" opacity="0.15"/>
+  <ellipse cx="256" cy="256" rx="155" ry="100" transform="rotate(-35 256 256)" stroke="#06b6d4" stroke-width="12" fill="none"/>
+  <!-- Laces -->
+  <line x1="198" y1="178" x2="314" y2="334" stroke="#06b6d4" stroke-width="8" stroke-linecap="round"/>
+  <line x1="222" y1="208" x2="252" y2="196" stroke="#06b6d4" stroke-width="7" stroke-linecap="round"/>
+  <line x1="240" y1="236" x2="270" y2="224" stroke="#06b6d4" stroke-width="7" stroke-linecap="round"/>
+  <line x1="258" y1="264" x2="288" y2="252" stroke="#06b6d4" stroke-width="7" stroke-linecap="round"/>
+  <line x1="276" y1="292" x2="306" y2="280" stroke="#06b6d4" stroke-width="7" stroke-linecap="round"/>
+  <!-- Flag ribbon flowing from football -->
+  <path d="M145 160 Q110 130 90 155 Q70 180 100 200 Q80 215 95 240 Q115 220 105 200 Q90 180 120 175 Q140 185 145 160Z" fill="#06b6d4" opacity="0.9"/>
+  <!-- Small accent flag -->
+  <path d="M370 340 Q400 360 415 345 Q430 325 405 315 Q420 300 408 282 Q392 298 400 315 Q415 325 390 330 Q375 322 370 340Z" fill="#06b6d4" opacity="0.5"/>
+</svg>

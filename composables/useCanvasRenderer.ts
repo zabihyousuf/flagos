@@ -1,0 +1,567 @@
+import type { CanvasData, CanvasPlayer, CanvasPoint, RouteSegment } from '~/lib/types'
+import { POSITION_COLORS } from '~/lib/constants'
+
+export interface RenderOptions {
+  fieldLength: number
+  fieldWidth: number
+  endzoneSize: number
+  lineOfScrimmage: number
+  zoom: number
+  panOffset: { x: number; y: number }
+  selectedPlayerId: string | null
+}
+
+const PADDING = 40
+
+const COLORS = {
+  background: '#0f172a', // slate-900
+  fieldFill: '#1e293b',   // slate-800
+  fieldBorder: '#334155', // slate-700
+  yardLine: 'rgba(255,255,255,0.1)',
+  yardLineLight: 'rgba(255,255,255,0.05)',
+  yardNumber: '#94a3b8',  // slate-400
+  hashMark: 'rgba(255,255,255,0.1)',
+  endzoneFill: '#0f172a', // slate-900 (same as bg or slightly different)
+  endzoneBorder: '#334155',
+  endzoneText: '#475569', // slate-600
+  los: '#22d3ee',         // cyan-400 (bright for visibility)
+  firstDown: '#fbbf24',   // amber-400
+  nrz: 'rgba(251, 191, 36, 0.05)',
+  nrzBorder: 'rgba(251, 191, 36, 0.2)',
+}
+
+/**
+ * Compute the aspect-ratio-correct field rectangle that fits within the canvas.
+ */
+export function computeFieldRect(
+  logicalW: number,
+  logicalH: number,
+  options: { fieldLength: number; fieldWidth: number; endzoneSize: number; zoom: number },
+) {
+  const totalLength = options.fieldLength + options.endzoneSize * 2
+  const aspectRatio = options.fieldWidth / totalLength
+
+  const w = logicalW / options.zoom
+  const h = logicalH / options.zoom
+
+  const availW = w - PADDING * 2
+  const availH = h - PADDING * 2
+
+  let fieldW: number
+  let fieldH: number
+
+  if (availW / availH > aspectRatio) {
+    fieldH = availH
+    fieldW = fieldH * aspectRatio
+  } else {
+    fieldW = availW
+    fieldH = fieldW / aspectRatio
+  }
+
+  const offsetX = (w - fieldW) / 2
+  const offsetY = (h - fieldH) / 2
+
+  return { offsetX, offsetY, fieldW, fieldH, totalLength }
+}
+
+export function useCanvasRenderer() {
+  function render(
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement,
+    data: CanvasData,
+    options: RenderOptions,
+  ) {
+    const dpr = window.devicePixelRatio || 1
+    const logicalW = canvas.width / dpr
+    const logicalH = canvas.height / dpr
+
+    const { offsetX, offsetY, fieldW, fieldH } = computeFieldRect(logicalW, logicalH, options)
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.save()
+
+    ctx.scale(dpr, dpr)
+    ctx.translate(options.panOffset.x, options.panOffset.y)
+    ctx.scale(options.zoom, options.zoom)
+
+    const w = logicalW / options.zoom
+    const h = logicalH / options.zoom
+    ctx.fillStyle = COLORS.background
+    ctx.fillRect(0, 0, w, h)
+
+    ctx.save()
+    ctx.translate(offsetX, offsetY)
+
+    drawField(ctx, fieldW, fieldH, options)
+    // Draw routes behind players
+    data.players.forEach((player) => {
+      drawPlayerRoute(ctx, player, fieldW, fieldH)
+      drawMotionPath(ctx, player, fieldW, fieldH)
+    })
+    // Draw players on top
+    drawPlayers(ctx, data.players, fieldW, fieldH, options)
+
+    ctx.restore()
+    ctx.restore()
+  }
+
+  function drawField(
+    ctx: CanvasRenderingContext2D,
+    fieldW: number,
+    fieldH: number,
+    options: RenderOptions,
+  ) {
+    const { fieldLength, endzoneSize, lineOfScrimmage } = options
+    const totalLength = fieldLength + endzoneSize * 2
+    const yardHeight = fieldH / totalLength
+
+    // Field fill
+    ctx.fillStyle = COLORS.fieldFill
+    ctx.fillRect(0, yardHeight * endzoneSize, fieldW, yardHeight * fieldLength)
+
+    // Endzones
+    ctx.fillStyle = COLORS.endzoneFill
+    ctx.fillRect(0, 0, fieldW, yardHeight * endzoneSize)
+    ctx.fillRect(0, fieldH - yardHeight * endzoneSize, fieldW, yardHeight * endzoneSize)
+
+    // Endzone text
+    ctx.fillStyle = COLORS.endzoneText
+    const ezFontSize = Math.max(12, fieldW * 0.05)
+    ctx.font = `700 ${ezFontSize}px Inter, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.letterSpacing = `${ezFontSize * 0.3}px`
+    ctx.fillText('END ZONE', fieldW / 2, (yardHeight * endzoneSize) / 2)
+    ctx.fillText('END ZONE', fieldW / 2, fieldH - (yardHeight * endzoneSize) / 2)
+    ctx.letterSpacing = '0px'
+
+    // Field border
+    ctx.strokeStyle = COLORS.fieldBorder
+    ctx.lineWidth = 1.5
+    ctx.strokeRect(0, 0, fieldW, fieldH)
+
+    // Endzone separation lines
+    ctx.strokeStyle = COLORS.endzoneBorder
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(0, yardHeight * endzoneSize)
+    ctx.lineTo(fieldW, yardHeight * endzoneSize)
+    ctx.moveTo(0, fieldH - yardHeight * endzoneSize)
+    ctx.lineTo(fieldW, fieldH - yardHeight * endzoneSize)
+    ctx.stroke()
+
+    // Yard lines every 5 yards
+    ctx.setLineDash([])
+    for (let yard = 5; yard < fieldLength; yard += 5) {
+      const y = yardHeight * (endzoneSize + yard)
+      const isMajor = yard % 10 === 0
+
+      ctx.strokeStyle = isMajor ? COLORS.yardLine : COLORS.yardLineLight
+      ctx.lineWidth = isMajor ? 1 : 0.7
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(fieldW, y)
+      ctx.stroke()
+
+      const displayYard = yard <= fieldLength / 2 ? yard : fieldLength - yard
+      if (displayYard > 0 && isMajor) {
+        ctx.fillStyle = COLORS.yardNumber
+        const numFontSize = Math.max(10, fieldW * 0.035)
+        ctx.font = `600 ${numFontSize}px Inter, sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(`${displayYard}`, 20, y)
+        ctx.fillText(`${displayYard}`, fieldW - 20, y)
+      }
+    }
+
+    // Hash marks every yard
+    ctx.strokeStyle = COLORS.hashMark
+    ctx.lineWidth = 0.7
+    for (let yard = 1; yard < fieldLength; yard++) {
+      if (yard % 5 === 0) continue
+      const y = yardHeight * (endzoneSize + yard)
+      ctx.beginPath()
+      ctx.moveTo(fieldW * 0.33, y)
+      ctx.lineTo(fieldW * 0.33 + 6, y)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(fieldW * 0.67 - 6, y)
+      ctx.lineTo(fieldW * 0.67, y)
+      ctx.stroke()
+    }
+
+    // Line of Scrimmage
+    const losY = yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
+    ctx.save()
+    ctx.shadowColor = COLORS.los
+    ctx.shadowBlur = 4
+    ctx.strokeStyle = COLORS.los
+    ctx.lineWidth = 2
+    ctx.setLineDash([8, 4])
+    ctx.beginPath()
+    ctx.moveTo(0, losY)
+    ctx.lineTo(fieldW, losY)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+
+     // LOS pill label
+    const labelFontSize = Math.max(9, fieldW * 0.022)
+    ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
+    const losText = `LOS · ${lineOfScrimmage}yd`
+    const losTextW = ctx.measureText(losText).width
+    const pillPx = 7
+    const pillPy = 3
+    const pillR = 4
+
+    ctx.fillStyle = 'rgba(6, 182, 212, 0.12)'
+    ctx.beginPath()
+    ctx.roundRect(5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
+    ctx.fill()
+    ctx.fillStyle = COLORS.los
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(losText, 5 + pillPx, losY + 5 + pillPy)
+
+
+    // First Down Line (Midfield)
+    const midY = yardHeight * (endzoneSize + fieldLength / 2)
+    ctx.save()
+    ctx.shadowColor = COLORS.firstDown
+    ctx.shadowBlur = 3
+    ctx.strokeStyle = COLORS.firstDown
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([6, 3])
+    ctx.beginPath()
+    ctx.moveTo(0, midY)
+    ctx.lineTo(fieldW, midY)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+
+    // 1st down pill label
+    const fdText = '1ST DOWN'
+    const fdTextW = ctx.measureText(fdText).width
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.1)'
+    ctx.beginPath()
+    ctx.roundRect(fieldW - fdTextW - pillPx * 2 - 5, midY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
+    ctx.fill()
+    ctx.fillStyle = COLORS.firstDown
+    ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(fdText, fieldW - fdTextW - pillPx - 5, midY + 5 + pillPy)
+
+    // No-Run Zones
+    const nrzZones = [
+      { start: 0, end: 5 },
+      { start: fieldLength - 5, end: fieldLength },
+    ]
+    nrzZones.forEach(zone => {
+      const zoneStartY = yardHeight * (endzoneSize + zone.start)
+      const zoneEndY = yardHeight * (endzoneSize + zone.end)
+      ctx.fillStyle = COLORS.nrz
+      ctx.fillRect(0, zoneStartY, fieldW, zoneEndY - zoneStartY)
+      ctx.strokeStyle = COLORS.nrzBorder
+      ctx.lineWidth = 1
+      ctx.setLineDash([3, 3])
+      ctx.beginPath()
+      if (zone.start > 0) {
+        ctx.moveTo(0, zoneStartY)
+        ctx.lineTo(fieldW, zoneStartY)
+      }
+      ctx.moveTo(0, zoneEndY)
+      ctx.lineTo(fieldW, zoneEndY)
+      ctx.stroke()
+      ctx.setLineDash([])
+    })
+  }
+
+  // ─── Route rendering ──────────────────────────────────
+
+  function drawPlayerRoute(
+    ctx: CanvasRenderingContext2D,
+    player: CanvasPlayer,
+    fieldW: number,
+    fieldH: number,
+  ) {
+    if (!player.route || !player.route.segments || player.route.segments.length === 0) return
+
+    const startX = player.x * fieldW
+    const startY = player.y * fieldH
+    const color = POSITION_COLORS[player.position] ?? '#888888'
+
+    let lastEndPoint = { x: startX, y: startY }
+
+    player.route.segments.forEach((segment) => {
+      if (segment.points.length === 0) return
+
+      const points = segment.points.map((p) => ({
+        x: p.x * fieldW,
+        y: p.y * fieldH,
+      }))
+
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.lineWidth = segment.type === 'option' ? 2 : 2.5
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+
+      if (segment.type === 'option') {
+        ctx.setLineDash([6, 4])
+      }
+
+      ctx.beginPath()
+      ctx.moveTo(lastEndPoint.x, lastEndPoint.y)
+
+      if (segment.type === 'curve') {
+        drawCurveSegment(ctx, lastEndPoint, points)
+      } else {
+        // Straight or option — straight lines between points
+        points.forEach((p) => ctx.lineTo(p.x, p.y))
+      }
+
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Arrowhead at the end
+      if (points.length > 0) {
+        const lastPt = points[points.length - 1]
+        const prevPt = points.length > 1 ? points[points.length - 2] : lastEndPoint
+        drawArrowHead(ctx, prevPt, lastPt, color, segment.type === 'option' ? 8 : 10)
+      }
+
+      // Read order badge
+      if (segment.readOrder != null && points.length > 0) {
+        const endPt = points[points.length - 1]
+        drawReadOrderBadge(ctx, endPt, segment.readOrder)
+      }
+
+      ctx.restore()
+
+      // Chain: next segment starts from the last point of this one
+      if (segment.type !== 'option' && points.length > 0) {
+        lastEndPoint = points[points.length - 1]
+      }
+    })
+  }
+
+  /**
+   * Draw a smooth curve through points using Catmull-Rom → Cubic Bezier conversion
+   */
+  function drawCurveSegment(
+    ctx: CanvasRenderingContext2D,
+    start: { x: number; y: number },
+    points: { x: number; y: number }[],
+  ) {
+    if (points.length === 1) {
+      // Just one point — quadratic curve
+      const mid = { x: (start.x + points[0].x) / 2, y: (start.y + points[0].y) / 2 }
+      ctx.quadraticCurveTo(mid.x, mid.y, points[0].x, points[0].y)
+      return
+    }
+
+    // Build full path: [start, ...points]
+    const allPts = [start, ...points]
+    const alpha = 0.5 // Centripetal Catmull-Rom
+
+    for (let i = 0; i < allPts.length - 1; i++) {
+      const p0 = allPts[Math.max(0, i - 1)]
+      const p1 = allPts[i]
+      const p2 = allPts[i + 1]
+      const p3 = allPts[Math.min(allPts.length - 1, i + 2)]
+
+      // Convert Catmull-Rom to cubic bezier control points
+      const d1 = Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2) ** alpha || 1
+      const d2 = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2) ** alpha || 1
+      const d3 = Math.sqrt((p3.x - p2.x) ** 2 + (p3.y - p2.y) ** 2) ** alpha || 1
+
+      const cp1x = p1.x + (p2.x - p0.x) / (3 * d1 / d2 + 3)
+      const cp1y = p1.y + (p2.y - p0.y) / (3 * d1 / d2 + 3)
+      const cp2x = p2.x - (p3.x - p1.x) / (3 * d3 / d2 + 3)
+      const cp2y = p2.y - (p3.y - p1.y) / (3 * d3 / d2 + 3)
+
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y)
+    }
+  }
+
+  function drawMotionPath(
+    ctx: CanvasRenderingContext2D,
+    player: CanvasPlayer,
+    fieldW: number,
+    fieldH: number,
+  ) {
+    if (!player.motionPath || player.motionPath.length === 0) return
+
+    const startX = player.x * fieldW
+    const startY = player.y * fieldH
+    const color = POSITION_COLORS[player.position] ?? '#888888'
+
+    const points = player.motionPath.map((p) => ({
+      x: p.x * fieldW,
+      y: p.y * fieldH,
+    }))
+
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.setLineDash([4, 6])
+    ctx.globalAlpha = 0.7
+
+    ctx.beginPath()
+    ctx.moveTo(startX, startY)
+
+    if (points.length === 1) {
+      ctx.lineTo(points[0].x, points[0].y)
+    } else {
+      drawCurveSegment(ctx, { x: startX, y: startY }, points)
+    }
+
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    // Small circle at the end of motion path
+    if (points.length > 0) {
+      const endPt = points[points.length - 1]
+      ctx.beginPath()
+      ctx.arc(endPt.x, endPt.y, 4, 0, Math.PI * 2)
+      ctx.fillStyle = color
+      ctx.fill()
+    }
+
+    ctx.restore()
+  }
+
+  function drawReadOrderBadge(
+    ctx: CanvasRenderingContext2D,
+    point: { x: number; y: number },
+    order: number,
+  ) {
+    const size = 12
+    ctx.save()
+
+    // White circle background
+    ctx.beginPath()
+    ctx.arc(point.x + size + 4, point.y - size / 2, size / 2 + 3, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    ctx.fill()
+
+    // Number
+    ctx.fillStyle = '#1a1e2e'
+    ctx.font = `bold ${size}px Inter, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(`${order}`, point.x + size + 4, point.y - size / 2)
+
+    ctx.restore()
+  }
+
+  function drawArrowHead(
+    ctx: CanvasRenderingContext2D,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    color: string,
+    headLen: number = 10,
+  ) {
+    const angle = Math.atan2(to.y - from.y, to.x - from.x)
+
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.moveTo(to.x, to.y)
+    ctx.lineTo(
+      to.x - headLen * Math.cos(angle - Math.PI / 6),
+      to.y - headLen * Math.sin(angle - Math.PI / 6),
+    )
+    ctx.lineTo(
+      to.x - headLen * Math.cos(angle + Math.PI / 6),
+      to.y - headLen * Math.sin(angle + Math.PI / 6),
+    )
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  // ─── Player rendering ─────────────────────────────────
+
+  function drawPlayers(
+    ctx: CanvasRenderingContext2D,
+    players: CanvasPlayer[],
+    fieldW: number,
+    fieldH: number,
+    options: RenderOptions,
+  ) {
+    players.forEach((player) => {
+      const px = player.x * fieldW
+      const py = player.y * fieldH
+      const radius = Math.max(14, fieldW * 0.04)
+      const isSelected = player.id === options.selectedPlayerId
+      const color = POSITION_COLORS[player.position] ?? '#888888'
+
+      // Player circle
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+      ctx.shadowBlur = 6
+      ctx.shadowOffsetY = 2
+
+      ctx.beginPath()
+      ctx.arc(px, py, radius, 0, Math.PI * 2)
+
+      if (isSelected) {
+        // Selected: Colored fill, white border, or inverted?
+        // FieldPreview uses white fill always. 
+        // Let's stick to FieldPreview style but maybe bolder for selection.
+        ctx.fillStyle = '#ffffff'
+        ctx.fill()
+        
+        ctx.strokeStyle = color
+        ctx.lineWidth = 4 // Thicker border for selection
+        ctx.stroke()
+        
+        // Glow for selection
+        ctx.restore() // restore shadow context
+        ctx.save()
+        ctx.shadowColor = color
+        ctx.shadowBlur = 15
+        ctx.beginPath()
+        ctx.arc(px, py, radius, 0, Math.PI * 2)
+        ctx.strokeStyle = color
+        ctx.lineWidth = 2
+        ctx.stroke()
+        ctx.restore()
+      } else {
+        // Normal: White fill, colored border
+        ctx.fillStyle = '#ffffff'
+        ctx.fill()
+        ctx.strokeStyle = color
+        ctx.lineWidth = 2.5
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      // Designation text inside circle (X, Y, Z, C, Q, etc.)
+      // Text should be colored to match border
+      const designation = player.designation ?? player.position
+      ctx.fillStyle = color
+      ctx.font = `bold ${Math.max(10, radius * 0.7)}px Inter, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(designation, px, py)
+
+      // Player name below circle
+      if (player.name) {
+        // Darker text for name on light background
+        ctx.fillStyle = '#4b5563' // gray-600
+        ctx.font = `600 ${Math.max(8, radius * 0.45)}px Inter, sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        ctx.fillText(player.name, px, py + radius + 4)
+      }
+    })
+  }
+
+  return {
+    render,
+  }
+}
