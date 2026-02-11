@@ -44,9 +44,12 @@ export interface Player {
   user_id: string
   name: string
   number: number
+  height: number | null // in inches
+  weight: number | null // in lbs
   photo_url: string | null
   offense_positions: OffensePosition[]
   defense_positions: DefensePosition[]
+  universal_attributes: UniversalAttributes
   offense_attributes: OffenseAttributes
   defense_attributes: DefenseAttributes
   offense_starter: boolean
@@ -73,6 +76,8 @@ export interface TeamPlayer {
   defense_position: DefensePosition | null
   offense_starter: boolean
   defense_starter: boolean
+  offense_starter_locked: boolean
+  defense_starter_locked: boolean
   player?: Player
 }
 
@@ -80,28 +85,30 @@ export type OffensePosition = 'QB' | 'WR' | 'C'
 export type DefensePosition = 'DB' | 'RSH' | 'MLB'
 export type PlayType = 'offense' | 'defense'
 
-export interface OffenseAttributes {
-  // Universal
+export interface UniversalAttributes {
   speed: number
-  football_iq: number
+  acceleration: number
   stamina: number
-  // General
-  catching: number
-  throwing: number
-  route_running: number
+  football_iq: number
+  agility: number
+  playmaking: number
+}
+
+export interface OffenseAttributes {
   // QB
   throwing_power: number
   accuracy: number
   decision_making: number
   pocket_awareness: number
   // WR
+  catching: number
+  route_running: number
   release: number
   separation: number
   jump_ball: number
   // C
   snapping: number
-  ball_spiral_rate: number
-  snapping_consistency: number
+  snap_accuracy: number
   // Evasion
   hip_drop: number
   knee_slide: number
@@ -109,26 +116,20 @@ export interface OffenseAttributes {
 }
 
 export interface DefenseAttributes {
-  // Universal
-  speed: number
-  football_iq: number
-  stamina: number
-  // General
-  coverage: number
-  rush: number
-  agility: number
   // DB
+  coverage: number
   ball_hawking: number
   zone_awareness: number
   // RSH
-  timing: number
+  rush: number
   rush_moves: number
-  // Flag Football
-  flag_pulling: number
-  pursuit: number
+  timing: number
   // MLB
   play_recognition: number
   field_awareness: number
+  // Evasion
+  flag_pulling: number
+  pursuit: number
 }
 
 // Canvas types

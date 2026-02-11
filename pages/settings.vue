@@ -16,14 +16,16 @@
 
     <!-- Content Area -->
     <div class="settings-content">
-      <div v-if="loading || (!settings && activeTab === 'field')" class="text-muted-foreground p-8 flex items-center justify-center h-full">
+      <!-- Loading -->
+      <div v-if="loading && activeTab === 'field'" class="settings-placeholder">
         <div class="flex flex-col items-center gap-2">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span>Loading settings...</span>
+          <span class="text-muted-foreground">Loading settings...</span>
         </div>
       </div>
 
-      <template v-else-if="settings && activeTab === 'field'">
+      <!-- Field Tab -->
+      <template v-if="settings && activeTab === 'field'">
         <div class="settings-split">
           <!-- Field Preview (left) -->
           <div class="settings-preview">
@@ -125,10 +127,98 @@
         </div>
       </template>
 
-      <!-- Placeholder for future tabs -->
-      <template v-else-if="activeTab !== 'field'">
-        <div class="settings-placeholder">
-          <p class="text-muted-foreground">Coming soon</p>
+      <!-- Team Tab -->
+      <template v-if="activeTab === 'team'">
+        <div class="settings-panel">
+          <div class="config-header">
+            <h2 class="text-lg font-semibold tracking-tight font-display">Primary Team</h2>
+            <p class="text-muted-foreground text-sm">Select your primary team for roster management and play creation.</p>
+          </div>
+
+          <div class="config-fields">
+            <div class="config-field">
+              <Label class="config-label">Team</Label>
+              <Select 
+                :model-value="profile?.default_team_id ?? '__none__'" 
+                @update:model-value="handleTeamChange"
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  <SelectItem v-for="team in teams" :key="team.id" :value="team.id">
+                    {{ team.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <!-- Primary Team Info -->
+            <div v-if="selectedTeam" class="team-info-card">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="team-badge">
+                  <ShieldIcon class="w-5 h-5" />
+                </div>
+                <div>
+                  <p class="text-sm font-semibold">{{ selectedTeam.name }}</p>
+                  <p v-if="selectedTeam.description" class="text-xs text-muted-foreground">{{ selectedTeam.description }}</p>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="team-mini-stat">
+                  <p class="text-lg font-bold">{{ teamPlayerCount }}</p>
+                  <p class="text-[10px] text-muted-foreground">Players</p>
+                </div>
+                <div class="team-mini-stat">
+                  <p class="text-lg font-bold">{{ offStarterCount }}</p>
+                  <p class="text-[10px] text-muted-foreground">Off Starters</p>
+                </div>
+                <div class="team-mini-stat">
+                  <p class="text-lg font-bold">{{ defStarterCount }}</p>
+                  <p class="text-[10px] text-muted-foreground">Def Starters</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Account Tab -->
+      <template v-if="activeTab === 'account'">
+        <div class="settings-panel">
+          <div class="config-header">
+            <h2 class="text-lg font-semibold tracking-tight font-display">Account</h2>
+            <p class="text-muted-foreground text-sm">Manage your profile and account settings.</p>
+          </div>
+
+          <div class="config-fields">
+            <div class="config-field">
+              <Label class="config-label">Display Name</Label>
+              <Input
+                :model-value="profile?.display_name ?? ''"
+                @update:model-value="(v: string | number) => debouncedProfileUpdate({ display_name: String(v) })"
+                placeholder="Your display name"
+              />
+            </div>
+
+            <div class="config-field">
+              <Label class="config-label">Email</Label>
+              <Input
+                :model-value="user?.email ?? ''"
+                disabled
+                class="opacity-60"
+              />
+              <p class="text-xs text-muted-foreground">Email cannot be changed here.</p>
+            </div>
+          </div>
+
+          <div class="mt-8 pt-6 border-t border-border">
+            <Button variant="outline" class="text-destructive hover:bg-destructive/10" @click="handleLogout">
+              <LogOut class="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </template>
     </div>
@@ -136,22 +226,28 @@
 </template>
 
 <script setup lang="ts">
-import type { FieldSettings } from '~/lib/types'
+import type { FieldSettings, Profile } from '~/lib/types'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
-import { Ruler, Users, Shield, Settings2 } from 'lucide-vue-next'
+import { Button } from '~/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { Ruler, Shield as ShieldIcon, User, LogOut } from 'lucide-vue-next'
 
 const tabs = [
   { id: 'field', label: 'Field', icon: Ruler },
-  { id: 'roster', label: 'Roster', icon: Users },
-  { id: 'rules', label: 'Rules', icon: Shield },
-  { id: 'general', label: 'General', icon: Settings2 },
+  { id: 'team', label: 'Team', icon: ShieldIcon },
+  { id: 'account', label: 'Account', icon: User },
 ]
 
 const activeTab = ref('field')
 
+const user = useSupabaseUser()
+const supaClient = useSupabaseClient()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
+const { profile, fetchProfile, updateProfile } = useProfile()
+const { teams, fetchTeams } = useTeams()
 
+// Debounced field settings update
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function debouncedUpdate(updates: Partial<FieldSettings>) {
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -160,8 +256,47 @@ function debouncedUpdate(updates: Partial<FieldSettings>) {
   }, 500)
 }
 
+// Debounced profile update
+let profileDebounceTimer: ReturnType<typeof setTimeout> | null = null
+function debouncedProfileUpdate(updates: Partial<Profile>) {
+  if (profileDebounceTimer) clearTimeout(profileDebounceTimer)
+  profileDebounceTimer = setTimeout(() => {
+    updateProfile(updates)
+  }, 500)
+}
+
+// Team selection
+const selectedTeam = computed(() => {
+  if (!profile.value?.default_team_id) return null
+  return teams.value.find((t) => t.id === profile.value!.default_team_id) ?? null
+})
+
+const teamPlayerCount = computed(() => {
+  return selectedTeam.value?.team_players?.length ?? 0
+})
+
+const offStarterCount = computed(() => {
+  return selectedTeam.value?.team_players?.filter((p: any) => p.offense_starter).length ?? 0
+})
+
+const defStarterCount = computed(() => {
+  return selectedTeam.value?.team_players?.filter((p: any) => p.defense_starter).length ?? 0
+})
+
+async function handleTeamChange(teamId: any) {
+  const id = teamId === '__none__' ? null : teamId
+  await updateProfile({ default_team_id: id } as Partial<Profile>)
+}
+
+async function handleLogout() {
+  await supaClient.auth.signOut()
+  await navigateTo('/auth/login')
+}
+
 onMounted(() => {
   fetchSettings()
+  fetchProfile()
+  fetchTeams()
 })
 </script>
 
@@ -247,10 +382,16 @@ onMounted(() => {
   overflow-y: auto;
 }
 
+.settings-panel {
+  padding: 32px;
+  max-width: 480px;
+}
+
 .config-header {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-bottom: 24px;
 }
 
 .config-fields {
@@ -321,5 +462,31 @@ onMounted(() => {
   justify-content: center;
   height: 100%;
   min-height: 400px;
+}
+
+/* Team Info */
+.team-info-card {
+  padding: 16px;
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--color-accent) 40%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.team-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-mini-stat {
+  text-align: center;
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--color-background) 50%, transparent);
 }
 </style>

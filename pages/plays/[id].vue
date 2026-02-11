@@ -30,7 +30,7 @@
       :play-type="currentPlay.play_type"
       :field-settings="fieldSettingsData"
       :starters="starters"
-      :all-roster="players"
+      :all-roster="roster"
       @save="handleSave"
       class="w-full h-full block"
     />
@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CanvasData } from '~/lib/types'
+import type { CanvasData, Player } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
 import { ArrowLeft, ChevronRight } from 'lucide-vue-next'
 
@@ -53,15 +53,51 @@ const playId = computed(() => route.params.id as string)
 const { currentPlay, loading, fetchPlay, saveCanvasData } = usePlays()
 const { settings: fieldSettings, fetchSettings } = useFieldSettings()
 const { players, fetchPlayers } = usePlayers()
+const { profile, fetchProfile } = useProfile()
+const { teams, fetchTeams } = useTeams()
 
 // Fetch playbook name for breadcrumb
 const playbookName = ref<string | null>(null)
 
-const starters = computed(() => {
+// Get the primary team (if set)
+const primaryTeam = computed(() => {
+  if (!profile.value?.default_team_id) return null
+  return teams.value.find((t) => t.id === profile.value!.default_team_id) ?? null
+})
+
+// Extract players from the primary team
+const teamPlayers = computed<Player[]>(() => {
+  if (!primaryTeam.value?.team_players) return []
+  return primaryTeam.value.team_players
+    .filter((tp) => tp.player)
+    .map((tp) => tp.player!) 
+})
+
+// Starters: from team if set, otherwise empty (no auto-placement)
+const starters = computed<Player[]>(() => {
   if (!currentPlay.value) return []
-  return players.value.filter((p) =>
-    currentPlay.value!.play_type === 'offense' ? p.offense_starter : p.defense_starter,
-  )
+  const playType = currentPlay.value.play_type
+
+  if (primaryTeam.value?.team_players) {
+    // Use team_players starter flags to determine starters
+    return primaryTeam.value.team_players
+      .filter((tp) => {
+        if (!tp.player) return false
+        return playType === 'offense' ? tp.offense_starter : tp.defense_starter
+      })
+      .map((tp) => tp.player!)
+  }
+
+  // No primary team — no auto-placement
+  return []
+})
+
+// Roster: team players if team set, otherwise all players
+const roster = computed<Player[]>(() => {
+  if (primaryTeam.value) {
+    return teamPlayers.value
+  }
+  return players.value
 })
 
 const fieldSettingsData = computed(() => {
@@ -103,6 +139,8 @@ onMounted(async () => {
   await fetchPlay(playId.value)
   fetchSettings()
   fetchPlayers()
+  fetchProfile()
+  fetchTeams()
   if (currentPlay.value?.playbook_id) {
     fetchPlaybookName(currentPlay.value.playbook_id)
   }

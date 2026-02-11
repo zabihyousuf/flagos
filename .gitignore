@@ -5,3 +5,5 @@ dist
 .env
 *.log
 .vscode
+# Snyk Security Extension - AI Rules (auto-generated)
+.agent/rules/snyk_rules.md

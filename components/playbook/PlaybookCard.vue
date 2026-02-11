@@ -8,8 +8,9 @@
             <Button size="icon" variant="ghost" class="h-8 w-8" @click.prevent="$emit('edit')">
               <Pencil class="w-3.5 h-3.5" />
             </Button>
-            <Button size="icon" variant="ghost" class="h-8 w-8 text-destructive" @click.prevent="$emit('delete')">
-              <Trash2 class="w-3.5 h-3.5" />
+            <Button size="icon" variant="ghost" class="h-8 w-8 text-destructive" :disabled="deleting" @click.prevent="$emit('delete')">
+              <Loader2 v-if="deleting" class="w-3.5 h-3.5 animate-spin" />
+              <Trash2 v-else class="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
@@ -35,10 +36,11 @@
 import type { Playbook } from '~/lib/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
-import { BookOpen, Clock, Pencil, Trash2 } from 'lucide-vue-next'
+import { BookOpen, Clock, Pencil, Trash2, Loader2 } from 'lucide-vue-next'
 
 defineProps<{
   playbook: Playbook
+  deleting?: boolean
 }>()
 
 defineEmits<{

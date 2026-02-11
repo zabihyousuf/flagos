@@ -492,14 +492,31 @@ export function useCanvasRenderer() {
     fieldH: number,
     options: RenderOptions,
   ) {
+    const { fieldLength, endzoneSize } = options
+    const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
+
     players.forEach((player) => {
       const px = player.x * fieldW
       const py = player.y * fieldH
       const radius = Math.max(14, fieldW * 0.04)
       const isSelected = player.id === options.selectedPlayerId
-      const color = POSITION_COLORS[player.position] ?? '#888888'
+      
+      // Draw Coverage Radius (Defense only)
+      if (player.side === 'defense' && player.coverageRadius) {
+        ctx.save()
+        ctx.beginPath()
+        // radius in yards * pixels per yard
+        const pixRadius = player.coverageRadius * yardHeight 
+        ctx.arc(px, py, pixRadius, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)' // Light red coverage zone
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([5, 5])
+        ctx.stroke()
+        ctx.restore()
+      }
 
-      // Player circle
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
       ctx.shadowBlur = 6
@@ -508,19 +525,20 @@ export function useCanvasRenderer() {
       ctx.beginPath()
       ctx.arc(px, py, radius, 0, Math.PI * 2)
 
+      // Determine player color
+      const color = POSITION_COLORS[player.position] || (player.side === 'offense' ? '#22c55e' : '#ef4444')
+
       if (isSelected) {
-        // Selected: Colored fill, white border, or inverted?
-        // FieldPreview uses white fill always. 
-        // Let's stick to FieldPreview style but maybe bolder for selection.
+        // Selected style
         ctx.fillStyle = '#ffffff'
         ctx.fill()
         
         ctx.strokeStyle = color
-        ctx.lineWidth = 4 // Thicker border for selection
+        ctx.lineWidth = 4 
         ctx.stroke()
         
-        // Glow for selection
-        ctx.restore() // restore shadow context
+        // Glow
+        ctx.restore() 
         ctx.save()
         ctx.shadowColor = color
         ctx.shadowBlur = 15
@@ -531,7 +549,7 @@ export function useCanvasRenderer() {
         ctx.stroke()
         ctx.restore()
       } else {
-        // Normal: White fill, colored border
+        // Normal style
         ctx.fillStyle = '#ffffff'
         ctx.fill()
         ctx.strokeStyle = color
@@ -540,19 +558,17 @@ export function useCanvasRenderer() {
         ctx.restore()
       }
 
-      // Designation text inside circle (X, Y, Z, C, Q, etc.)
-      // Text should be colored to match border
-      const designation = player.designation ?? player.position
+      // Number/Designation text inside circle
+      const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
       ctx.fillStyle = color
       ctx.font = `bold ${Math.max(10, radius * 0.7)}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(designation, px, py)
+      ctx.fillText(label, px, py)
 
-      // Player name below circle
+      // Name text
       if (player.name) {
-        // Darker text for name on light background
-        ctx.fillStyle = '#4b5563' // gray-600
+        ctx.fillStyle = '#94a3b8' // slate-400 (lighter for dark theme)
         ctx.font = `600 ${Math.max(8, radius * 0.45)}px Inter, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'

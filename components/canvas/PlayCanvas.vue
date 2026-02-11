@@ -23,6 +23,7 @@
         :field-settings="fieldSettings"
         :play-type="playType"
         @update-designation="setPlayerDesignation"
+        @update-attribute="updatePlayerAttribute"
         @clear-route="clearRoute"
         @start-drag="dragPlayerCard"
       />
@@ -184,6 +185,7 @@ const {
   getExportData,
   addPlayerToCanvasData,
   removePlayerFromCanvasData,
+  updatePlayerAttribute,
 } = useCanvas()
 
 const { render } = useCanvasRenderer()

@@ -11,7 +11,42 @@
       </Button>
     </div>
 
-    <div v-if="loading && teams.length === 0" class="text-muted-foreground text-sm">Loading teams...</div>
+    <div v-if="loading && teams.length === 0" class="space-y-6">
+      <div v-for="i in 3" :key="i" class="space-y-3">
+        <Card class="glass">
+          <CardContent class="p-4">
+            <div class="flex items-center justify-between">
+              <div class="space-y-2">
+                <Skeleton class="h-5 w-32" />
+                <Skeleton class="h-3 w-48" />
+              </div>
+              <div class="flex gap-1">
+                <Skeleton class="h-8 w-8 rounded" />
+                <Skeleton class="h-8 w-8 rounded" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card class="glass ml-4">
+          <CardContent class="p-4">
+            <div class="flex items-center justify-between mb-3">
+              <Skeleton class="h-4 w-12" />
+              <Skeleton class="h-8 w-24 rounded" />
+            </div>
+            <div class="space-y-2">
+              <div v-for="j in 3" :key="j" class="flex items-center justify-between py-1.5 px-2">
+                <div class="flex items-center gap-3">
+                  <Skeleton class="h-4 w-24" />
+                  <Skeleton class="h-5 w-10 rounded-full" />
+                  <Skeleton class="h-5 w-10 rounded-full" />
+                </div>
+                <Skeleton class="h-7 w-7 rounded" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
 
     <div v-else-if="teams.length === 0" class="text-center py-12">
       <Shield class="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -68,9 +103,11 @@
                   size="icon"
                   variant="ghost"
                   class="h-7 w-7 text-destructive"
+                  :disabled="removingTpId === tp.id"
                   @click="handleRemovePlayer(team.id, tp.id)"
                 >
-                  <X class="w-3.5 h-3.5" />
+                  <Loader2 v-if="removingTpId === tp.id" class="w-3.5 h-3.5 animate-spin" />
+                  <X v-else class="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
@@ -144,7 +181,10 @@
         </div>
         <DialogFooter>
           <Button variant="outline" @click="addPlayerDialogOpen = false">Cancel</Button>
-          <Button @click="handleAddPlayer" :disabled="!addPlayerForm.playerId">Add</Button>
+          <Button @click="handleAddPlayer" :disabled="!addPlayerForm.playerId || addingPlayer">
+            <Loader2 v-if="addingPlayer" class="w-4 h-4 mr-2 animate-spin" />
+            Add
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -156,19 +196,25 @@ import type { Team } from '~/lib/types'
 import { OFFENSE_POSITIONS, DEFENSE_POSITIONS } from '~/lib/constants'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
+import { Skeleton } from '~/components/ui/skeleton'
 import { Badge } from '~/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Label } from '~/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Plus, Shield, UserPlus, X } from 'lucide-vue-next'
+import { Plus, Shield, UserPlus, X, Loader2 } from 'lucide-vue-next'
 
 const { teams, loading, fetchTeams, createTeam, updateTeam, deleteTeam, addPlayerToTeam, removePlayerFromTeam } = useTeams()
 const { players: allPlayers, fetchPlayers } = usePlayers()
+const { confirm } = useConfirm()
 
 const teamDialogOpen = ref(false)
 const editingTeam = ref<Team | null>(null)
 const addPlayerDialogOpen = ref(false)
 const addToTeamId = ref<string | null>(null)
+
+// Loading states
+const addingPlayer = ref(false)
+const removingTpId = ref<string | null>(null)
 
 const addPlayerForm = reactive({
   playerId: '',
@@ -213,24 +259,39 @@ async function handleTeamSubmit(data: { name: string; description: string }) {
 }
 
 async function handleDeleteTeam(id: string) {
-  if (confirm('Are you sure you want to delete this team?')) {
-    await deleteTeam(id)
-  }
+  const team = teams.value.find((t) => t.id === id)
+  if (team?.name === 'Free Agent') return
+  const ok = await confirm({
+    title: 'Delete Team',
+    description: 'Are you sure you want to delete this team? This action cannot be undone.',
+    actionLabel: 'Delete',
+  })
+  if (ok) await deleteTeam(id)
 }
 
 async function handleAddPlayer() {
   if (!addToTeamId.value || !addPlayerForm.playerId) return
-  await addPlayerToTeam(
-    addToTeamId.value,
-    addPlayerForm.playerId,
-    addPlayerForm.offensePosition === 'none' ? null : addPlayerForm.offensePosition,
-    addPlayerForm.defensePosition === 'none' ? null : addPlayerForm.defensePosition,
-  )
-  addPlayerDialogOpen.value = false
+  addingPlayer.value = true
+  try {
+    await addPlayerToTeam(
+      addToTeamId.value,
+      addPlayerForm.playerId,
+      addPlayerForm.offensePosition === 'none' ? null : addPlayerForm.offensePosition,
+      addPlayerForm.defensePosition === 'none' ? null : addPlayerForm.defensePosition,
+    )
+    addPlayerDialogOpen.value = false
+  } finally {
+    addingPlayer.value = false
+  }
 }
 
 async function handleRemovePlayer(teamId: string, teamPlayerId: string) {
-  await removePlayerFromTeam(teamId, teamPlayerId)
+  removingTpId.value = teamPlayerId
+  try {
+    await removePlayerFromTeam(teamId, teamPlayerId)
+  } finally {
+    removingTpId.value = null
+  }
 }
 
 onMounted(() => {

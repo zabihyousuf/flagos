@@ -60,11 +60,14 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
     error.value = null
     try {
       const canvasData = getDefaultFormation(playType, starters)
+      const user = useSupabaseUser()
+      if (!user.value) throw new Error('Not authenticated')
+
       const { data, error: err } = await client
         .from('plays')
         .insert({
           playbook_id: pbId,
-          user_id: 'admin',
+          user_id: user.value.id,
           name,
           play_type: playType,
           formation,

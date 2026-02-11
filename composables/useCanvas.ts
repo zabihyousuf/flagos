@@ -207,6 +207,14 @@ export function useCanvas() {
     }
   }
 
+  function updatePlayerAttribute(playerId: string, attrs: Partial<CanvasPlayer>) {
+    const player = canvasData.value.players.find((p) => p.id === playerId)
+    if (player) {
+      Object.assign(player, attrs)
+      isDirty.value = true
+    }
+  }
+
   function resetFormation(
     side: 'offense' | 'defense', 
     starters?: Player[],
@@ -301,6 +309,7 @@ export function useCanvas() {
     setPlayerDesignation,
     updatePlayerLabel,
     updatePlayerSide,
+    updatePlayerAttribute,
     resetFormation,
     setZoom,
     getExportData,

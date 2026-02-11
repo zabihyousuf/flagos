@@ -1,5 +1,5 @@
 import type { Player } from '~/lib/types'
-import { DEFAULT_OFFENSE_ATTRIBUTES, DEFAULT_DEFENSE_ATTRIBUTES } from '~/lib/constants'
+import { DEFAULT_UNIVERSAL_ATTRIBUTES, DEFAULT_OFFENSE_ATTRIBUTES, DEFAULT_DEFENSE_ATTRIBUTES } from '~/lib/constants'
 
 export function usePlayers() {
   const client = useSupabaseDB()
@@ -43,6 +43,7 @@ export function usePlayers() {
     number: number
     offense_positions: string[]
     defense_positions: string[]
+    universal_attributes?: Record<string, number>
     offense_attributes?: Record<string, number>
     defense_attributes?: Record<string, number>
   }) {
@@ -60,6 +61,7 @@ export function usePlayers() {
           number: player.number,
           offense_positions: player.offense_positions,
           defense_positions: player.defense_positions,
+          universal_attributes: player.universal_attributes ?? DEFAULT_UNIVERSAL_ATTRIBUTES,
           offense_attributes: player.offense_attributes ?? DEFAULT_OFFENSE_ATTRIBUTES,
           defense_attributes: player.defense_attributes ?? DEFAULT_DEFENSE_ATTRIBUTES,
         })
@@ -116,19 +118,22 @@ export function usePlayers() {
   }
 
   // Position-relevant attribute keys and their weights
+  // Universal attrs (from universal_attributes) are referenced with 'u:' prefix internally
   const OFF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
     _universal: [
       { key: 'speed', weight: 0.5 },
+      { key: 'acceleration', weight: 0.25 },
       { key: 'football_iq', weight: 0.5 },
       { key: 'stamina', weight: 0.25 },
+      { key: 'agility', weight: 0.25 },
       { key: 'hip_drop', weight: 0.25 },
       { key: 'knee_slide', weight: 0.25 },
       { key: 'hip_twist', weight: 0.25 },
+      { key: 'playmaking', weight: 0.5 },
     ],
     QB: [
-      { key: 'throwing', weight: 4 },
+      { key: 'throwing_power', weight: 4 },
       { key: 'accuracy', weight: 4 },
-      { key: 'throwing_power', weight: 3 },
       { key: 'decision_making', weight: 3 },
       { key: 'pocket_awareness', weight: 2.5 },
     ],
@@ -143,8 +148,7 @@ export function usePlayers() {
     ],
     C: [
       { key: 'snapping', weight: 4 },
-      { key: 'ball_spiral_rate', weight: 3 },
-      { key: 'snapping_consistency', weight: 3 },
+      { key: 'snap_accuracy', weight: 3 },
       { key: 'football_iq', weight: 2 },
     ],
   }
@@ -152,10 +156,13 @@ export function usePlayers() {
   const DEF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
     _universal: [
       { key: 'speed', weight: 0.5 },
+      { key: 'acceleration', weight: 0.25 },
       { key: 'football_iq', weight: 0.5 },
       { key: 'stamina', weight: 0.25 },
+      { key: 'agility', weight: 0.5 },
       { key: 'flag_pulling', weight: 0.5 },
       { key: 'pursuit', weight: 0.5 },
+      { key: 'playmaking', weight: 0.5 },
     ],
     DB: [
       { key: 'coverage', weight: 4 },
@@ -177,30 +184,38 @@ export function usePlayers() {
     ],
   }
 
+  /**
+   * Merge universal + side-specific attributes into a single flat map for scoring.
+   */
+  function mergedAttrs(player: Player, side: 'offense' | 'defense'): Record<string, number> {
+    const uni = { ...(player.universal_attributes ?? {}) } as unknown as Record<string, number>
+    const specific = { ...(side === 'offense' ? player.offense_attributes : player.defense_attributes) } as unknown as Record<string, number>
+    return { ...uni, ...specific }
+  }
+
   function computeZScores(
     roster: Player[],
-    attrField: 'offense_attributes' | 'defense_attributes',
+    side: 'offense' | 'defense',
   ): Map<string, Record<string, number>> {
-    // Collect all attribute keys from the first player
-    const keys = Object.keys(roster[0]?.[attrField] ?? {})
-    // Compute mean and stddev per attribute across the whole roster
+    // Merge universal + side attrs for each player
+    const mergedAll = roster.map((p) => ({ id: p.id, attrs: mergedAttrs(p, side) }))
+    const keys = Object.keys(mergedAll[0]?.attrs ?? {})
     const stats: Record<string, { mean: number; std: number }> = {}
     for (const key of keys) {
-      const vals = roster.map((p) => (p[attrField] as Record<string, number>)[key] ?? 5)
+      const vals = mergedAll.map((m) => m.attrs[key] ?? 5)
       const mean = vals.reduce((s, v) => s + v, 0) / vals.length
       const variance = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length
       const std = Math.sqrt(variance) || 1 // avoid divide-by-zero
       stats[key] = { mean, std }
     }
-    // Per-player z-scores
     const result = new Map<string, Record<string, number>>()
-    for (const p of roster) {
+    for (const m of mergedAll) {
       const z: Record<string, number> = {}
       for (const key of keys) {
-        const raw = (p[attrField] as Record<string, number>)[key] ?? 5
+        const raw = m.attrs[key] ?? 5
         z[key] = (raw - stats[key].mean) / stats[key].std
       }
-      result.set(p.id, z)
+      result.set(m.id, z)
     }
     return result
   }
@@ -318,8 +333,8 @@ export function usePlayers() {
     const offRoster = all.filter((p) => p.offense_positions.length > 0)
     const defRoster = all.filter((p) => p.defense_positions.length > 0)
 
-    const offZ = offRoster.length > 0 ? computeZScores(offRoster, 'offense_attributes') : new Map()
-    const defZ = defRoster.length > 0 ? computeZScores(defRoster, 'defense_attributes') : new Map()
+    const offZ = offRoster.length > 0 ? computeZScores(offRoster, 'offense') : new Map()
+    const defZ = defRoster.length > 0 ? computeZScores(defRoster, 'defense') : new Map()
 
     // Offense: 1 QB, 1 C, 3 WR — exactly 5
     const offStarters = fillStarters(['QB', 'C', 'WR', 'WR', 'WR'], 5, offRoster, offZ, OFF_WEIGHTS, 'offense_positions')
@@ -353,7 +368,7 @@ export function usePlayers() {
     side: 'offense' | 'defense',
   ): number {
     const wt = side === 'offense' ? OFF_WEIGHTS : DEF_WEIGHTS
-    const attrs = (side === 'offense' ? player.offense_attributes : player.defense_attributes) as Record<string, number>
+    const attrs = mergedAttrs(player, side)
     const universal = wt._universal ?? []
     const posWeights = wt[position] ?? []
     let score = 0, totalWeight = 0
@@ -396,6 +411,78 @@ export function usePlayers() {
     return totalWeight > 0 ? Math.round((totalScore / totalWeight) * 10) / 10 : 0
   }
 
+  async function bulkUpdatePlayers(
+    playerIds: string[],
+    updates: Partial<Player>,
+  ): Promise<{ updated: number; errors: { id: string; message: string }[] }> {
+    let updated = 0
+    const errors: { id: string; message: string }[] = []
+
+    for (const id of playerIds) {
+      const result = await updatePlayer(id, updates)
+      if (result) {
+        updated++
+      } else {
+        errors.push({ id, message: error.value ?? 'Unknown error' })
+      }
+    }
+
+    return { updated, errors }
+  }
+
+  async function bulkCreatePlayers(
+    rows: { name: string; number: number; height: number | null; weight: number | null; offense_positions: string[]; defense_positions: string[]; universal_attributes?: Record<string, number>; offense_attributes?: Record<string, number>; defense_attributes?: Record<string, number> }[],
+  ): Promise<{ created: Player[]; errors: { index: number; message: string }[] }> {
+    const user = useSupabaseUser()
+    if (!user.value) return { created: [], errors: [{ index: -1, message: 'Not authenticated' }] }
+
+    const payload = rows.map((r) => ({
+      user_id: user.value!.id,
+      name: r.name,
+      number: r.number,
+      height: r.height,
+      weight: r.weight,
+      offense_positions: r.offense_positions,
+      defense_positions: r.defense_positions,
+      universal_attributes: r.universal_attributes ?? DEFAULT_UNIVERSAL_ATTRIBUTES,
+      offense_attributes: r.offense_attributes ?? DEFAULT_OFFENSE_ATTRIBUTES,
+      defense_attributes: r.defense_attributes ?? DEFAULT_DEFENSE_ATTRIBUTES,
+    }))
+
+    // Try batch insert first
+    const { data, error: err } = await client
+      .from('players')
+      .insert(payload)
+      .select()
+
+    if (!err && data) {
+      const created = data as Player[]
+      players.value.push(...created)
+      return { created, errors: [] }
+    }
+
+    // Fallback: row-by-row
+    const created: Player[] = []
+    const errors: { index: number; message: string }[] = []
+
+    for (let i = 0; i < payload.length; i++) {
+      const { data: d, error: e } = await client
+        .from('players')
+        .insert(payload[i])
+        .select()
+        .single()
+
+      if (e) {
+        errors.push({ index: i, message: e.message })
+      } else if (d) {
+        created.push(d as Player)
+        players.value.push(d as Player)
+      }
+    }
+
+    return { created, errors }
+  }
+
   return {
     players,
     loading,
@@ -404,6 +491,8 @@ export function usePlayers() {
     createPlayer,
     updatePlayer,
     deletePlayer,
+    bulkCreatePlayers,
+    bulkUpdatePlayers,
     autoAssignStarters,
     resetStarters,
     teamScore,

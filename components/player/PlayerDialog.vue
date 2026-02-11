@@ -15,6 +15,45 @@
             <Label>Number</Label>
             <Input v-model.number="form.number" type="number" placeholder="#" :min="0" :max="99" />
           </div>
+          <div class="space-y-2">
+            <Label>Height</Label>
+            <div class="flex gap-2">
+              <div class="relative flex-1">
+                <Input
+                  type="number"
+                  placeholder="Ft"
+                  class="pr-7"
+                  :value="Math.floor((form.height ?? 0) / 12) || ''"
+                  @input="(e: Event) => {
+                    const val = parseInt((e.target as HTMLInputElement).value) || 0
+                    const currentIn = (form.height ?? 0) % 12
+                    form.height = (val * 12) + currentIn
+                    if (form.height === 0 && (e.target as HTMLInputElement).value === '') form.height = null
+                  }"
+                />
+                <span class="absolute right-2.5 top-2.5 text-xs text-muted-foreground">ft</span>
+              </div>
+              <div class="relative flex-1">
+                <Input
+                  type="number"
+                  placeholder="In"
+                  class="pr-7"
+                  :value="(form.height ?? 0) % 12 || ''"
+                  @input="(e: Event) => {
+                    const val = parseInt((e.target as HTMLInputElement).value) || 0
+                    const currentFt = Math.floor((form.height ?? 0) / 12)
+                    form.height = (currentFt * 12) + val
+                    if (form.height === 0 && (e.target as HTMLInputElement).value === '') form.height = null
+                  }"
+                />
+                <span class="absolute right-2.5 top-2.5 text-xs text-muted-foreground">in</span>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <Label>Weight (lbs)</Label>
+            <Input v-model.number="form.weight" type="number" placeholder="lbs" :min="50" :max="400" />
+          </div>
         </div>
 
         <div class="space-y-2">
@@ -72,6 +111,24 @@
         <Separator />
 
         <div class="space-y-3">
+          <Label class="text-muted-foreground text-xs uppercase tracking-wide">Universal Attributes</Label>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <div v-for="attr in UNIVERSAL_ATTRIBUTE_GROUP.attrs" :key="attr.key" class="flex items-center gap-2">
+              <span class="flex-1 text-sm text-muted-foreground">{{ attr.label }}</span>
+              <input
+                inputmode="numeric"
+                :value="form.universal_attributes[attr.key]"
+                @input="(e: Event) => form.universal_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
+                @blur="(e: Event) => form.universal_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
+                class="w-16 h-8 text-center text-sm rounded-md border border-input bg-background px-2"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div class="space-y-3">
           <Label class="text-muted-foreground text-xs uppercase tracking-wide">Offense Attributes</Label>
           <div v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
             <span class="text-xs font-semibold text-muted-foreground/70">{{ group.label }}</span>
@@ -122,12 +179,14 @@
 </template>
 
 <script setup lang="ts">
-import type { Player, Team, OffenseAttributes, DefenseAttributes } from '~/lib/types'
+import type { Player, Team, UniversalAttributes, OffenseAttributes, DefenseAttributes } from '~/lib/types'
 import {
   OFFENSE_POSITIONS,
   DEFENSE_POSITIONS,
+  DEFAULT_UNIVERSAL_ATTRIBUTES,
   DEFAULT_OFFENSE_ATTRIBUTES,
   DEFAULT_DEFENSE_ATTRIBUTES,
+  UNIVERSAL_ATTRIBUTE_GROUP,
   OFFENSE_ATTRIBUTE_GROUPS,
   DEFENSE_ATTRIBUTE_GROUPS,
 } from '~/lib/constants'
@@ -149,8 +208,11 @@ const emit = defineEmits<{
   'submit': [data: {
     name: string
     number: number
+    height: number | null
+    weight: number | null
     offense_positions: string[]
     defense_positions: string[]
+    universal_attributes: Record<string, number>
     offense_attributes: Record<string, number>
     defense_attributes: Record<string, number>
     team_ids: string[]
@@ -160,8 +222,11 @@ const emit = defineEmits<{
 const form = reactive({
   name: '',
   number: 0,
+  height: null as number | null,
+  weight: null as number | null,
   offense_positions: [] as string[],
   defense_positions: [] as string[],
+  universal_attributes: { ...DEFAULT_UNIVERSAL_ATTRIBUTES } as Record<string, number>,
   offense_attributes: { ...DEFAULT_OFFENSE_ATTRIBUTES } as Record<string, number>,
   defense_attributes: { ...DEFAULT_DEFENSE_ATTRIBUTES } as Record<string, number>,
   team_ids: [] as string[],
@@ -179,8 +244,11 @@ watch(() => props.open, (isOpen) => {
   if (isOpen && props.player) {
     form.name = props.player.name
     form.number = props.player.number
+    form.height = props.player.height ?? null
+    form.weight = props.player.weight ?? null
     form.offense_positions = [...props.player.offense_positions]
     form.defense_positions = [...props.player.defense_positions]
+    form.universal_attributes = { ...DEFAULT_UNIVERSAL_ATTRIBUTES, ...props.player.universal_attributes }
     form.offense_attributes = { ...DEFAULT_OFFENSE_ATTRIBUTES, ...props.player.offense_attributes }
     form.defense_attributes = { ...DEFAULT_DEFENSE_ATTRIBUTES, ...props.player.defense_attributes }
     form.team_ids = [...props.playerTeamIds].filter((id) => {
@@ -190,8 +258,11 @@ watch(() => props.open, (isOpen) => {
   } else if (isOpen) {
     form.name = ''
     form.number = 0
+    form.height = null
+    form.weight = null
     form.offense_positions = []
     form.defense_positions = []
+    form.universal_attributes = { ...DEFAULT_UNIVERSAL_ATTRIBUTES }
     form.offense_attributes = { ...DEFAULT_OFFENSE_ATTRIBUTES }
     form.defense_attributes = { ...DEFAULT_DEFENSE_ATTRIBUTES }
     form.team_ids = []

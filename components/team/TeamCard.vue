@@ -3,7 +3,7 @@
     <CardHeader class="pb-3">
       <div class="flex items-center justify-between">
         <CardTitle class="text-base">{{ team.name }}</CardTitle>
-        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div v-if="team.name !== 'Free Agent'" class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button size="icon" variant="ghost" class="h-8 w-8" @click="$emit('edit')">
             <Pencil class="w-3.5 h-3.5" />
           </Button>

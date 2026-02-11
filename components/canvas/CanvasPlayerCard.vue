@@ -9,36 +9,89 @@
     </div>
 
     <div class="p-3 space-y-3">
-      <!-- Player Header -->
-      <div class="flex items-center gap-3">
-        <div
-          class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm"
-          :style="{ background: posColor(selectedPlayer.position) }"
-        >
-          {{ selectedPlayer.designation }}
-        </div>
-        <div>
-          <p class="text-sm font-semibold leading-none text-foreground">
-            {{ selectedPlayer.name ?? 'Unnamed' }}
-            <span v-if="selectedPlayer.number" class="text-muted-foreground ml-1">#{{ selectedPlayer.number }}</span>
-          </p>
-          <p class="text-[10px] text-muted-foreground mt-0.5 font-medium">{{ POSITION_LABELS[selectedPlayer.position] ?? selectedPlayer.position }}</p>
-        </div>
-      </div>
+      <!-- Position & Info -->
+      <div class="space-y-3">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-white/10"
+            :style="{ background: posColor(selectedPlayer.position) }"
+          >
+            {{ selectedPlayer.designation }}
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-foreground">{{ selectedPlayer.name ?? 'Unnamed' }}</span>
+              <span v-if="selectedPlayer.number" class="text-[10px] font-mono text-muted-foreground">#{{ selectedPlayer.number }}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-1.5">
+              <!-- Position Selector -->
+              <Select 
+                :model-value="selectedPlayer.position" 
+                @update:model-value="(v: any) => $emit('update-attribute', selectedPlayer!.id, { position: v as string })"
+              >
+                <SelectTrigger class="h-6 text-[10px] bg-muted/30 border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="p in availablePositions" :key="p" :value="p">
+                    {{ p }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
 
-      <!-- Designation -->
-      <div class="space-y-1.5">
-        <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Designation</label>
-        <Select :model-value="selectedPlayer.designation" @update:model-value="(v: any) => $emit('update-designation', selectedPlayer!.id, v)">
-          <SelectTrigger class="h-7 text-xs bg-muted/30">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="d in availableDesignations" :key="d" :value="d">
-              {{ d }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+              <!-- Designation Selector -->
+              <Select 
+                :model-value="selectedPlayer.designation" 
+                @update:model-value="(v: any) => $emit('update-designation', selectedPlayer!.id, v as string)"
+              >
+                <SelectTrigger class="h-6 text-[10px] bg-muted/30 border-border/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="d in availableDesignations" :key="d" :value="d">
+                    {{ d }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Defensive Settings -->
+        <div v-if="playType === 'defense'" class="space-y-3 pt-2 border-t border-border/50">
+          <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Defensive Coverage</p>
+          
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-[10px] text-muted-foreground">Coverage Radius</label>
+              <span class="text-[10px] font-mono">{{ selectedPlayer.coverageRadius ?? 5 }} yd</span>
+            </div>
+            <input 
+              type="range" 
+              min="1" 
+              max="15" 
+              step="1"
+              :value="selectedPlayer.coverageRadius ?? 5"
+              class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+              @input="(e: any) => $emit('update-attribute', selectedPlayer!.id, { coverageRadius: parseInt(e.target.value) })"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[10px] text-muted-foreground">Alignment</label>
+            <div class="grid grid-cols-4 gap-1">
+               <button 
+                v-for="align in ['tight', 'normal', 'soft', 'off']" 
+                :key="align"
+                class="px-1 py-1 text-[9px] rounded border transition-colors capitalize"
+                :class="(selectedPlayer.alignment || 'normal') === align ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
+                @click="$emit('update-attribute', selectedPlayer!.id, { alignment: align as 'tight' | 'normal' | 'soft' | 'off' })"
+               >
+                 {{ align }}
+               </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Stats Grid -->
@@ -114,7 +167,14 @@
 
 <script setup lang="ts">
 import type { CanvasPlayer, Player } from '~/lib/types'
-import { POSITION_COLORS, POSITION_LABELS, OFFENSE_DESIGNATIONS, DEFENSE_DESIGNATIONS } from '~/lib/constants'
+import { 
+  POSITION_COLORS, 
+  POSITION_LABELS, 
+  OFFENSE_DESIGNATIONS, 
+  DEFENSE_DESIGNATIONS,
+  OFFENSE_POSITIONS,
+  DEFENSE_POSITIONS 
+} from '~/lib/constants'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
@@ -128,6 +188,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update-designation': [playerId: string, designation: string]
+  'update-attribute': [playerId: string, attributes: Partial<CanvasPlayer>]
   'clear-route': [playerId: string]
   'start-drag': [event: MouseEvent]
 }>()
@@ -158,9 +219,14 @@ const rosterPlayer = computed(() => {
 
 const playerAttributes = computed(() => {
   if (!rosterPlayer.value) return null
-  return props.playType === 'offense' 
+  const specificAttrs = props.playType === 'offense' 
     ? rosterPlayer.value.offense_attributes 
     : rosterPlayer.value.defense_attributes
+    
+  return {
+    ...rosterPlayer.value.universal_attributes,
+    ...specificAttrs
+  }
 })
 
 const playerSpeedAttr = computed(() => {
@@ -170,6 +236,12 @@ const playerSpeedAttr = computed(() => {
 const routeAnalytics = computed(() => {
   if (!props.selectedPlayer || !props.selectedPlayer.route) return null
   return analyzeRoute(props.selectedPlayer, props.fieldSettings, playerAttributes.value)
+})
+
+const availablePositions = computed(() => {
+  return props.playType === 'offense'
+    ? [...OFFENSE_POSITIONS]
+    : [...DEFENSE_POSITIONS]
 })
 
 const availableDesignations = computed(() => {
@@ -213,7 +285,7 @@ const sidelineDistance = computed(() => {
   if (!props.selectedPlayer) return '—'
   const { field_width } = props.fieldSettings
   const distFromLeft = props.selectedPlayer.x * field_width
-  const distFromCenter = Math.abs(distFromLeft - field_width / 2)
-  return `${distFromCenter.toFixed(1)} yd`
+  const distFromSideline = Math.min(distFromLeft, field_width - distFromLeft)
+  return `${distFromSideline.toFixed(1)} yd`
 })
 </script>
