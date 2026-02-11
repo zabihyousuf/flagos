@@ -310,7 +310,6 @@ onMounted(() => {
 .settings-nav {
   width: 180px;
   min-width: 180px;
-  border-right: 1px solid var(--color-border);
   padding: 16px 8px;
   display: flex;
   flex-direction: column;

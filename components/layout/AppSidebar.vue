@@ -40,29 +40,52 @@
 
     <!-- Quick Play Button -->
     <div class="sidebar-quick-action">
-      <button
-        class="quick-play-btn"
-        @click="openQuickPlay"
-        :title="collapsed ? 'New Play (⌘N)' : ''"
-      >
-        <Plus class="w-4 h-4 shrink-0" />
-        <span class="quick-play-label">New Play</span>
-      </button>
+      <TooltipProvider :delay-duration="0">
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <button
+              class="quick-play-btn"
+              @click="openQuickPlay"
+            >
+              <Plus class="w-4 h-4 shrink-0" />
+              <span class="quick-play-label">New Play</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" :side-offset="10" v-if="collapsed">
+            New Play (⌘N)
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
 
     <!-- Navigation -->
     <nav class="sidebar-nav">
-      <NuxtLink
-        v-for="item in navItems"
-        :key="item.to"
-        :to="item.to"
-        class="sidebar-nav-item"
-        :class="{ active: isActive(item.to) }"
-        :title="collapsed ? item.label : ''"
-      >
-        <component :is="item.icon" class="sidebar-nav-icon" />
-        <span class="sidebar-nav-label">{{ item.label }}</span>
-      </NuxtLink>
+      <template v-for="(group, index) in navGroups" :key="index">
+        <div v-if="!collapsed && (group.label || group.badge)" class="sidebar-group-label flex items-center gap-2">
+          <span>{{ group.label }}</span>
+          <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
+            {{ group.badge }}
+          </span>
+        </div>
+        <TooltipProvider v-for="item in group.items" :key="item.to" :delay-duration="0">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <NuxtLink
+                :to="item.to"
+                class="sidebar-nav-item"
+                :class="{ active: isActive(item.to) }"
+              >
+                <component :is="item.icon" class="sidebar-nav-icon" />
+                <span class="sidebar-nav-label">{{ item.label }}</span>
+              </NuxtLink>
+            </TooltipTrigger>
+            <TooltipContent side="right" :side-offset="10" v-if="collapsed">
+              {{ item.label }}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <div v-if="!collapsed && index < navGroups.length - 1" class="sidebar-group-divider" />
+      </template>
     </nav>
 
     <!-- Footer: User Profile -->
@@ -76,15 +99,22 @@
           <div class="sidebar-user-avatar">
             {{ avatarInitial }}
           </div>
-          <div class="sidebar-user-info">
-            <p class="sidebar-user-name">{{ displayName }}</p>
+          
+          <div class="sidebar-user-info flex-1 min-w-0 flex flex-col items-start justify-center">
+            <p class="sidebar-user-name truncate w-full">{{ displayName }}</p>
+            <p class="sidebar-user-email truncate w-full text-muted-foreground text-[11px]">{{ emailAddress }}</p>
           </div>
-          <ChevronDown class="sidebar-user-chevron" />
+          
+          <ChevronDown class="sidebar-user-chevron ml-auto w-4 h-4 text-muted-foreground shrink-0" />
         </button>
 
         <!-- Popup Menu -->
         <Transition name="menu-pop">
           <div v-if="userMenuOpen" class="user-menu" :class="{ 'menu-collapsed': collapsed }">
+            <div class="px-3 py-2 border-b border-border mb-1" v-if="collapsed">
+               <p class="text-xs font-semibold truncate">{{ displayName }}</p>
+               <p class="text-[10px] text-muted-foreground truncate">{{ emailAddress }}</p>
+            </div>
             <NuxtLink to="/settings" class="user-menu-item" @click="userMenuOpen = false">
               <SettingsIcon class="w-4 h-4" />
               <span>Settings</span>
@@ -121,6 +151,12 @@ import {
   Search,
   Bell,
 } from 'lucide-vue-next'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 const route = useRoute()
 const user = useSupabaseUser()
@@ -155,22 +191,43 @@ function toggleCollapse() {
 
 const displayName = computed(() => {
   if (!user.value) return ''
-  return user.value.user_metadata?.display_name || user.value.email?.split('@')[0] || ''
+  return user.value.user_metadata?.display_name || 'User'
+})
+
+const emailAddress = computed(() => {
+  if (!user.value) return ''
+  return user.value.email || ''
 })
 
 const avatarInitial = computed(() => {
-  return displayName.value.charAt(0).toUpperCase() || '?'
+  return (displayName.value || emailAddress.value).charAt(0).toUpperCase() || '?'
 })
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/playbooks', label: 'Playbooks', icon: BookOpen },
-  { to: '/plays', label: 'All Plays', icon: Swords },
-  { to: '/lockerroom', label: 'Locker Room', icon: Users },
-  { to: '/teams', label: 'Teams', icon: Shield },
-  { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2 },
-  { to: '/simulation/test', label: 'Test Your Play', icon: Play },
-  { to: '/simulation/scenario', label: 'Scenarios', icon: FlaskConical },
+const navGroups = [
+  {
+    label: '',
+    items: [
+      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    label: 'Platform',
+    items: [
+      { to: '/playbooks', label: 'Playbooks', icon: BookOpen },
+      { to: '/plays', label: 'All Plays', icon: Swords },
+      { to: '/lockerroom', label: 'Locker Room', icon: Users },
+      { to: '/teams', label: 'Teams', icon: Shield },
+    ]
+  },
+  {
+    label: 'blur.ai',
+    badge: 'Coming Soon',
+    items: [
+      { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2 },
+      { to: '/simulation/test', label: 'Test Your Play', icon: Play },
+      { to: '/simulation/scenario', label: 'Scenarios', icon: FlaskConical },
+    ]
+  }
 ]
 
 function isActive(path: string) {
@@ -194,37 +251,40 @@ async function handleLogout() {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-sidebar);
-  border-right: 1px solid var(--color-sidebar-border);
+  background: var(--color-background); /* Updated to match app background */
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  /* overflow: hidden; Removed to allow popups to overflow */
   flex-shrink: 0;
   width: 260px;
+  position: relative;
+  z-index: 40;
 }
 
 .sidebar.collapsed {
   width: 64px;
 }
 
-/* ── Collapsible text — shared rule ────────────────────────────── */
-/* All text labels shrink to 0 width when collapsed, in sync with  */
-/* the sidebar width. The matching gap on their parent also goes   */
-/* to 0 so icons end up perfectly centered.                        */
+/* ── Collapsible text handling ─────────────────────────────────── */
 .sidebar-nav-label,
 .quick-play-label,
-.sidebar-user-info,
-.sidebar-user-chevron {
-  overflow: hidden;
+.sidebar-user-info, 
+.sidebar-user-email,
+.sidebar-group-label {
   white-space: nowrap;
-  max-width: 180px;
-  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  transition: opacity 0.2s, width 0.2s;
+  overflow: hidden;
 }
 
 .collapsed .sidebar-nav-label,
 .collapsed .quick-play-label,
 .collapsed .sidebar-user-info,
+.collapsed .sidebar-user-email,
+.collapsed .sidebar-group-label,
 .collapsed .sidebar-user-chevron {
-  max-width: 0;
+  opacity: 0;
+  width: 0;
+  display: none; /* Hide completely when collapsed to prevent layout shifts */
 }
 
 /* ── Header ────────────────────────────────────────────────────── */
@@ -319,30 +379,29 @@ async function handleLogout() {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 8px;
-  border: 1px dashed var(--color-border);
-  background: color-mix(in oklch, var(--color-primary) 6%, transparent);
-  color: var(--color-primary);
+  border: none; /* Removed border */
+  background: var(--color-primary); /* Updated to solid primary */
+  color: var(--color-primary-foreground); /* Consistent text color */
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   overflow: hidden;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s,
-              gap 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s, opacity 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1); /* Subtle shadow for button feel */
+  position: relative;
+  overflow: visible;
 }
 
 .quick-play-btn:hover {
-  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
-  border-color: var(--color-primary);
-  border-style: solid;
+  background: color-mix(in oklch, var(--color-primary) 90%, black); /* Slightly darker on hover */
 }
 
 .collapsed .quick-play-btn {
   gap: 0;
-  padding: 8px;
+  padding: 10px; /* Keep padding consistent */
 }
 
 /* ── Navigation ────────────────────────────────────────────────── */
@@ -358,23 +417,33 @@ async function handleLogout() {
   padding: 4px 10px;
 }
 
+.sidebar-group-label {
+  padding: 16px 10px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  letter-spacing: 0.05em;
+}
+
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
   text-decoration: none;
   color: var(--color-muted-foreground);
   font-size: 14px;
   font-weight: 500;
   margin: 1px 0;
   white-space: nowrap;
-  overflow: hidden;
-  transition: color 0.15s, background 0.15s,
-              gap 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  transition: color 0.15s, background 0.15s;
+  position: relative;
 }
+
+/* Tooltip styles removed - using Shadcn Tooltip component */
 
 .sidebar-nav-item:hover {
   background: var(--color-accent);
@@ -388,8 +457,9 @@ async function handleLogout() {
 }
 
 .collapsed .sidebar-nav-item {
-  gap: 0;
-  padding: 10px 12px;
+  gap: 0; /* Just show icon */
+  padding: 10px;
+  justify-content: center;
 }
 
 .sidebar-nav-icon {
@@ -398,11 +468,17 @@ async function handleLogout() {
   flex-shrink: 0;
 }
 
+.sidebar-group-divider {
+  display: none; /* Hide if using labels, or use instead of labels if preferred */
+}
+
 /* ── Footer ────────────────────────────────────────────────────── */
 .sidebar-footer {
   padding: 8px 12px 12px;
-  border-top: 1px solid var(--color-sidebar-border);
   transition: padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Ensure popup can go outside */
+  position: relative; 
+  z-index: 50; 
 }
 
 .collapsed .sidebar-footer {
@@ -425,9 +501,7 @@ async function handleLogout() {
   cursor: pointer;
   text-align: left;
   overflow: hidden;
-  transition: background 0.15s,
-              gap 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s;
 }
 
 .sidebar-user-btn:hover {
@@ -436,12 +510,13 @@ async function handleLogout() {
 
 .collapsed .sidebar-user-btn {
   gap: 0;
+  justify-content: center;
   padding: 8px 7px;
 }
 
 .sidebar-user-avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-primary), color-mix(in oklch, var(--color-primary) 70%, #000));
   color: white;
@@ -451,39 +526,56 @@ async function handleLogout() {
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
+
+
 .sidebar-user-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin: 0;
+  line-height: 1.2;
 }
+
+.sidebar-user-email {
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  line-height: 1.2;
+}
+
+.sidebar-user-chevron {
+  transition: transform 0.2s;
+}
+
+.user-menu-open .sidebar-user-chevron {
+  transform: rotate(180deg);
+}
+
 
 /* ── User Menu Popup ───────────────────────────────────────────── */
 .user-menu {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 8px); 
   left: 0;
-  right: 0;
+  width: 100%;
+  min-width: 220px; /* Ensure content fits */
   background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
-  z-index: 50;
-  min-width: 160px;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+  z-index: 100;
 }
 
+/* Fix popup position when sidebar is collapsed */
 .user-menu.menu-collapsed {
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  width: 180px;
+  left: 100%; /* Position to the right of the sidebar */
+  bottom: 0;
+  margin-left: 12px; /* Add some spacing */
+  width: 200px; /* Fixed width */
 }
+
+/* Ensure the arrow points left in collapsed mode? Not strictly needed but nice */
 
 .user-menu-item {
   display: flex;
@@ -511,6 +603,10 @@ async function handleLogout() {
   color: var(--color-destructive);
 }
 
+.user-menu-item.text-destructive:hover {
+  background: color-mix(in oklch, var(--color-destructive) 10%, transparent);
+}
+
 .user-menu-divider {
   height: 1px;
   background: var(--color-border);
@@ -518,22 +614,19 @@ async function handleLogout() {
 }
 
 /* ── Menu Transition ───────────────────────────────────────────── */
-.menu-pop-enter-active {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
+.menu-pop-enter-active,
 .menu-pop-leave-active {
-  transition: all 0.1s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .menu-pop-enter-from,
 .menu-pop-leave-to {
   opacity: 0;
-  transform: translateY(4px) scale(0.97);
+  transform: translateY(8px) scale(0.96);
 }
 
 .menu-pop-enter-from.menu-collapsed,
 .menu-pop-leave-to.menu-collapsed {
-  transform: translateX(-50%) translateY(4px) scale(0.97);
+  transform: translateX(-8px) scale(0.96); /* Slide in from left when collapsed */
 }
 </style>

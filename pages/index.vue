@@ -396,6 +396,7 @@ onMounted(async () => {
 .stat-card {
   padding: 20px;
   border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .stat-label {
@@ -437,8 +438,10 @@ onMounted(async () => {
   padding: 12px 16px;
   border-radius: 10px;
   text-decoration: none;
+  text-decoration: none;
   transition: all 0.15s;
   gap: 12px;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 
 .play-type-badge {
@@ -465,6 +468,7 @@ onMounted(async () => {
 .team-card {
   padding: 20px;
   border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .team-icon {
