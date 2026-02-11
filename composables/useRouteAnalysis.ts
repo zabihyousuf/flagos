@@ -134,7 +134,99 @@ export function useRouteAnalysis() {
     }
   }
 
+  function generateRandomRoute(
+    player: CanvasPlayer,
+    fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }
+  ): { segments: RouteSegment[] } | null {
+    // Only generate for offensive players for now
+    // Simple logic: 
+    // 1. Random depth (5-15 yards)
+    // 2. Random type (Fly, Post, Corner, In, Out, Curl)
+    
+    // Safety check: don't generate if player is QB (usually stays in pocket or rolls out)
+    // We can identify QB by position usually being near center and behind LOS
+    // But for now let's just generate for everyone except maybe center
+    
+    const isCenter = player.x === 0.5 && player.y > (fieldSettings.line_of_scrimmage / (fieldSettings.field_length + fieldSettings.endzone_size * 2))
+    if (player.designation === 'C' || player.position === 'C') return null
+
+    const segments: RouteSegment[] = []
+    const routeTypes = ['fly', 'post', 'corner', 'in', 'out', 'curl', 'slant']
+    const type = routeTypes[Math.floor(Math.random() * routeTypes.length)]
+    
+    const { field_width, field_length, endzone_size, line_of_scrimmage } = fieldSettings
+    const totalLength = field_length + endzone_size * 2
+    
+    // Player pos in yards
+    const playerY = player.y * totalLength
+    const playerX = player.x * field_width
+
+    // Direction (are they left or right of center?)
+    const isLeft = player.x < 0.5
+    
+    // 1. Vertical Stem (Go forward 5-10 yards)
+    const stemDist = 5 + Math.random() * 8
+    const stemEndY = Math.max(endzone_size, playerY - stemDist) // Move towards top (0)
+    
+    // First point is just straight ahead
+    segments.push({
+      type: 'straight',
+      points: [{ x: player.x, y: stemEndY / totalLength }]
+    })
+
+    const lastPt = segments[0].points[0]
+
+    // 2. Break
+    if (type === 'fly') {
+      // Just keep going deep
+      segments.push({
+        type: 'straight',
+        points: [{ x: lastPt.x, y: (endzone_size - 5) / totalLength }] // To back of endzone
+      })
+    } else if (type === 'post') {
+      // Cut towards center deep
+      segments.push({
+        type: 'straight',
+        points: [{ x: 0.5, y: (endzone_size) / totalLength }] // To Goal Post
+      })
+    } else if (type === 'corner') {
+      // Cut towards sideline deep
+      segments.push({
+        type: 'straight',
+        points: [{ x: isLeft ? 0.1 : 0.9, y: (endzone_size) / totalLength }] // To corner
+      })
+    } else if (type === 'in') {
+      // Hard cut in
+      segments.push({
+        type: 'straight',
+        points: [{ x: isLeft ? lastPt.x + 0.2 : lastPt.x - 0.2, y: lastPt.y }]
+      })
+    } else if (type === 'out') {
+      // Hard cut out
+      segments.push({
+        type: 'straight',
+        points: [{ x: isLeft ? 0.05 : 0.95, y: lastPt.y }]
+      })
+    } else if (type === 'slant') {
+      // Replace first stem with a diagonal
+      segments.pop() // Remove straight stem
+      segments.push({
+        type: 'straight',
+        points: [{ x: 0.5, y: (playerY - 5) / totalLength }] // Quick slant to middle
+      })
+    } else if (type === 'curl') {
+      // Come back
+      segments.push({
+        type: 'straight',
+        points: [{ x: isLeft ? lastPt.x + 0.05 : lastPt.x - 0.05, y: lastPt.y + (3 / totalLength) }]
+      })
+    }
+
+    return { segments }
+  }
+
   return {
-    analyzeRoute
+    analyzeRoute,
+    generateRandomRoute
   }
 }

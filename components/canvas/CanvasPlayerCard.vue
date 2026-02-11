@@ -24,32 +24,24 @@
               <span v-if="selectedPlayer.number" class="text-[10px] font-mono text-muted-foreground">#{{ selectedPlayer.number }}</span>
             </div>
             <div class="grid grid-cols-2 gap-2 mt-1.5">
-              <!-- Position Selector -->
+            <!-- Combined Role Selector -->
               <Select 
-                :model-value="selectedPlayer.position" 
-                @update:model-value="(v: any) => $emit('update-attribute', selectedPlayer!.id, { position: v as string })"
+                :model-value="selectedPlayerRole" 
+                @update:model-value="(v) => handleRoleChange(v as string)"
               >
-                <SelectTrigger class="h-6 text-[10px] bg-muted/30 border-border/50">
-                  <SelectValue />
+                <SelectTrigger class="h-6 text-[10px] bg-muted/30 border-border/50 col-span-2">
+                  <SelectValue placeholder="Select Position" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="p in availablePositions" :key="p" :value="p">
-                    {{ p }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              <!-- Designation Selector -->
-              <Select 
-                :model-value="selectedPlayer.designation" 
-                @update:model-value="(v: any) => $emit('update-designation', selectedPlayer!.id, v as string)"
-              >
-                <SelectTrigger class="h-6 text-[10px] bg-muted/30 border-border/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="d in availableDesignations" :key="d" :value="d">
-                    {{ d }}
+                  <SelectItem 
+                    v-for="role in availableRoles" 
+                    :key="role.position" 
+                    :value="role.position"
+                  >
+                    <div class="flex items-center justify-between w-full min-w-[120px]">
+                      <span>{{ role.label }}</span>
+                      <span class="text-muted-foreground ml-2 text-[9px] uppercase">{{ role.position }}</span>
+                    </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -107,18 +99,57 @@
       </div>
 
       <!-- Route Info -->
-      <div v-if="selectedPlayer.route && selectedPlayer.route.segments.length > 0" class="space-y-2 pt-2 border-t border-border/50">
+      <div v-if="playType === 'offense'" class="space-y-2 pt-2 border-t border-border/50">
         <div class="flex items-center justify-between">
           <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Route Segments</p>
-          <Button size="sm" variant="ghost" class="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2" @click="$emit('clear-route', selectedPlayer.id)">
-            Clear
-          </Button>
+          <div class="flex items-center gap-1">
+            <Button 
+              v-if="!pendingRoute"
+              size="sm" 
+              variant="ghost" 
+              class="h-5 px-2 text-[10px] text-primary hover:text-primary hover:bg-primary/10" 
+              @click="handleSuggestRoute"
+            >
+              <Sparkles class="w-3 h-3 mr-1" />
+              Suggest
+            </Button>
+            <Button 
+              v-if="selectedPlayer.route && selectedPlayer.route.segments.length > 0 && !pendingRoute"
+              size="sm" 
+              variant="ghost" 
+              class="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2" 
+              @click="$emit('clear-route', selectedPlayer.id)"
+            >
+              Clear
+            </Button>
+          </div>
         </div>
-        <div class="flex items-center gap-1.5 flex-wrap">
+
+        <!-- Pending Route Actions -->
+        <div v-if="pendingRoute" class="flex items-center justify-between bg-muted/40 p-1.5 rounded border border-primary/20 mb-2">
+          <span class="text-[10px] font-medium text-primary flex items-center gap-1">
+            <Sparkles class="w-3 h-3" />
+            Suggested Route
+          </span>
+          <div class="flex gap-1">
+            <Button size="icon" class="h-6 w-6 rounded-full" variant="secondary" @click="acceptRoute">
+              <Check class="w-3 h-3 text-emerald-500" />
+            </Button>
+            <Button size="icon" class="h-6 w-6 rounded-full" variant="ghost" @click="denyRoute">
+              <X class="w-3 h-3 text-destructive" />
+            </Button>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-1.5 flex-wrap min-h-[22px]">
+          <div v-if="(!selectedPlayer.route || selectedPlayer.route.segments.length === 0) && !pendingRoute" class="text-[10px] text-muted-foreground italic px-2">
+            No route assigned
+          </div>
           <div
-            v-for="(seg, i) in selectedPlayer.route.segments"
+            v-for="(seg, i) in (pendingRoute ? pendingRoute.segments : selectedPlayer.route?.segments)"
             :key="i"
-            class="text-[10px] px-2 py-0.5 rounded-full bg-muted border border-border text-foreground font-medium flex items-center gap-1"
+            class="text-[10px] px-2 py-0.5 rounded-full border text-foreground font-medium flex items-center gap-1 transition-colors"
+            :class="pendingRoute ? 'bg-primary/10 border-primary/30' : 'bg-muted border-border'"
           >
             <span>{{ seg.type }}</span>
             <span v-if="seg.readOrder" class="bg-primary text-primary-foreground text-[8px] w-3.5 h-3.5 flex items-center justify-center rounded-full -mr-1 shadow-sm">{{ seg.readOrder }}</span>
@@ -166,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CanvasPlayer, Player } from '~/lib/types'
+import type { CanvasPlayer, Player, RouteSegment } from '~/lib/types'
 import { 
   POSITION_COLORS, 
   POSITION_LABELS, 
@@ -178,6 +209,7 @@ import {
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
+import { Sparkles, Check, X } from 'lucide-vue-next'
 
 const props = defineProps<{
   selectedPlayer: CanvasPlayer | null
@@ -193,7 +225,10 @@ const emit = defineEmits<{
   'start-drag': [event: MouseEvent]
 }>()
 
-const { analyzeRoute } = useRouteAnalysis()
+const { analyzeRoute, generateRandomRoute } = useRouteAnalysis()
+
+// State for suggested route
+const pendingRoute = ref<{ segments: RouteSegment[] } | null>(null)
 
 function posColor(pos: string) {
   return POSITION_COLORS[pos] ?? '#888888'
@@ -204,10 +239,14 @@ const POSITION_DESIGNATION_MAP: Record<string, string[]> = {
   QB: ['Q'],
   WR: ['X', 'Y', 'Z'],
   C: ['C'],
+  RB: ['H', 'F'],
+  TE: ['Y'],
   // Defense
   RSH: ['R'],
   DB: ['D1', 'D2', 'D3', 'D4'],
-  MLB: ['D1', 'D2', 'D3', 'D4'],
+  LB: ['D1', 'D2', 'D3', 'D4'],
+  CB: ['D1', 'D2', 'D3', 'D4'],
+  S: ['D1', 'D2', 'D3', 'D4'],
 }
 
 const rosterPlayer = computed(() => {
@@ -234,42 +273,128 @@ const playerSpeedAttr = computed(() => {
 })
 
 const routeAnalytics = computed(() => {
-  if (!props.selectedPlayer || !props.selectedPlayer.route) return null
-  return analyzeRoute(props.selectedPlayer, props.fieldSettings, playerAttributes.value)
+  if (!props.selectedPlayer) return null
+  // Analyze pending route if it exists, otherwise existing route
+  const routeToAnalyze = pendingRoute.value ? pendingRoute.value : props.selectedPlayer.route
+  if (!routeToAnalyze || !routeToAnalyze.segments || routeToAnalyze.segments.length === 0) return null
+  
+  // Need to reconstruct a temporary player object with the route for analysis
+  const tempPlayer = { ...props.selectedPlayer, route: routeToAnalyze }
+  return analyzeRoute(tempPlayer, props.fieldSettings, playerAttributes.value)
 })
 
 const availablePositions = computed(() => {
+  // If roster player has specific positions, use those
+  if (rosterPlayer.value) {
+    const posField = props.playType === 'offense' ? 'offense_positions' : 'defense_positions'
+    const positions = rosterPlayer.value[posField] as string[]
+    if (positions && positions.length > 0) {
+      return positions
+    }
+  }
+
+  // Fallback to all positions
   return props.playType === 'offense'
     ? [...OFFENSE_POSITIONS]
     : [...DEFENSE_POSITIONS]
 })
 
-const availableDesignations = computed(() => {
+const availableRoles = computed(() => {
   if (!props.selectedPlayer) return []
 
-  if (rosterPlayer.value) {
-    const posField = props.playType === 'offense' ? 'offense_positions' : 'defense_positions'
-    const positions = rosterPlayer.value[posField] as string[] | undefined
+  const positions = availablePositions.value
+  const uniquePositions = new Set(positions)
+  
+  return Array.from(uniquePositions).map(pos => ({
+    position: pos,
+    label: POSITION_LABELS[pos] || pos
+  }))
+})
+
+const selectedPlayerRole = computed(() => {
+  return props.selectedPlayer?.position || ''
+})
+
+function determineBestRole(player: CanvasPlayer, attributes: any): { position: string, designation: string } {
+  // Simple scoring heuristic
+  const scores: Record<string, number> = {}
+  
+  availablePositions.value.forEach(pos => {
+    let score = 0
+    if (pos === 'QB') score += (attributes.throwing_power || 0) + (attributes.accuracy || 0) + (attributes.decision_making || 0)
+    if (pos === 'WR') score += (attributes.catching || 0) + (attributes.route_running || 0) + (attributes.speed || 0)
+    if (pos === 'RB') score += (attributes.speed || 0) + (attributes.agility || 0) + (attributes.carrying || 0)
+    if (pos === 'C') score += (attributes.blocking || 0) + (attributes.strength || 0)
+    if (pos === 'TE') score += (attributes.catching || 0) + (attributes.blocking || 0)
     
-    if (positions && positions.length > 0) {
-      const allowed = new Set<string>()
-      positions.forEach((pos) => {
-        const designations = POSITION_DESIGNATION_MAP[pos]
-        if (designations) {
-          designations.forEach((d) => allowed.add(d))
-        }
-      })
-      if (allowed.size > 0) {
-        const standardOrder = props.playType === 'offense' ? OFFENSE_DESIGNATIONS : DEFENSE_DESIGNATIONS
-        return standardOrder.filter((d) => allowed.has(d))
-      }
+    // Defense
+    if (pos === 'RSH') score += (attributes.rush_moves || 0) + (attributes.speed || 0)
+    if (pos === 'DB' || pos === 'CB' || pos === 'S') score += (attributes.coverage || 0) + (attributes.speed || 0) + (attributes.check_down || 0) // check_down isn't right but using generic defense attrs
+    
+    scores[pos] = score
+  })
+
+  // Find highest score
+  let bestPos = availablePositions.value[0]
+  let maxScore = -1
+  
+  for (const [pos, score] of Object.entries(scores)) {
+    if (score > maxScore) {
+      maxScore = score
+      bestPos = pos
     }
   }
+  
+  // Determine designation
+  const designations = POSITION_DESIGNATION_MAP[bestPos]
+  const bestDes = designations ? designations[0] : bestPos
+  
+  return { position: bestPos, designation: bestDes }
+}
 
-  return props.playType === 'offense'
-    ? [...OFFENSE_DESIGNATIONS]
-    : [...DEFENSE_DESIGNATIONS]
-})
+// Watch for player selection changes to ensure optimal initial position if universal/generic
+watch(() => props.selectedPlayer?.id, (newId, oldId) => {
+  if (newId && newId !== oldId && props.selectedPlayer && playerAttributes.value) {
+    // Check if current position is valid for this player
+    const currentPos = props.selectedPlayer.position
+    if (!availablePositions.value.includes(currentPos)) {
+        const best = determineBestRole(props.selectedPlayer, playerAttributes.value)
+        emit('update-attribute', props.selectedPlayer.id, { position: best.position, designation: best.designation })
+    }
+  }
+}, { immediate: true })
+
+function handleRoleChange(value: string) {
+  if (!props.selectedPlayer) return
+  const position = value
+  
+  // Auto-assign best designation for this position (usually the first one, e.g. WR -> X)
+  // Logic to preserve designation if valid? e.g. if switching from X(WR) to Z(WR), maybe keep it?
+  // But here we are switching Position (e.g. QB to WR).
+  const designations = POSITION_DESIGNATION_MAP[position]
+  const designation = designations && designations.length > 0 ? designations[0] : position
+  
+  emit('update-attribute', props.selectedPlayer.id, { position, designation })
+}
+
+function handleSuggestRoute() {
+  if (!props.selectedPlayer) return
+  const route = generateRandomRoute(props.selectedPlayer, props.fieldSettings)
+  if (route) {
+    pendingRoute.value = route
+  }
+}
+
+function acceptRoute() {
+  if (pendingRoute.value && props.selectedPlayer) {
+    emit('update-attribute', props.selectedPlayer.id, { route: pendingRoute.value })
+    pendingRoute.value = null
+  }
+}
+
+function denyRoute() {
+  pendingRoute.value = null
+}
 
 const yardLine = computed(() => {
   if (!props.selectedPlayer) return '—'

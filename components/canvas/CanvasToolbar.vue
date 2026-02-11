@@ -95,6 +95,28 @@
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger as-child>
+          <Button size="icon" variant="ghost" class="h-8 w-8 text-primary" @click="handleAiClick">
+            <Sparkles class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top"><p>AI Tools</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <div v-if="showAiMenu" class="absolute bottom-12 right-20 w-48 bg-popover rounded-md border shadow-md p-1 flex flex-col gap-0.5 z-50">
+      <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" @click="$emit('ai-action', 'random-play'); showAiMenu = false">
+        <Shuffle class="w-3 h-3 mr-2" /> Random Play
+      </Button>
+      <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" disabled>
+        <Wand2 class="w-3 h-3 mr-2" /> Suggest Concept
+      </Button>
+    </div>
+
+    <Separator orientation="vertical" class="h-5 mx-0.5" />
+
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger as-child>
           <Button size="icon" variant="ghost" class="h-8 w-8" @click="$emit('clear-routes')">
             <RotateCcw class="w-3.5 h-3.5" />
           </Button>
@@ -134,9 +156,12 @@ import {
   Eraser,
   RotateCcw,
   Check,
+  Sparkles,
+  Shuffle,  
+  Wand2
 } from 'lucide-vue-next'
 
-defineProps<{
+const props = defineProps<{
   selectedTool: CanvasTool
   isDirty: boolean
 }>()
@@ -145,11 +170,17 @@ defineEmits<{
   'select-tool': [tool: CanvasTool]
   'clear-routes': []
   'save': []
+  'ai-action': [action: string]
 }>()
 
+const showAiMenu = ref(false)
 const routeTools = [
   { id: 'straight' as CanvasTool, label: 'Straight Route', icon: Minus },
   { id: 'curve' as CanvasTool, label: 'Curve Route', icon: Spline },
   { id: 'option' as CanvasTool, label: 'Option Route (dashed)', icon: GitBranch },
 ]
+
+function handleAiClick() {
+  showAiMenu.value = !showAiMenu.value
+}
 </script>

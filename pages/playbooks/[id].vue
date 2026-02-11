@@ -1,9 +1,6 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center gap-3">
-      <Button variant="ghost" size="icon" @click="$router.push('/playbooks')">
-        <ArrowLeft class="w-4 h-4" />
-      </Button>
       <div class="flex-1">
         <h2 class="text-2xl font-semibold tracking-tight font-display">{{ playbook?.name ?? 'Playbook' }}</h2>
         <p v-if="playbook?.description" class="text-muted-foreground text-sm mt-1">{{ playbook.description }}</p>
@@ -105,7 +102,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { ArrowLeft, Plus, Swords } from 'lucide-vue-next'
+import { Plus, Swords } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,6 +116,7 @@ const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
 const { profile, fetchProfile } = useProfile()
 const { confirm } = useConfirm()
+const { setTitle } = useBreadcrumbs()
 
 const offensePlays = computed(() => plays.value.filter((p) => p.play_type === 'offense'))
 const defensePlays = computed(() => plays.value.filter((p) => p.play_type === 'defense'))
@@ -197,6 +195,9 @@ async function fetchPlaybook() {
     .eq('id', playbookId.value)
     .single()
   playbook.value = data as Playbook
+  if (playbook.value?.name) {
+    setTitle(playbook.value.name)
+  }
 }
 
 onMounted(() => {

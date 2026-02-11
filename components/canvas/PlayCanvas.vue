@@ -46,24 +46,17 @@
       />
     </div>
 
-    <!-- Draggable Bottom Toolbar -->
+    <!-- Bottom Toolbar (Fixed) -->
     <div 
-      class="absolute z-20"
-      :style="{ left: `${toolbarPos.x}px`, top: `${toolbarPos.y}px` }"
+      class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20"
     >
-      <!-- Drag Handle for Toolbar -->
-      <div 
-        class="absolute -top-5 left-1/2 -translate-x-1/2 w-24 h-5 bg-background/80 backdrop-blur-md border border-border/50 rounded-full cursor-move hover:bg-muted flex items-center justify-center shadow-lg transition-all group z-30"
-        @mousedown="dragToolbar"
-      >
-        <div class="w-8 h-1 bg-muted-foreground/30 rounded-full group-hover:bg-muted-foreground/50 transition-colors" />
-      </div>
       <CanvasToolbar
         :selected-tool="selectedTool"
         :is-dirty="isDirty"
         @select-tool="setTool"
         @clear-routes="clearAllRoutes"
         @save="handleSave"
+        @ai-action="handleAiAction"
       />
     </div>
   </div>
@@ -72,6 +65,7 @@
 <script setup lang="ts">
 import type { CanvasData, Player } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
+import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
 
 const props = defineProps<{
   initialData?: CanvasData
@@ -126,11 +120,8 @@ onMounted(() => {
         y: 80 
       }
       
-      // Center toolbar
-      toolbarPos.value = { 
-        x: (width / 2) - 300, 
-        y: height - 100 
-      }
+      // Center toolbar (Fixed via CSS now, no need for JS coord)
+      // toolbarPos.value = { ... }
     }
 
     resizeObserver = new ResizeObserver(() => {
@@ -189,6 +180,7 @@ const {
 } = useCanvas()
 
 const { render } = useCanvasRenderer()
+const { generateRandomRoute } = useRouteAnalysis()
 
 const fieldSettings = computed(() => props.fieldSettings ?? DEFAULT_FIELD_SETTINGS)
 const allRoster = computed(() => props.allRoster ?? props.starters ?? [])
@@ -241,6 +233,20 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
 function handleSave() {
   emit('save', getExportData())
   isDirty.value = false
+}
+
+function handleAiAction(action: string) {
+  if (action === 'random-play') {
+    // Generate random routes for all players
+    canvasData.value.players.forEach(p => {
+      const route = generateRandomRoute(p, fieldSettings.value)
+      if (route) {
+        p.route = route
+      }
+    })
+    isDirty.value = true
+    requestRender()
+  }
 }
 
 function addPlayerToField(player: Player) {
