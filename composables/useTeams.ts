@@ -350,6 +350,34 @@ export function useTeams() {
     }
   }
 
+
+
+  async function removePlayerFromTeamByPlayerId(teamId: string, playerId: string) {
+    loading.value = true
+    error.value = null
+    try {
+      // Find the team_player record first to remove it locally later
+      const team = teams.value.find((t) => t.id === teamId)
+      const tp = team?.team_players?.find((tp) => tp.player_id === playerId)
+      
+      const { error: err } = await client
+        .from('team_players')
+        .delete()
+        .match({ team_id: teamId, player_id: playerId })
+
+      if (err) throw err
+      
+      // Update local state
+      if (team && team.team_players) {
+        team.team_players = team.team_players.filter((t) => t.player_id !== playerId)
+      }
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function updateTeamPlayer(teamPlayerId: string, updates: Partial<TeamPlayer>) {
     try {
       const { error: err } = await client
@@ -511,6 +539,7 @@ export function useTeams() {
     deleteTeam,
     addPlayerToTeam,
     removePlayerFromTeam,
+    removePlayerFromTeamByPlayerId,
     updateTeamPlayer,
     autoAssignTeamStarters,
     resetTeamStarters,

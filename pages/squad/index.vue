@@ -87,16 +87,35 @@
           </div>
 
           <div v-if="players.length > 0" class="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" class="h-8 text-xs" @click="handleResetStarters" :disabled="resettingStarters || autoingStarters || loading || players.length === 0">
-              <Loader2 v-if="resettingStarters" class="w-3 h-3 mr-2 animate-spin" />
-              <RotateCcw v-else class="w-3 h-3 mr-2" />
-              Reset
-            </Button>
-            <Button variant="outline" size="sm" class="h-8 text-xs" @click="handleAutoStarters" :disabled="autoingStarters || resettingStarters || loading || players.length === 0">
-              <Loader2 v-if="autoingStarters" class="w-3 h-3 mr-2 animate-spin" />
-              <Zap v-else class="w-3 h-3 mr-2" />
-              Auto
-            </Button>
+          <TooltipProvider>
+            <Tooltip>
+               <TooltipTrigger as-child>
+                  <Button variant="outline" size="sm" class="h-8 text-xs" @click="handleResetStarters" :disabled="resettingStarters || autoingStarters || loading || players.length === 0">
+                    <Loader2 v-if="resettingStarters" class="w-3 h-3 mr-2 animate-spin" />
+                    <RotateCcw v-else class="w-3 h-3 mr-2" />
+                    Reset
+                  </Button>
+               </TooltipTrigger>
+               <TooltipContent>
+                  <p>Clear all starter assignments. Does not affect locked players.</p>
+               </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+             <Tooltip>
+                <TooltipTrigger as-child>
+                   <Button variant="outline" size="sm" class="h-8 text-xs" @click="handleAutoStarters" :disabled="autoingStarters || resettingStarters || loading || players.length === 0">
+                     <Loader2 v-if="autoingStarters" class="w-3 h-3 mr-2 animate-spin" />
+                     <Zap v-else class="w-3 h-3 mr-2" />
+                     Auto
+                   </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                   <p>Automatically assign best starters based on attributes. Does not affect locked players.</p>
+                </TooltipContent>
+             </Tooltip>
+          </TooltipProvider>
             <Button variant="outline" size="sm" class="h-8 text-xs" @click="exportPlayers(filteredPlayers)" :disabled="filteredPlayers.length === 0">
               <Download class="w-3 h-3 mr-2" />
               Export
@@ -180,13 +199,11 @@
             <TableHead class="w-8"></TableHead>
             <TableHead class="w-10"></TableHead>
             <TableHead class="w-16">#</TableHead>
-            <TableHead class="w-16">Ht</TableHead>
-            <TableHead class="w-16">Wt</TableHead>
             <TableHead>Name</TableHead>
-            <TableHead>OFF Pos</TableHead>
-            <TableHead>DEF Pos</TableHead>
-            <TableHead class="text-center">OFF</TableHead>
-            <TableHead class="text-center">DEF</TableHead>
+            <TableHead>Off Position</TableHead>
+            <TableHead>Def Position</TableHead>
+            <TableHead class="text-center">Off Starter</TableHead>
+            <TableHead class="text-center">Def Starter</TableHead>
             <TableHead class="text-center">Teams</TableHead>
             <TableHead class="w-24"></TableHead>
           </TableRow>
@@ -196,8 +213,6 @@
             <TableCell><Skeleton class="h-4 w-4" /></TableCell>
             <TableCell><Skeleton class="h-4 w-4 rounded" /></TableCell>
             <TableCell><Skeleton class="h-4 w-8" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-8" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-10" /></TableCell>
             <TableCell><Skeleton class="h-4 w-24" /></TableCell>
             <TableCell><Skeleton class="h-5 w-12 rounded-full" /></TableCell>
             <TableCell><Skeleton class="h-5 w-12 rounded-full" /></TableCell>
@@ -244,22 +259,6 @@
                 <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
               </button>
             </TableHead>
-            <TableHead class="w-16">
-              <button class="inline-flex items-center gap-1 hover:text-foreground transition-colors" @click="toggleSort('height')">
-                Ht
-                <ArrowUp v-if="sortKey === 'height' && sortDir === 'asc'" class="w-3 h-3" />
-                <ArrowDown v-else-if="sortKey === 'height' && sortDir === 'desc'" class="w-3 h-3" />
-                <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
-              </button>
-            </TableHead>
-            <TableHead class="w-16">
-              <button class="inline-flex items-center gap-1 hover:text-foreground transition-colors" @click="toggleSort('weight')">
-                Wt
-                <ArrowUp v-if="sortKey === 'weight' && sortDir === 'asc'" class="w-3 h-3" />
-                <ArrowDown v-else-if="sortKey === 'weight' && sortDir === 'desc'" class="w-3 h-3" />
-                <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
-              </button>
-            </TableHead>
             <TableHead>
               <button class="inline-flex items-center gap-1 hover:text-foreground transition-colors" @click="toggleSort('name')">
                 Name
@@ -268,11 +267,11 @@
                 <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
               </button>
             </TableHead>
-            <TableHead>OFF Pos</TableHead>
-            <TableHead>DEF Pos</TableHead>
+            <TableHead>Off Position</TableHead>
+            <TableHead>Def Position</TableHead>
             <TableHead class="text-center">
               <button class="inline-flex items-center gap-1 hover:text-foreground transition-colors" @click="toggleSort('off')">
-                OFF
+                Off Starter
                 <ArrowUp v-if="sortKey === 'off' && sortDir === 'asc'" class="w-3 h-3" />
                 <ArrowDown v-else-if="sortKey === 'off' && sortDir === 'desc'" class="w-3 h-3" />
                 <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
@@ -280,7 +279,7 @@
             </TableHead>
             <TableHead class="text-center">
               <button class="inline-flex items-center gap-1 hover:text-foreground transition-colors" @click="toggleSort('def')">
-                DEF
+                Def Starter
                 <ArrowUp v-if="sortKey === 'def' && sortDir === 'asc'" class="w-3 h-3" />
                 <ArrowDown v-else-if="sortKey === 'def' && sortDir === 'desc'" class="w-3 h-3" />
                 <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
@@ -310,8 +309,6 @@
               />
             </TableCell>
             <TableCell class="font-bold text-primary">{{ p.number }}</TableCell>
-            <TableCell class="text-xs text-muted-foreground">{{ p.height ? p.height + '"' : '-' }}</TableCell>
-            <TableCell class="text-xs text-muted-foreground">{{ p.weight ? p.weight + 'lbs' : '-' }}</TableCell>
             <TableCell class="font-medium">{{ p.name }}</TableCell>
             <TableCell>
               <div class="flex gap-1.5 flex-wrap">
@@ -384,7 +381,7 @@
               </TableCell>
             </TableRow>
             <TableRow v-if="expandedPlayerId === p.id" class="bg-muted/40 hover:bg-muted/40">
-              <TableCell :colspan="12" class="p-0">
+              <TableCell :colspan="10" class="p-0">
                 <div class="p-6 space-y-6 border-b bg-muted/30 shadow-inner">
                   
                   <!-- Toolbar -->
@@ -419,144 +416,303 @@
 
                   <div v-if="inlineEdits" class="space-y-8">
                     
-                    <!-- Top Section: Physical, Teams, Roster Status -->
-                    <div class="flex flex-col lg:flex-row gap-8 items-start">
+                    <!-- Top Section: Physical & Teams Row -->
+                    <div class="flex flex-col gap-6">
                        
-                       <!-- Left: Physical & Team Selection -->
-                       <div class="space-y-6 shrink-0 lg:w-64">
-                          <!-- Height / Weight -->
-                          <div class="flex gap-4">
-                             <div class="space-y-1.5 flex-1">
-                                <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Height</label>
-                                <div class="relative">
-                                   <component
-                                     :is="isEditing ? 'input' : 'div'"
-                                     inputmode="numeric"
-                                     :value="isEditing ? inlineEdits.height : (p.height ?? '-')"
-                                     @input="(e: Event) => inlineEdits!.height = (e.target as HTMLInputElement).value ? parseInt((e.target as HTMLInputElement).value) : null"
-                                     class="w-full h-9 flex items-center justify-center text-center text-sm font-medium rounded-md"
-                                     :class="isEditing 
-                                        ? 'border border-input bg-background focus:ring-2 focus:ring-ring' 
-                                        : 'bg-muted/50 text-muted-foreground cursor-default'"
-                                   >
-                                      {{ !isEditing ? (p.height ? p.height : '-') : '' }}
-                                   </component>
-                                   <span v-if="isEditing" class="absolute right-2 top-2.5 text-xs text-muted-foreground">in</span>
-                                   <span v-else-if="p.height" class="absolute right-2 top-2.5 text-xs text-muted-foreground">"</span>
+                       <!-- Metadata Row -->
+                       <div class="flex flex-col sm:flex-row gap-4 items-start">
+                          <!-- Height -->
+                          <div class="space-y-1.5 w-32 shrink-0">
+                             <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Height</label>
+                             <div class="relative">
+                                <!-- Edit Mode: Split Inputs -->
+                                <div v-if="isEditing" class="flex gap-2">
+                                   <div class="relative flex-1">
+                                      <Input
+                                         type="text"
+                                         inputmode="numeric"
+                                         pattern="[0-9]*"
+                                         placeholder="Ft"
+                                         class="pr-6 h-9 text-center"
+                                         :model-value="inlineEdits?.height != null ? Math.floor(inlineEdits.height / 12) : ''"
+                                         @input="(e: Event) => {
+                                            let val = parseInt((e.target as HTMLInputElement).value)
+                                            if (isNaN(val)) val = 0
+                                            const currentIn = (inlineEdits!.height ?? 0) % 12
+                                            inlineEdits!.height = (val * 12) + currentIn
+                                            if (inlineEdits!.height === 0 && (e.target as HTMLInputElement).value === '') inlineEdits!.height = null
+                                         }"
+                                      />
+                                      <span class="absolute right-2 top-2.5 text-xs text-muted-foreground">ft</span>
+                                   </div>
+                                   <div class="relative flex-1">
+                                      <Input
+                                         type="text"
+                                         inputmode="numeric"
+                                         pattern="[0-9]*"
+                                         placeholder="In"
+                                         class="pr-6 h-9 text-center"
+                                         :model-value="inlineEdits?.height != null ? (inlineEdits.height % 12) : ''"
+                                         @input="(e: Event) => {
+                                            let val = parseInt((e.target as HTMLInputElement).value)
+                                            if (isNaN(val)) val = 0
+                                            const currentFt = Math.floor((inlineEdits!.height ?? 0) / 12)
+                                            inlineEdits!.height = (currentFt * 12) + val
+                                            if (inlineEdits!.height === 0 && (e.target as HTMLInputElement).value === '') inlineEdits!.height = null
+                                         }"
+                                      />
+                                      <span class="absolute right-2 top-2.5 text-xs text-muted-foreground">in</span>
+                                   </div>
                                 </div>
-                             </div>
-                             <div class="space-y-1.5 flex-1">
-                                <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Weight</label>
-                                <div class="relative">
-                                   <component
-                                     :is="isEditing ? 'input' : 'div'"
-                                     inputmode="numeric"
-                                     :value="isEditing ? inlineEdits.weight : (p.weight ?? '-')"
-                                     @input="(e: Event) => inlineEdits!.weight = (e.target as HTMLInputElement).value ? parseInt((e.target as HTMLInputElement).value) : null"
-                                     class="w-full h-9 flex items-center justify-center text-center text-sm font-medium rounded-md"
-                                     :class="isEditing 
-                                        ? 'border border-input bg-background focus:ring-2 focus:ring-ring' 
-                                        : 'bg-muted/50 text-muted-foreground cursor-default'"
-                                   >
-                                      {{ !isEditing ? (p.weight ? p.weight : '-') : '' }}
-                                   </component>
-                                   <span v-if="isEditing" class="absolute right-2 top-2.5 text-xs text-muted-foreground">lbs</span>
-                                   <span v-else-if="p.weight" class="absolute right-2 top-2.5 text-xs text-muted-foreground">lbs</span>
+                                
+                                <!-- Read-Only Mode -->
+                                <div v-else class="w-full h-9 flex items-center justify-center text-center text-sm font-medium rounded-md bg-muted/50 text-muted-foreground cursor-default">
+                                   {{ p.height ? Math.floor(p.height / 12) + "'" + (p.height % 12) + '"' : '-' }}
                                 </div>
                              </div>
                           </div>
 
-                          <!-- Team Selection (Edit Mode Only) -->
-                          <div v-if="isEditing" class="space-y-2">
-                             <label class="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Teams</label>
-                             <div class="flex flex-col gap-2 p-3 rounded-md border bg-background/50">
-                                <div v-for="team in teams.filter(t => t.name !== 'Free Agent')" :key="team.id" class="flex items-center space-x-2">
-                                   <Checkbox
-                                      :id="`team-${team.id}`"
-                                      :model-value="inlineEdits.team_ids.includes(team.id)"
-                                      @update:model-value="(checked: boolean | 'indeterminate') => {
-                                         if (checked === 'indeterminate' || !inlineEdits) return
-                                         if (checked) inlineEdits.team_ids.push(team.id)
-                                         else inlineEdits.team_ids = inlineEdits.team_ids.filter(id => id !== team.id)
+                          <!-- Weight -->
+                          <div class="space-y-1.5 w-32 shrink-0">
+                             <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Weight</label>
+                             <div class="relative">
+                                <component
+                                  :is="isEditing ? 'input' : 'div'"
+                                  inputmode="numeric"
+                                  :value="isEditing ? inlineEdits.weight : (p.weight ?? '-')"
+                                  @input="(e: Event) => inlineEdits!.weight = (e.target as HTMLInputElement).value ? parseInt((e.target as HTMLInputElement).value) : null"
+                                  class="w-full h-9 flex items-center justify-center text-center text-sm font-medium rounded-md"
+                                  :class="isEditing 
+                                     ? 'border border-input bg-background focus:ring-2 focus:ring-ring' 
+                                     : 'bg-muted/50 text-muted-foreground cursor-default'"
+                                >
+                                   {{ !isEditing ? (p.weight ? p.weight : '-') : '' }}
+                                </component>
+                                <span v-if="isEditing" class="absolute right-2 top-2.5 text-xs text-muted-foreground">lbs</span>
+                                <span v-else-if="p.weight" class="absolute right-2 top-2.5 text-xs text-muted-foreground">lbs</span>
+                             </div>
+                          </div>
+
+                          <!-- Team Selection -->
+                          <div class="space-y-1.5 flex-1 min-w-[200px] max-w-sm">
+                             <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Teams</label>
+                             
+                             <!-- Edit Mode: Custom Dropdown -->
+                             <div v-if="isEditing" class="relative" ref="teamDropdownRef">
+                                <Button 
+                                   variant="outline" 
+                                   class="w-full justify-between h-9 text-left font-normal"
+                                   :class="!inlineEdits.team_ids.length && 'text-muted-foreground'"
+                                   @click="teamDropdownOpen = !teamDropdownOpen"
+                                >
+                                   <span class="truncate">
+                                      {{ inlineEdits.team_ids.length > 0 
+                                         ? `${inlineEdits.team_ids.length} selected` 
+                                         : 'Select teams...' }}
+                                   </span>
+                                   <ChevronDown class="w-4 h-4 opacity-50" />
+                                </Button>
+                                
+                                <div v-if="teamDropdownOpen" class="absolute z-50 w-full mt-1 bg-popover text-popover-foreground rounded-md border shadow-md max-h-60 overflow-y-auto p-1">
+                                   <div 
+                                      v-for="team in teams.filter(t => t.name !== 'Free Agent')" 
+                                      :key="team.id" 
+                                      class="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm cursor-pointer"
+                                      @click.stop="() => {
+                                         if (inlineEdits!.team_ids.includes(team.id)) {
+                                            inlineEdits!.team_ids = inlineEdits!.team_ids.filter(id => id !== team.id)
+                                         } else {
+                                            inlineEdits!.team_ids.push(team.id)
+                                         }
                                       }"
-                                   />
-                                   <label :for="`team-${team.id}`" class="text-sm cursor-pointer select-none">{{ team.name }}</label>
+                                   >
+                                      <div 
+                                         class="h-4 w-4 shrink-0 rounded-sm border border-primary flex items-center justify-center transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                         :class="inlineEdits!.team_ids.includes(team.id) ? 'bg-primary text-primary-foreground' : 'bg-transparent'"
+                                      >
+                                         <Check v-if="inlineEdits!.team_ids.includes(team.id)" class="h-3 w-3" />
+                                      </div>
+                                      <span class="text-sm">{{ team.name }}</span>
+                                   </div>
+                                   <div v-if="teams.filter(t => t.name !== 'Free Agent').length === 0" class="p-2 text-sm text-muted-foreground text-center">
+                                      No teams available
+                                   </div>
                                 </div>
+                             </div>
+
+                             <!-- Read-Only Mode: Badges -->
+                             <div v-else class="flex flex-wrap gap-2 min-h-[36px] items-center px-1">
+                                <template v-if="getPlayerTeams(p.id).filter(t => t.name !== 'Free Agent').length > 0">
+                                  <Badge
+                                    v-for="team in getPlayerTeams(p.id).filter(t => t.name !== 'Free Agent')"
+                                    :key="team.id"
+                                    variant="outline"
+                                    class="text-xs font-medium border-0"
+                                    :style="{ backgroundColor: team.color + '20', color: team.color }"
+                                  >
+                                    {{ team.name }}
+                                  </Badge>
+                                </template>
+                                <span v-else class="text-xs text-muted-foreground italic pl-1">No teams assigned</span>
                              </div>
                           </div>
                        </div>
 
-                       <!-- Right: Roster Status (Conditional) -->
-                       <div v-if="getPlayerTeams(p.id).filter(t => t.name !== 'Free Agent').length > 0" class="flex-1 space-y-3">
+                       <!-- Roster Status (Moved Down, Shrunk) -->
+                       <div v-if="getPlayerTeams(p.id).filter(t => t.name !== 'Free Agent').length > 0" class="space-y-3 max-w-2xl">
                           <div class="flex items-center gap-2 border-b pb-1">
                              <h4 class="text-xs font-bold text-primary uppercase tracking-wider">Roster Status</h4>
                           </div>
-                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div class="space-y-2">
                              <div
                                 v-for="team in getPlayerTeams(p.id).filter(t => t.name !== 'Free Agent')"
                                 :key="team.id"
-                                class="rounded-lg border bg-background shadow-sm hover:shadow-md transition-shadow p-3 space-y-3"
+                                class="flex items-center justify-between p-3 rounded-md border bg-background/50 hover:bg-background transition-colors text-xs"
                              >
-                                <div class="font-medium text-sm flex items-center gap-2">
-                                   <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: team.color }"></span>
-                                   {{ team.name }}
+                                <!-- Team Info -->
+                                <div class="flex items-center gap-3 min-w-0 flex-1">
+                                   <span class="flex-shrink-0 w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: team.color }"></span>
+                                   <span class="font-medium text-sm truncate">{{ team.name }}</span>
                                 </div>
                                 
-                                <!-- Offense Status -->
-                                <div class="flex items-center justify-between text-xs">
-                                   <span class="text-muted-foreground">OFF</span>
+                                <!-- Status Actions -->
+                                <div class="flex items-center gap-6 flex-shrink-0">
+                                   <!-- OFFENSE -->
                                    <div class="flex items-center gap-2">
-                                      <Button
-                                         size="sm"
-                                         variant="ghost"
-                                         class="h-6 px-2 text-[10px] uppercase tracking-wider border transition-colors"
-                                         :class="isTeamStarter(p.id, team.id, 'offense') 
-                                           ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30 hover:bg-yellow-500/20' 
-                                           : 'text-muted-foreground border-transparent hover:bg-muted'"
-                                         @click="toggleStarter(team.id, p.id, 'offense')"
-                                      >
-                                         {{ isTeamStarter(p.id, team.id, 'offense') ? 'Starter' : 'Bench' }}
-                                      </Button>
-                                      <Button
-                                         size="icon"
-                                         variant="ghost"
-                                         class="h-6 w-6"
-                                         :class="isStarterLocked(p.id, team.id, 'offense') ? 'text-primary' : 'text-muted-foreground/30'"
-                                         @click="toggleLock(team.id, p.id, 'offense')"
-                                         title="Lock Starter Status"
-                                      >
-                                         <Lock v-if="isStarterLocked(p.id, team.id, 'offense')" class="w-3 h-3" />
-                                         <Unlock v-else class="w-3 h-3" />
-                                      </Button>
-                                   </div>
-                                </div>
+                                      <span class="text-[10px] text-muted-foreground font-bold uppercase w-12 text-right">Offense</span>
+                                      <div class="flex items-center bg-muted rounded-md p-0.5 border">
+                                          <TooltipProvider>
+                                             <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                   <button
+                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      :class="[
+                                                         isTeamStarter(p.id, team.id, 'offense') 
+                                                            ? 'bg-background shadow-sm text-foreground' 
+                                                            : 'text-muted-foreground hover:text-foreground',
+                                                         isStarterLocked(p.id, team.id, 'offense') && 'opacity-50 cursor-not-allowed'
+                                                      ]"
+                                                      :disabled="isStarterLocked(p.id, team.id, 'offense')"
+                                                      @click="!isTeamStarter(p.id, team.id, 'offense') && toggleStarter(team.id, p.id, 'offense')"
+                                                   >
+                                                      Starter
+                                                   </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent v-if="isStarterLocked(p.id, team.id, 'offense')">
+                                                   <p>Status is locked. Unlock to change.</p>
+                                                </TooltipContent>
+                                             </Tooltip>
+                                          </TooltipProvider>
 
-                                <!-- Defense Status -->
-                                <div class="flex items-center justify-between text-xs">
-                                   <span class="text-muted-foreground">DEF</span>
-                                   <div class="flex items-center gap-2">
-                                      <Button
-                                         size="sm"
-                                         variant="ghost"
-                                         class="h-6 px-2 text-[10px] uppercase tracking-wider border transition-colors"
-                                         :class="isTeamStarter(p.id, team.id, 'defense') 
-                                           ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30 hover:bg-yellow-500/20' 
-                                           : 'text-muted-foreground border-transparent hover:bg-muted'"
-                                         @click="toggleStarter(team.id, p.id, 'defense')"
-                                      >
-                                         {{ isTeamStarter(p.id, team.id, 'defense') ? 'Starter' : 'Bench' }}
-                                      </Button>
-                                      <Button
-                                         size="icon"
-                                         variant="ghost"
-                                         class="h-6 w-6"
-                                         :class="isStarterLocked(p.id, team.id, 'defense') ? 'text-primary' : 'text-muted-foreground/30'"
-                                         @click="toggleLock(team.id, p.id, 'defense')"
-                                         title="Lock Starter Status"
-                                      >
-                                         <Lock v-if="isStarterLocked(p.id, team.id, 'defense')" class="w-3 h-3" />
-                                         <Unlock v-else class="w-3 h-3" />
-                                      </Button>
+                                          <TooltipProvider>
+                                             <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                   <button
+                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      :class="[
+                                                         !isTeamStarter(p.id, team.id, 'offense') 
+                                                            ? 'bg-background shadow-sm text-foreground' 
+                                                            : 'text-muted-foreground hover:text-foreground',
+                                                         isStarterLocked(p.id, team.id, 'offense') && 'opacity-50 cursor-not-allowed'
+                                                      ]"
+                                                      :disabled="isStarterLocked(p.id, team.id, 'offense')"
+                                                      @click="isTeamStarter(p.id, team.id, 'offense') && toggleStarter(team.id, p.id, 'offense')"
+                                                   >
+                                                      Bench
+                                                   </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent v-if="isStarterLocked(p.id, team.id, 'offense')">
+                                                   <p>Status is locked. Unlock to change.</p>
+                                                </TooltipContent>
+                                             </Tooltip>
+                                          </TooltipProvider>
+                                      </div>
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                             <TooltipTrigger as-child>
+                                                <button
+                                                   class="h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted transition-colors ml-1"
+                                                   :class="isStarterLocked(p.id, team.id, 'offense') ? 'text-primary' : 'text-muted-foreground/30'"
+                                                   @click="toggleLock(team.id, p.id, 'offense')"
+                                                >
+                                                   <Lock v-if="isStarterLocked(p.id, team.id, 'offense')" class="w-3.5 h-3.5" />
+                                                   <Unlock v-else class="w-3.5 h-3.5" />
+                                                </button>
+                                             </TooltipTrigger>
+                                             <TooltipContent>
+                                                <p>{{ isStarterLocked(p.id, team.id, 'offense') ? 'Unlock to allow changes' : 'Lock to prevent changes' }}</p>
+                                             </TooltipContent>
+                                          </Tooltip>
+                                       </TooltipProvider>
+                                   </div>
+                                   
+                                   <!-- DEFENSE -->
+                                   <div class="flex items-center gap-2 border-l pl-6">
+                                      <span class="text-[10px] text-muted-foreground font-bold uppercase w-12 text-right">Defense</span>
+                                      <div class="flex items-center bg-muted rounded-md p-0.5 border">
+                                          <TooltipProvider>
+                                             <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                   <button
+                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      :class="[
+                                                         isTeamStarter(p.id, team.id, 'defense') 
+                                                            ? 'bg-background shadow-sm text-foreground' 
+                                                            : 'text-muted-foreground hover:text-foreground',
+                                                         isStarterLocked(p.id, team.id, 'defense') && 'opacity-50 cursor-not-allowed'
+                                                      ]"
+                                                      :disabled="isStarterLocked(p.id, team.id, 'defense')"
+                                                      @click="!isTeamStarter(p.id, team.id, 'defense') && toggleStarter(team.id, p.id, 'defense')"
+                                                   >
+                                                      Starter
+                                                   </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent v-if="isStarterLocked(p.id, team.id, 'defense')">
+                                                   <p>Status is locked. Unlock to change.</p>
+                                                </TooltipContent>
+                                             </Tooltip>
+                                          </TooltipProvider>
+
+                                          <TooltipProvider>
+                                             <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                   <button
+                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      :class="[
+                                                         !isTeamStarter(p.id, team.id, 'defense') 
+                                                            ? 'bg-background shadow-sm text-foreground' 
+                                                            : 'text-muted-foreground hover:text-foreground',
+                                                         isStarterLocked(p.id, team.id, 'defense') && 'opacity-50 cursor-not-allowed'
+                                                      ]"
+                                                      :disabled="isStarterLocked(p.id, team.id, 'defense')"
+                                                      @click="isTeamStarter(p.id, team.id, 'defense') && toggleStarter(team.id, p.id, 'defense')"
+                                                   >
+                                                      Bench
+                                                   </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent v-if="isStarterLocked(p.id, team.id, 'defense')">
+                                                   <p>Status is locked. Unlock to change.</p>
+                                                </TooltipContent>
+                                             </Tooltip>
+                                          </TooltipProvider>
+                                      </div>
+                                      <TooltipProvider>
+                                          <Tooltip>
+                                             <TooltipTrigger as-child>
+                                                <button
+                                                   class="h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted transition-colors ml-1"
+                                                   :class="isStarterLocked(p.id, team.id, 'defense') ? 'text-primary' : 'text-muted-foreground/30'"
+                                                   @click="toggleLock(team.id, p.id, 'defense')"
+                                                >
+                                                   <Lock v-if="isStarterLocked(p.id, team.id, 'defense')" class="w-3.5 h-3.5" />
+                                                   <Unlock v-else class="w-3.5 h-3.5" />
+                                                </button>
+                                             </TooltipTrigger>
+                                             <TooltipContent>
+                                                <p>{{ isStarterLocked(p.id, team.id, 'defense') ? 'Unlock to allow changes' : 'Lock to prevent changes' }}</p>
+                                             </TooltipContent>
+                                          </Tooltip>
+                                       </TooltipProvider>
                                    </div>
                                 </div>
                              </div>
@@ -597,7 +753,7 @@
                         </div>
                         <div class="space-y-5">
                           <div v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
-                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">{{ group.label }}</span>
+                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div v-for="attr in group.attrs" :key="attr.key" class="space-y-1">
                                 <label class="text-[10px] text-muted-foreground uppercase font-medium block truncate" :title="attr.label">{{ attr.label }}</label>
@@ -629,7 +785,7 @@
                         </div>
                         <div class="space-y-5">
                           <div v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
-                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-1">{{ group.label }}</span>
+                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div v-for="attr in group.attrs" :key="attr.key" class="space-y-1">
                                 <label class="text-[10px] text-muted-foreground uppercase font-medium block truncate" :title="attr.label">{{ attr.label }}</label>
@@ -699,6 +855,7 @@ import { Badge } from '~/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
 import { Checkbox } from '~/components/ui/checkbox'
+import { onClickOutside } from '@vueuse/core'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Input } from '~/components/ui/input'
 import {
@@ -722,13 +879,16 @@ import {
   Loader2,
   Download,
   Filter,
+  Check,
 } from 'lucide-vue-next'
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 
 const SLOT_COLORS = ['#f97316', '#22c55e', '#a855f7']
 const ALL_POSITIONS = ['QB', 'WR', 'C', 'DB', 'RSH', 'MLB']
 
 const { players, loading, fetchPlayers, createPlayer, updatePlayer, deletePlayer, teamScore } = usePlayers()
-const { teams, fetchTeams, createTeam, addPlayerToTeam, removePlayerFromTeam, autoAssignTeamStarters, resetTeamStarters, updateTeamPlayer } = useTeams()
+const { teams, fetchTeams, createTeam, addPlayerToTeam, removePlayerFromTeam, removePlayerFromTeamByPlayerId, autoAssignTeamStarters, resetTeamStarters, updateTeamPlayer } = useTeams()
 const { exportPlayers } = usePlayerExport()
 const { confirm } = useConfirm()
 
@@ -769,8 +929,8 @@ function generateRandomPlayer() {
   if (Math.random() > 0.6) defense_positions.push(getRandomItem(availDef))
   
 
-  const offAttrs = OFFENSE_ATTRIBUTE_GROUPS.flatMap(g => g.attrs).reduce((acc: Record<string, number>, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {} as Record<string, number>)
-  const defAttrs = DEFENSE_ATTRIBUTE_GROUPS.flatMap(g => g.attrs).reduce((acc: Record<string, number>, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {} as Record<string, number>)
+  const offAttrs = (OFFENSE_ATTRIBUTE_GROUPS as any).flatMap((g: any) => g.attrs).reduce((acc: Record<string, number>, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {} as Record<string, number>)
+  const defAttrs = (DEFENSE_ATTRIBUTE_GROUPS as any).flatMap((g: any) => g.attrs).reduce((acc: Record<string, number>, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {} as Record<string, number>)
   
   return {
     name,
@@ -780,8 +940,8 @@ function generateRandomPlayer() {
     offense_positions: [...new Set(offense_positions)],
     defense_positions: [...new Set(defense_positions)],
     universal_attributes: { ...UNIVERSAL_ATTRIBUTE_GROUP.attrs.reduce((acc, a) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {} as Record<string, number>) },
-    offense_attributes: offAttrs,
-    defense_attributes: defAttrs,
+    offense_attributes: offAttrs as any,
+    defense_attributes: defAttrs as any,
     team_ids: []
   }
 }
@@ -813,6 +973,14 @@ const savingInline = ref(false)
 // Inline editing state
 const expandedPlayerId = ref<string | null>(null)
 const isEditing = ref(false)
+
+// Custom Dropdown State
+const teamDropdownRef = ref(null)
+const teamDropdownOpen = ref(false)
+onClickOutside(teamDropdownRef, () => {
+   teamDropdownOpen.value = false
+})
+
 const inlineEdits = ref<{
   universal: Record<string, number>
   offense: Record<string, number>
@@ -920,11 +1088,13 @@ async function saveInlineEdit() {
     if (editingPlayerSnapshot.value) {
       const original = new Set(editingPlayerSnapshot.value.team_ids)
       const current = new Set(inlineEdits.value.team_ids)
+      const freeAgentTeam = teams.value.find(t => t.name === 'Free Agent')
 
       // Removed teams
       for (const tid of original) {
         if (!current.has(tid)) {
-          await removePlayerFromTeam(tid, expandedPlayerId.value)
+          // Fix: Use removing by player ID
+          await removePlayerFromTeamByPlayerId(tid, expandedPlayerId.value)
         }
       }
       // Added teams
@@ -933,9 +1103,40 @@ async function saveInlineEdit() {
           await addPlayerToTeam(tid, expandedPlayerId.value, 'QB', 'DB')
         }
       }
+
+      // 3. Free Agent Logic
+      if (freeAgentTeam) {
+        // If no teams selected, ensure they are in Free Agent team
+        if (current.size === 0) {
+           // Check if already in FA team (might not be in original snapshot if it was empty)
+           // But safe to just try adding or checking
+           const isFa = getPlayerTeams(expandedPlayerId.value).some(t => t.id === freeAgentTeam.id)
+           if (!isFa) {
+              await addPlayerToTeam(freeAgentTeam.id, expandedPlayerId.value, 'QB', 'DB')
+           }
+        } 
+        // If teams ARE selected, ensure they are NOT in Free Agent team
+        else if (current.size > 0) {
+           const isFa = getPlayerTeams(expandedPlayerId.value).some(t => t.id === freeAgentTeam.id)
+           if (isFa) {
+              await removePlayerFromTeamByPlayerId(freeAgentTeam.id, expandedPlayerId.value)
+           }
+        }
+      }
     }
 
+    // Refresh data to show team changes in table
+    await fetchPlayers()
+    await fetchTeams()
+
     isEditing.value = false
+    // We don't need to update snapshot manually if we refetch, but good for safety
+    // However, since we refetch, toggleExpand logic might reset things if we close/open
+    // But we are staying expanded.
+    
+    // Re-initialize snapshot from new data? 
+    // Actually, after fetchPlayers, the `expandedPlayerId` is still set, but `inlineEdits` might be stale?
+    // Let's just update snapshot to matches what we just saved
     editingPlayerSnapshot.value = JSON.parse(JSON.stringify(inlineEdits.value))
 
   } catch (e) {
@@ -1181,10 +1382,15 @@ async function toggleStarter(teamId: string, playerId: string, side: 'offense' |
   if (!tp) return
 
   const isStarter = side === 'offense' ? tp.offense_starter : tp.defense_starter
+  const isLocked = side === 'offense' ? tp.offense_starter_locked : tp.defense_starter_locked
+  
+  // If locked, do not allow manual toggle
+  if (isLocked) return
+
   const updates: any = {
     [side === 'offense' ? 'offense_starter' : 'defense_starter']: !isStarter,
-    // Auto-lock when manually toggled
-    [side === 'offense' ? 'offense_starter_locked' : 'defense_starter_locked']: true
+    // Ensure lock is removed by default when status is manually changed
+    [side === 'offense' ? 'offense_starter_locked' : 'defense_starter_locked']: false
   }
   
   await updateTeamPlayer(tp.id, updates)

@@ -62,25 +62,29 @@
     <nav class="sidebar-nav">
       <template v-for="(group, index) in navGroups" :key="index">
         <div v-if="!collapsed && (group.label || group.badge)" class="sidebar-group-label flex items-center gap-2">
-          <span>{{ group.label }}</span>
+          <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
           <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
         </div>
-        <TooltipProvider v-for="item in group.items" :key="item.to" :delay-duration="0">
+        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="item.to" :delay-duration="0">
           <Tooltip>
             <TooltipTrigger as-child>
               <NuxtLink
-                :to="item.to"
+                :to="item.disabled ? '' : item.to"
                 class="sidebar-nav-item"
-                :class="{ active: isActive(item.to) }"
+                :class="{ 
+                  active: isActive(item.to),
+                  'opacity-50 pointer-events-none grayscale': item.disabled
+                }"
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
+                <span v-if="item.devOnly" class="ml-auto text-[9px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </NuxtLink>
             </TooltipTrigger>
             <TooltipContent side="right" :side-offset="10" v-if="collapsed">
-              {{ item.label }}
+              {{ item.label }} <span v-if="item.disabled">(Coming Soon)</span>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -203,7 +207,24 @@ const avatarInitial = computed(() => {
   return (displayName.value || emailAddress.value).charAt(0).toUpperCase() || '?'
 })
 
-const navGroups = [
+const isDev = import.meta.dev
+
+interface NavItem {
+  to: string
+  label: string
+  icon: any
+  badge?: string
+  disabled?: boolean
+  devOnly?: boolean
+}
+
+interface NavGroup {
+  label: string
+  badge?: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
   {
     label: '',
     items: [
@@ -211,21 +232,20 @@ const navGroups = [
     ]
   },
   {
-    label: 'Platform',
+    label: 'Locker Room',
     items: [
       { to: '/playbooks', label: 'Playbooks', icon: BookOpen },
       { to: '/plays', label: 'All Plays', icon: Swords },
-      { to: '/lockerroom', label: 'Locker Room', icon: Users },
-      { to: '/teams', label: 'Teams', icon: Shield },
+      { to: '/squad', label: 'Squad', icon: Users }
     ]
   },
   {
     label: 'blur.ai',
     badge: 'Coming Soon',
     items: [
-      { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2 },
-      { to: '/simulation/test', label: 'Test Your Play', icon: Play },
-      { to: '/simulation/scenario', label: 'Scenarios', icon: FlaskConical },
+      { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true },
+      { to: '/simulation/test', label: 'Test Your Play', icon: Play, disabled: true },
+      { to: '/simulation/scenario', label: 'Scenarios', icon: FlaskConical, disabled: true },
     ]
   }
 ]
@@ -298,9 +318,37 @@ async function handleLogout() {
 }
 
 .collapsed .sidebar-header {
+  padding: 16px 0;
   justify-content: center;
-  padding: 16px 14px 8px;
 }
+
+/* ── AI Gradient Text ──────────────────────────────────────────── */
+@keyframes ai-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ai-gradient-text {
+  background: linear-gradient(
+    to right,
+    #3b82f6,
+    #6366f1,
+    #8b5cf6,
+    #d946ef,
+    #ec4899,
+    #6366f1,
+    #3b82f6
+  );
+  background-size: 400% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ai-gradient 8s ease-in-out infinite;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 
 .sidebar-logo {
   display: flex;
