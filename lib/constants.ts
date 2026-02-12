@@ -196,9 +196,10 @@ export const DEFENSE_DESIGNATIONS = ['RSH', 'DB'] as const
 
 
 export function getDefaultFormation(
-  side: 'offense' | 'defense', 
-  starters?: Player[], 
-  options?: { los: number, length: number, endzone: number }
+  side: 'offense' | 'defense',
+  starters?: Player[],
+  options?: { los: number, length: number, endzone: number },
+  positionMap?: Record<string, string>,
 ): CanvasData {
   const s = options || DEFAULT_FIELD_SETTINGS
   const los = (s as any).los ?? (s as any).line_of_scrimmage
@@ -243,11 +244,18 @@ export function getDefaultFormation(
     let starter: Player | undefined
 
     if (starterPool.length > 0) {
-      // Try to find a starter with matching position
-      const matchIndex = starterPool.findIndex(p => {
-        const positions = side === 'offense' ? p.offense_positions : p.defense_positions
-        return (positions as string[])?.includes(slot.position)
-      })
+      // Try to find a starter whose team-assigned position matches this slot
+      let matchIndex = -1
+      if (positionMap) {
+        matchIndex = starterPool.findIndex(p => positionMap[p.id] === slot.position)
+      }
+      // Fallback: match by player's capability list
+      if (matchIndex === -1) {
+        matchIndex = starterPool.findIndex(p => {
+          const positions = side === 'offense' ? p.offense_positions : p.defense_positions
+          return (positions as string[])?.includes(slot.position)
+        })
+      }
 
       if (matchIndex !== -1) {
         starter = starterPool[matchIndex]
@@ -257,19 +265,30 @@ export function getDefaultFormation(
         starter = starterPool.shift()
       }
     }
-    
+
     // Calculate Y
     // Offense (Bottom) "Back" means +Y (Higher value, lower on screen)
     // Defense (Top) "Back" means -Y (Lower value, higher on screen)
-    
+
     const yPos = losY + (slot.yOffset * oneYard)
-    
+
+    // Use team-assigned position if available, otherwise player's capability list, otherwise slot default
+    let assignedPosition = slot.position
+    if (starter) {
+      if (positionMap?.[starter.id]) {
+        assignedPosition = positionMap[starter.id]
+      } else {
+        const positions = side === 'offense' ? starter.offense_positions : starter.defense_positions
+        assignedPosition = positions?.[0] ?? slot.position
+      }
+    }
+
     players.push({
       id: `p${Date.now() + index}`,
       x: slot.x,
       y: yPos,
-      position: starter ? ((side === 'offense' ? starter.offense_positions?.[0] : starter.defense_positions?.[0]) ?? slot.position) : slot.position,
-      designation: slot.position, // Default designation to position
+      position: assignedPosition,
+      designation: assignedPosition,
       side: side,
       route: null,
       motionPath: null,

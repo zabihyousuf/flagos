@@ -1,15 +1,12 @@
 <template>
-  <div class="w-64 bg-card/95 backdrop-blur shadow-xl rounded-lg overflow-hidden border border-border flex flex-col max-h-[50vh]">
-    <!-- Header / Drag Handle -->
-    <div 
-      class="h-8 bg-muted/50 border-b border-border flex items-center justify-between px-3 cursor-move hover:bg-muted/80 transition-colors shrink-0"
-      @mousedown="$emit('start-drag', $event)"
-    >
-      <span class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Roster</span>
-      <span class="text-[9px] font-mono text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded">{{ players.length }}/5</span>
+  <div class="w-full h-full bg-card border-r border-border flex flex-col overflow-hidden">
+    <!-- Panel Header -->
+    <div class="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
+      <span class="text-xs font-semibold text-foreground">Roster</span>
+      <span class="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/5</span>
     </div>
 
-    <div class="p-2 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-0">
+    <div class="p-2 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-0 flex-1">
       <!-- On Field -->
       <div v-if="players.length > 0" class="space-y-1">
         <p class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-1">On Field</p>
@@ -82,7 +79,6 @@ const emit = defineEmits<{
   'select-player': [id: string]
   'remove-player': [playerId: string]
   'add-player': [player: Player]
-  'start-drag': [event: MouseEvent]
 }>()
 
 function posColor(pos: string) {
@@ -122,10 +118,10 @@ function handleBenchClick(player: Player) {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: hsl(var(--border));
   border-radius: 2px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: hsl(var(--muted-foreground));
 }
 </style>

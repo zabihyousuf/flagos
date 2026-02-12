@@ -1,5 +1,5 @@
 import type { CanvasData, CanvasPlayer, CanvasTool } from '~/lib/types'
-import { computeFieldRect } from '~/composables/useCanvasRenderer'
+import { computeFieldRect, computeViewTransform } from '~/composables/useCanvasRenderer'
 
 interface InteractionOptions {
   canvasData: Ref<CanvasData>
@@ -9,6 +9,7 @@ interface InteractionOptions {
   zoom: Ref<number>
   panOffset: Ref<{ x: number; y: number }>
   fieldSettings: Ref<{ field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }>
+  viewMode?: Ref<'fit' | 'full'>
   onSelectPlayer: (id: string | null) => void
   onMovePlayer: (id: string, x: number, y: number) => void
   onStartSegment: (playerId: string, x: number, y: number) => void
@@ -48,11 +49,27 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     const fieldRect = getFieldRect()
     if (!fieldRect) return null
 
+    const dpr = window.devicePixelRatio || 1
+    const logicalW = canvas.width / dpr
+    const logicalH = canvas.height / dpr
+    const fs = options.fieldSettings.value
+
+    const view = computeViewTransform(logicalW, logicalH, fieldRect, {
+      fieldLength: fs.field_length,
+      endzoneSize: fs.endzone_size,
+      lineOfScrimmage: fs.line_of_scrimmage,
+      viewMode: options.viewMode?.value,
+    })
+
+    const effectiveZoom = view.zoom * options.zoom.value
+    const effectivePanX = view.panX + options.panOffset.value.x
+    const effectivePanY = view.panY + options.panOffset.value.y
+
     const mx = e.clientX - rect.left
     const my = e.clientY - rect.top
 
-    const cx = (mx - options.panOffset.value.x) / options.zoom.value
-    const cy = (my - options.panOffset.value.y) / options.zoom.value
+    const cx = (mx - effectivePanX) / effectiveZoom
+    const cy = (my - effectivePanY) / effectiveZoom
 
     const fx = (cx - fieldRect.offsetX) / fieldRect.fieldW
     const fy = (cy - fieldRect.offsetY) / fieldRect.fieldH

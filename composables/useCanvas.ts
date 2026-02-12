@@ -216,11 +216,12 @@ export function useCanvas() {
   }
 
   function resetFormation(
-    side: 'offense' | 'defense', 
+    side: 'offense' | 'defense',
     starters?: Player[],
-    settings?: { los: number, length: number, endzone: number }
+    settings?: { los: number, length: number, endzone: number },
+    positionMap?: Record<string, string>,
   ) {
-    canvasData.value = getDefaultFormation(side, starters, settings)
+    canvasData.value = getDefaultFormation(side, starters, settings, positionMap)
     nextReadOrder.value = 1
     isDirty.value = true
   }

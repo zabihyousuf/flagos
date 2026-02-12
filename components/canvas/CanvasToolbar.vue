@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center gap-1.5 px-3 py-2 bg-background/80 backdrop-blur-lg rounded-xl border border-border/50 shadow-lg">
+  <div class="flex items-center gap-1">
     <!-- Select tool -->
     <TooltipProvider>
       <Tooltip>
@@ -13,7 +13,7 @@
             <MousePointer2 class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top"><p>Select & Move</p></TooltipContent>
+        <TooltipContent side="bottom"><p>Select & Move</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -32,7 +32,7 @@
             <component :is="tool.icon" class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top"><p>{{ tool.label }}</p></TooltipContent>
+        <TooltipContent side="bottom"><p>{{ tool.label }}</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -51,7 +51,7 @@
             <Move class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top"><p>QB Rollout / Motion</p></TooltipContent>
+        <TooltipContent side="bottom"><p>QB Rollout / Motion</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -68,7 +68,7 @@
             <ListOrdered class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top"><p>Read Progression (1, 2, 3…)</p></TooltipContent>
+        <TooltipContent side="bottom"><p>Read Progression (1, 2, 3…)</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -85,31 +85,33 @@
             <Eraser class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top"><p>Erase Route</p></TooltipContent>
+        <TooltipContent side="bottom"><p>Erase Route</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
 
-    <!-- Quick actions -->
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <Button size="icon" variant="ghost" class="h-8 w-8 text-primary" @click="handleAiClick">
-            <Sparkles class="w-3.5 h-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top"><p>AI Tools</p></TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <!-- AI Tools -->
+    <div class="relative">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button size="icon" variant="ghost" class="h-8 w-8 text-primary" @click="handleAiClick">
+              <Sparkles class="w-3.5 h-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom"><p>AI Tools</p></TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
-    <div v-if="showAiMenu" class="absolute bottom-12 right-20 w-48 bg-popover rounded-md border shadow-md p-1 flex flex-col gap-0.5 z-50">
-      <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" @click="$emit('ai-action', 'random-play'); showAiMenu = false">
-        <Shuffle class="w-3 h-3 mr-2" /> Random Play
-      </Button>
-      <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" disabled>
-        <Wand2 class="w-3 h-3 mr-2" /> Suggest Concept
-      </Button>
+      <div v-if="showAiMenu" class="absolute top-10 left-0 w-48 bg-popover rounded-md border shadow-md p-1 flex flex-col gap-0.5 z-50">
+        <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" @click="$emit('ai-action', 'random-play'); showAiMenu = false">
+          <Shuffle class="w-3 h-3 mr-2" /> Random Play
+        </Button>
+        <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" disabled>
+          <Wand2 class="w-3 h-3 mr-2" /> Suggest Concept
+        </Button>
+      </div>
     </div>
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
@@ -121,23 +123,9 @@
             <RotateCcw class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="top"><p>Clear all routes</p></TooltipContent>
+        <TooltipContent side="bottom"><p>Clear all routes</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
-
-    <div class="w-2" />
-
-    <!-- Save -->
-    <Button
-      size="sm"
-      class="h-8 px-3"
-      variant="outline"
-      @click="$emit('save')"
-      :disabled="!isDirty"
-    >
-      <Check class="w-3.5 h-3.5 mr-1" />
-      Save
-    </Button>
   </div>
 </template>
 
@@ -155,21 +143,18 @@ import {
   ListOrdered,
   Eraser,
   RotateCcw,
-  Check,
   Sparkles,
-  Shuffle,  
+  Shuffle,
   Wand2
 } from 'lucide-vue-next'
 
 const props = defineProps<{
   selectedTool: CanvasTool
-  isDirty: boolean
 }>()
 
 defineEmits<{
   'select-tool': [tool: CanvasTool]
   'clear-routes': []
-  'save': []
   'ai-action': [action: string]
 }>()
 

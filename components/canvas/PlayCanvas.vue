@@ -1,64 +1,12 @@
 <template>
-  <div class="relative w-full h-full overflow-hidden bg-[#1a1e2e]">
-    <!-- Canvas Background -->
-    <div class="absolute inset-0 z-0">
-      <canvas
-        ref="canvasRef"
-        class="w-full h-full"
-        :class="canvasCursor"
-        @dragover.prevent
-        @drop="handleDrop"
-      />
-    </div>
-
-    <!-- Draggable Player Details Card -->
-    <div 
-      v-if="selectedPlayer"
-      class="absolute z-10"
-      :style="{ left: `${playerCardPos.x}px`, top: `${playerCardPos.y}px` }"
-    >
-      <CanvasPlayerCard
-        :selected-player="selectedPlayer"
-        :all-roster="allRoster"
-        :field-settings="fieldSettings"
-        :play-type="playType"
-        @update-designation="setPlayerDesignation"
-        @update-attribute="updatePlayerAttribute"
-        @clear-route="clearRoute"
-        @start-drag="dragPlayerCard"
-      />
-    </div>
-
-    <!-- Draggable Roster Card -->
-    <div 
-      class="absolute z-10"
-      :style="{ left: `${rosterCardPos.x}px`, top: `${rosterCardPos.y}px` }"
-    >
-      <CanvasRosterCard
-        :players="canvasData.players"
-        :selected-player-id="selectedPlayerId"
-        :all-roster="allRoster"
-        :play-type="playType"
-        @select-player="selectPlayer"
-        @remove-player="removePlayerFromField"
-        @add-player="addPlayerToField"
-        @start-drag="dragRosterCard"
-      />
-    </div>
-
-    <!-- Bottom Toolbar (Fixed) -->
-    <div 
-      class="absolute bottom-6 left-1/2 -translate-x-1/2 z-20"
-    >
-      <CanvasToolbar
-        :selected-tool="selectedTool"
-        :is-dirty="isDirty"
-        @select-tool="setTool"
-        @clear-routes="clearAllRoutes"
-        @save="handleSave"
-        @ai-action="handleAiAction"
-      />
-    </div>
+  <div class="relative w-full h-full overflow-hidden bg-background">
+    <canvas
+      ref="canvasRef"
+      class="w-full h-full"
+      :class="canvasCursor"
+      @dragover.prevent
+      @drop="handleDrop"
+    />
   </div>
 </template>
 
@@ -78,6 +26,8 @@ const props = defineProps<{
   }
   starters?: Player[]
   allRoster?: Player[]
+  starterPositionMap?: Record<string, string>
+  viewMode?: 'fit' | 'full'
 }>()
 
 const emit = defineEmits<{
@@ -85,70 +35,6 @@ const emit = defineEmits<{
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-
-// Draggable State
-import { useDraggableElement } from '~/composables/useDraggableElement'
-import CanvasPlayerCard from './CanvasPlayerCard.vue'
-import CanvasRosterCard from './CanvasRosterCard.vue'
-
-const { position: playerCardPos, startDrag: dragPlayerCard } = useDraggableElement({ x: 0, y: 0 })
-const { position: rosterCardPos, startDrag: dragRosterCard } = useDraggableElement({ x: 0, y: 0 })
-const { position: toolbarPos, startDrag: dragToolbar } = useDraggableElement({ x: 0, y: 0 })
-
-onMounted(() => {
-  nextTick(() => {
-    resizeCanvas()
-    setupListeners()
-
-    // Set initial positions relative to the canvas container
-    if (canvasRef.value && canvasRef.value.parentElement) {
-      const parent = canvasRef.value.parentElement
-      const width = parent.clientWidth
-      const height = parent.clientHeight
-
-      // Right-aligned Player Card
-      // Approx 320px width + padding
-      playerCardPos.value = { 
-        x: width - 350, 
-        y: 80 
-      }
-      
-      // Left-aligned Roster Card
-      // Positioned below the header
-      rosterCardPos.value = { 
-        x: 20, 
-        y: 80 
-      }
-      
-      // Center toolbar (Fixed via CSS now, no need for JS coord)
-      // toolbarPos.value = { ... }
-    }
-
-    resizeObserver = new ResizeObserver(() => {
-      resizeCanvas()
-    })
-    if (canvasRef.value?.parentElement) {
-      resizeObserver.observe(canvasRef.value.parentElement)
-    }
-
-
-    // NEW: If new play (no initialData), enforce formation with current field settings
-    if (!props.initialData) {
-      resetFormation(props.playType, props.starters, {
-        los: fieldSettings.value.line_of_scrimmage,
-        length: fieldSettings.value.field_length,
-        endzone: fieldSettings.value.endzone_size,
-      })
-    }
-
-    resizeObserver = new ResizeObserver(() => {
-      resizeCanvas()
-    })
-    if (canvasRef.value?.parentElement) {
-      resizeObserver.observe(canvasRef.value.parentElement)
-    }
-  })
-})
 
 const {
   canvasData,
@@ -208,8 +94,11 @@ function requestRender() {
     zoom: zoom.value,
     panOffset: panOffset.value,
     selectedPlayerId: selectedPlayerId.value,
+    viewMode: props.viewMode ?? 'fit',
   })
 }
+
+const viewModeRef = computed(() => props.viewMode ?? 'fit')
 
 const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   canvasData,
@@ -219,6 +108,7 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   zoom,
   panOffset,
   fieldSettings,
+  viewMode: viewModeRef,
   onSelectPlayer: selectPlayer,
   onMovePlayer: updatePlayerPosition,
   onStartSegment: startRouteSegment,
@@ -237,7 +127,6 @@ function handleSave() {
 
 function handleAiAction(action: string) {
   if (action === 'random-play') {
-    // Generate random routes for all players
     canvasData.value.players.forEach(p => {
       const route = generateRandomRoute(p, fieldSettings.value)
       if (route) {
@@ -251,9 +140,11 @@ function handleAiAction(action: string) {
 
 function addPlayerToField(player: Player) {
   if (canvasData.value.players.length >= 5) return
+  // Use team-assigned position if available, otherwise fall back to player's first listed position
+  const assigned = props.starterPositionMap?.[player.id]
   const posField = props.playType === 'offense' ? 'offense_positions' : 'defense_positions'
-  const position = (player[posField] as string[])?.[0] ?? 'WR'
-  
+  const position = assigned ?? (player[posField] as string[])?.[0] ?? 'WR'
+
   addPlayerToCanvasData(player, position, props.playType, {
     los: fieldSettings.value.line_of_scrimmage,
     length: fieldSettings.value.field_length,
@@ -292,7 +183,7 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode], () => {
   requestRender()
 }, { deep: true })
 
@@ -304,10 +195,57 @@ watch(() => props.initialData, (data) => {
 
 let resizeObserver: ResizeObserver | null = null
 
+onMounted(() => {
+  nextTick(() => {
+    resizeCanvas()
+    setupListeners()
 
+    resizeObserver = new ResizeObserver(() => {
+      resizeCanvas()
+    })
+    if (canvasRef.value?.parentElement) {
+      resizeObserver.observe(canvasRef.value.parentElement)
+    }
+
+    // If new play (no initialData), enforce formation with current field settings
+    if (!props.initialData) {
+      resetFormation(props.playType, props.starters, {
+        los: fieldSettings.value.line_of_scrimmage,
+        length: fieldSettings.value.field_length,
+        endzone: fieldSettings.value.endzone_size,
+      }, props.starterPositionMap)
+    }
+  })
+})
 
 onUnmounted(() => {
   removeListeners()
   resizeObserver?.disconnect()
+})
+
+// Expose state and methods for parent page to wire to side panels
+defineExpose({
+  canvasData,
+  selectedPlayer,
+  selectedPlayerId,
+  selectedTool,
+  isDirty,
+  zoom,
+  panOffset,
+  selectPlayer,
+  setTool,
+  clearRoute,
+  clearAllRoutes,
+  setPlayerDesignation,
+  updatePlayerAttribute,
+  addPlayerToField,
+  removePlayerFromField,
+  getExportData,
+  resetFormation,
+  requestRender,
+  handleSave,
+  handleAiAction,
+  fieldSettings,
+  allRoster,
 })
 </script>

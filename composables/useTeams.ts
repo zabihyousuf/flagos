@@ -25,7 +25,7 @@ const OFF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
   ],
   C: [
     { key: 'snapping', weight: 4 }, { key: 'snap_accuracy', weight: 3 }, { key: 'football_iq', weight: 2 },
-    { key: 'weight', weight: 2 },
+    { key: 'agility', weight: 2 }, { key: 'speed', weight: 2 }, { key: 'catching', weight: 1.5 },
   ],
 }
 
@@ -46,7 +46,7 @@ const DEF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
   RSH: [
     { key: 'rush', weight: 4 }, { key: 'rush_moves', weight: 4 },
     { key: 'timing', weight: 3 }, { key: 'agility', weight: 2 },
-    { key: 'height', weight: 1 },
+    { key: 'height', weight: 1 }, { key: 'speed', weight: 2 },
   ],
   MLB: [
     { key: 'play_recognition', weight: 4 }, { key: 'field_awareness', weight: 4 },

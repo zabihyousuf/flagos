@@ -3,7 +3,7 @@
     <Transition name="sheet">
       <div v-if="open" class="fixed inset-0 z-50 flex flex-col bg-background">
         <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur-sm">
+        <div class="flex-none flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur-sm">
           <div>
             <h2 class="text-lg font-semibold font-display">Add Players</h2>
             <p class="text-sm text-muted-foreground mt-0.5">Add multiple players with full attribute control. Defaults to 5 for all attributes.</p>
@@ -41,7 +41,7 @@
         <!-- Main content -->
         <template v-else>
           <!-- Tabs -->
-          <div class="px-6 pt-3 pb-0 flex items-center gap-4 border-b">
+          <div class="flex-none px-6 pt-3 pb-0 flex items-center gap-4 border-b">
             <button
               class="px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px"
               :class="activeTab === 'quick' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
@@ -73,8 +73,9 @@
           </div>
 
           <!-- Quick Add Tab -->
-          <div v-if="activeTab === 'quick'" class="flex-1 overflow-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent border rounded-md">
+          <div v-if="activeTab === 'quick'" class="flex-1 min-h-0 overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent border rounded-md mx-6 mb-6">
             <table class="relative w-full text-sm border-collapse min-w-[1800px]">
+              <!-- content unchanged, replacing wrapper only in effect, but need to match range -->
               <thead class="sticky top-0 z-20 bg-background">
                 <!-- Column headers -->
                 <tr class="border-b">
@@ -435,6 +436,7 @@
                   </tbody>
                 </table>
               </div>
+
             </template>
           </div>
         </template>
@@ -689,19 +691,19 @@ async function handleImport() {
 
   importing.value = true
   try {
-    const result = await bulkCreatePlayers(toImport)
+    const result = await bulkCreatePlayers(toImport) // Now returns { created: { player, index }[], ... }
     importResult.value = {
       created: result.created.length,
       failed: result.errors.length,
       errors: result.errors,
     }
     if (result.created.length > 0) {
-      // Process sequentially to avoid heavy DB load/race conditions
-      for (let i = 0; i < result.created.length; i++) {
-        const player = result.created[i]
-        const row = validRows.value[i]
+      // Process using the returned index to map back to validRows
+      for (const item of result.created) {
+        const player = item.player
+        const row = validRows.value[item.index] 
 
-        if (row.team_id && row.team_id !== 'unassigned') {
+        if (row && row.team_id && row.team_id !== 'unassigned') {
           await addPlayerToTeam(
             row.team_id,
             player.id,

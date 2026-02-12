@@ -493,7 +493,107 @@
                              </div>
                           </div>
 
-                          <!-- Team Selection -->
+                          <!-- Offense Positions -->
+                          <div class="space-y-1.5 w-40 shrink-0">
+                             <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Offense Pos</label>
+                             
+                             <div v-if="isEditing" class="relative" ref="offPosDropdownRef">
+                                <Button 
+                                   variant="outline" 
+                                   class="w-full justify-between h-9 text-left font-normal px-2"
+                                   :class="!inlineEdits.offense_positions.length && 'text-muted-foreground'"
+                                   @click="offPosDropdownOpen = !offPosDropdownOpen"
+                                >
+                                   <span class="truncate text-xs">
+                                      {{ inlineEdits.offense_positions.length > 0 
+                                         ? inlineEdits.offense_positions.join(', ') 
+                                         : 'Select...' }}
+                                   </span>
+                                   <ChevronDown class="w-3 h-3 opacity-50" />
+                                </Button>
+                                
+                                <div v-if="offPosDropdownOpen" class="absolute z-50 w-full mt-1 bg-popover text-popover-foreground rounded-md border shadow-md max-h-60 overflow-y-auto p-1">
+                                   <div 
+                                      v-for="pos in OFFENSE_POSITIONS" 
+                                      :key="pos" 
+                                      class="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm cursor-pointer"
+                                      @click.stop="() => {
+                                         if (inlineEdits!.offense_positions.includes(pos)) {
+                                            inlineEdits!.offense_positions = inlineEdits!.offense_positions.filter(p => p !== pos)
+                                         } else {
+                                            inlineEdits!.offense_positions.push(pos)
+                                         }
+                                      }"
+                                   >
+                                      <div 
+                                         class="h-3.5 w-3.5 shrink-0 rounded-sm border border-primary flex items-center justify-center transition-colors shadow-sm"
+                                         :class="inlineEdits!.offense_positions.includes(pos) ? 'bg-primary text-primary-foreground' : 'bg-transparent'"
+                                      >
+                                         <Check v-if="inlineEdits!.offense_positions.includes(pos)" class="h-2.5 w-2.5" />
+                                      </div>
+                                      <span class="text-xs">{{ pos }}</span>
+                                   </div>
+                                </div>
+                             </div>
+
+                             <div v-else class="flex flex-wrap gap-1 min-h-[36px] items-center">
+                                <Badge v-for="pos in p.offense_positions" :key="pos" variant="secondary" class="text-[10px] h-5 px-1.5 pointer-events-none">
+                                   {{ pos }}
+                                </Badge>
+                                <span v-if="!p.offense_positions.length" class="text-xs text-muted-foreground italic">-</span>
+                             </div>
+                          </div>
+
+                          <!-- Defense Positions -->
+                          <div class="space-y-1.5 w-40 shrink-0">
+                             <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Defense Pos</label>
+                             
+                             <div v-if="isEditing" class="relative" ref="defPosDropdownRef">
+                                <Button 
+                                   variant="outline" 
+                                   class="w-full justify-between h-9 text-left font-normal px-2"
+                                   :class="!inlineEdits.defense_positions.length && 'text-muted-foreground'"
+                                   @click="defPosDropdownOpen = !defPosDropdownOpen"
+                                >
+                                   <span class="truncate text-xs">
+                                      {{ inlineEdits.defense_positions.length > 0 
+                                         ? inlineEdits.defense_positions.join(', ') 
+                                         : 'Select...' }}
+                                   </span>
+                                   <ChevronDown class="w-3 h-3 opacity-50" />
+                                </Button>
+                                
+                                <div v-if="defPosDropdownOpen" class="absolute z-50 w-full mt-1 bg-popover text-popover-foreground rounded-md border shadow-md max-h-60 overflow-y-auto p-1">
+                                   <div 
+                                      v-for="pos in DEFENSE_POSITIONS" 
+                                      :key="pos" 
+                                      class="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm cursor-pointer"
+                                      @click.stop="() => {
+                                         if (inlineEdits!.defense_positions.includes(pos)) {
+                                            inlineEdits!.defense_positions = inlineEdits!.defense_positions.filter(p => p !== pos)
+                                         } else {
+                                            inlineEdits!.defense_positions.push(pos)
+                                         }
+                                      }"
+                                   >
+                                      <div 
+                                         class="h-3.5 w-3.5 shrink-0 rounded-sm border border-primary flex items-center justify-center transition-colors shadow-sm"
+                                         :class="inlineEdits!.defense_positions.includes(pos) ? 'bg-primary text-primary-foreground' : 'bg-transparent'"
+                                      >
+                                         <Check v-if="inlineEdits!.defense_positions.includes(pos)" class="h-2.5 w-2.5" />
+                                      </div>
+                                      <span class="text-xs">{{ pos }}</span>
+                                   </div>
+                                </div>
+                             </div>
+
+                             <div v-else class="flex flex-wrap gap-1 min-h-[36px] items-center">
+                                <Badge v-for="pos in p.defense_positions" :key="pos" variant="secondary" class="text-[10px] h-5 px-1.5 pointer-events-none">
+                                   {{ pos }}
+                                </Badge>
+                                <span v-if="!p.defense_positions.length" class="text-xs text-muted-foreground italic">-</span>
+                             </div>
+                          </div>
                           <div class="space-y-1.5 flex-1 min-w-[200px] max-w-sm">
                              <label class="text-xs text-muted-foreground uppercase font-medium tracking-wide">Teams</label>
                              
@@ -849,6 +949,8 @@ import {
   UNIVERSAL_ATTRIBUTE_GROUP,
   OFFENSE_ATTRIBUTE_GROUPS,
   DEFENSE_ATTRIBUTE_GROUPS,
+  OFFENSE_POSITIONS,
+  DEFENSE_POSITIONS,
 } from '~/lib/constants'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
@@ -885,7 +987,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 
 const SLOT_COLORS = ['#f97316', '#22c55e', '#a855f7']
-const ALL_POSITIONS = ['QB', 'WR', 'C', 'DB', 'RSH', 'MLB']
+const ALL_POSITIONS = ['QB', 'WR', 'C', 'DB', 'RSH', 'MLB'] // Keep for filter compatibility if needed
 
 const { players, loading, fetchPlayers, createPlayer, updatePlayer, deletePlayer, teamScore } = usePlayers()
 const { teams, fetchTeams, createTeam, addPlayerToTeam, removePlayerFromTeam, removePlayerFromTeamByPlayerId, autoAssignTeamStarters, resetTeamStarters, updateTeamPlayer } = useTeams()
@@ -948,7 +1050,7 @@ function generateRandomPlayer() {
 
 async function handleAddSample() {
   const p = generateRandomPlayer()
-  await createPlayer(p)
+  await createPlayer(p as any)
 }
 
 const dialogOpen = ref(false)
@@ -981,6 +1083,19 @@ onClickOutside(teamDropdownRef, () => {
    teamDropdownOpen.value = false
 })
 
+// Position Dropdown State
+const offPosDropdownRef = ref(null)
+const offPosDropdownOpen = ref(false)
+onClickOutside(offPosDropdownRef, () => {
+   offPosDropdownOpen.value = false
+})
+
+const defPosDropdownRef = ref(null)
+const defPosDropdownOpen = ref(false)
+onClickOutside(defPosDropdownRef, () => {
+   defPosDropdownOpen.value = false
+})
+
 const inlineEdits = ref<{
   universal: Record<string, number>
   offense: Record<string, number>
@@ -988,6 +1103,8 @@ const inlineEdits = ref<{
   height: number | null
   weight: number | null
   team_ids: string[]
+  offense_positions: string[]
+  defense_positions: string[]
 } | null>(null)
 
 // Selection state
@@ -1014,6 +1131,17 @@ const hasChanges = computed(() => {
   for (const id of currentTeams) {
     if (!originalTeams.has(id)) return true
   }
+
+  // Check positions
+  const currentOff = new Set(inlineEdits.value.offense_positions)
+  const originalOff = new Set(editingPlayerSnapshot.value.offense_positions)
+  if (currentOff.size !== originalOff.size) return true
+  for (const p of currentOff) if (!originalOff.has(p)) return true
+
+  const currentDef = new Set(inlineEdits.value.defense_positions)
+  const originalDef = new Set(editingPlayerSnapshot.value.defense_positions)
+  if (currentDef.size !== originalDef.size) return true
+  for (const p of currentDef) if (!originalDef.has(p)) return true
   
   return false
 })
@@ -1025,6 +1153,8 @@ const editingPlayerSnapshot = ref<{
   height: number | null
   weight: number | null
   team_ids: string[]
+  offense_positions: string[]
+  defense_positions: string[]
 } | null>(null)
 
 function clampAttr(v: string | number): number {
@@ -1052,7 +1182,9 @@ function toggleExpand(p: Player) {
       defense: { ...p.defense_attributes },
       height: p.height ?? null,
       weight: p.weight ?? null,
-      team_ids: [...teamIds]
+      team_ids: [...teamIds],
+      offense_positions: [...p.offense_positions],
+      defense_positions: [...p.defense_positions],
     }
     
     // Snapshot for change detection
@@ -1062,7 +1194,9 @@ function toggleExpand(p: Player) {
       defense: { ...p.defense_attributes },
       height: p.height ?? null,
       weight: p.weight ?? null,
-      team_ids: [...teamIds]
+      team_ids: [...teamIds],
+      offense_positions: [...p.offense_positions],
+      defense_positions: [...p.defense_positions],
     }
   }
 }
@@ -1075,14 +1209,17 @@ async function saveInlineEdit() {
   if (!expandedPlayerId.value || !inlineEdits.value) return
   savingInline.value = true
   try {
-    // 1. Update Attributes
+    // 1. Update Attributes & Positions
     await updatePlayer(expandedPlayerId.value, {
       universal_attributes: inlineEdits.value.universal,
       offense_attributes: inlineEdits.value.offense,
       defense_attributes: inlineEdits.value.defense,
       height: inlineEdits.value.height,
       weight: inlineEdits.value.weight,
+      offense_positions: inlineEdits.value.offense_positions,
+      defense_positions: inlineEdits.value.defense_positions,
     } as unknown as Partial<Player>)
+
 
     // 2. Update Teams
     if (editingPlayerSnapshot.value) {
@@ -1544,7 +1681,7 @@ async function handleSubmit(data: {
     // Sync team memberships
     await syncPlayerTeams(editingPlayer.value.id, team_ids, playerData)
   } else {
-    const newPlayer = await createPlayer(playerData)
+    const newPlayer = await createPlayer(playerData as any)
     if (newPlayer) {
       // Assign to selected teams, or Free Agent if no teams chosen
       const assignTeams = team_ids.length > 0 ? team_ids : (freeAgentTeam.value ? [freeAgentTeam.value.id] : [])

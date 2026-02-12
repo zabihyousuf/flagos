@@ -23,14 +23,20 @@ export function usePlayers() {
     loading.value = true
     error.value = null
     try {
-      const { data, error: err } = await client
+      const { data, error } = await client
         .from('players')
         .select('*')
         .eq('user_id', user.value.id)
         .order('number', { ascending: true })
 
-      if (err) throw err
-      players.value = (data ?? []) as Player[]
+      if (error) {
+        console.error('Error fetching players:', error)
+        throw error // Re-throw to be caught by the existing catch block
+      }
+
+      if (data) {
+        players.value = data as unknown as Player[]
+      }
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -38,39 +44,68 @@ export function usePlayers() {
     }
   }
 
-  async function createPlayer(player: {
-    name: string
-    number: number
-    offense_positions: string[]
-    defense_positions: string[]
-    universal_attributes?: Record<string, number>
-    offense_attributes?: Record<string, number>
-    defense_attributes?: Record<string, number>
-  }) {
+  async function fetchPlayerById(id: string) {
     const user = useSupabaseUser()
     if (!user.value) return null
 
     loading.value = true
     error.value = null
     try {
-      const { data, error: err } = await client
+      const { data, error } = await client
+        .from('players')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (error) {
+        console.error('Error fetching player:', error)
+        throw error
+      }
+
+      return data as unknown as Player
+    } catch (e: any) {
+      error.value = e.message
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function createPlayer(player: Partial<Player>) {
+    const user = useSupabaseUser()
+    if (!user.value) return null
+
+    loading.value = true
+    error.value = null
+    try {
+      const { data, error } = await client
         .from('players')
         .insert({
           user_id: user.value.id,
           name: player.name,
           number: player.number,
-          offense_positions: player.offense_positions,
-          defense_positions: player.defense_positions,
+          height: player.height,
+          weight: player.weight,
+          offense_positions: player.offense_positions ?? [],
+          defense_positions: player.defense_positions ?? [],
           universal_attributes: player.universal_attributes ?? DEFAULT_UNIVERSAL_ATTRIBUTES,
           offense_attributes: player.offense_attributes ?? DEFAULT_OFFENSE_ATTRIBUTES,
           defense_attributes: player.defense_attributes ?? DEFAULT_DEFENSE_ATTRIBUTES,
-        })
+        } as any)
         .select()
         .single()
 
-      if (err) throw err
-      players.value.push(data as Player)
-      return data as Player
+      if (error) {
+        console.error('Error creating player:', error)
+        throw error
+      }
+
+      if (data) {
+        const newPlayer = data as unknown as Player
+        players.value.push(newPlayer)
+        return newPlayer
+      }
+      return null
     } catch (e: any) {
       error.value = e.message
       return null
@@ -80,20 +115,33 @@ export function usePlayers() {
   }
 
   async function updatePlayer(id: string, updates: Partial<Player>) {
+    const user = useSupabaseUser() // Added this line to get user
+    if (!user.value) return null
+
     loading.value = true
     error.value = null
     try {
       const { data, error: err } = await client
         .from('players')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...updates, updated_at: new Date().toISOString() } as any) // Added as any
         .eq('id', id)
         .select()
         .single()
 
-      if (err) throw err
-      const index = players.value.findIndex((p) => p.id === id)
-      if (index !== -1) players.value[index] = data as Player
-      return data as Player
+      if (err) {
+        console.error('Error updating player:', err) // Changed error variable name to err
+        throw err
+      }
+
+      if (data) {
+        const updated = data as unknown as Player // Added as unknown as Player
+        const idx = players.value.findIndex((p) => p.id === id)
+        if (idx !== -1) {
+          players.value[idx] = updated
+        }
+        return updated
+      }
+      return null
     } catch (e: any) {
       error.value = e.message
       return null
@@ -130,6 +178,7 @@ export function usePlayers() {
       { key: 'knee_slide', weight: 0.25 },
       { key: 'hip_twist', weight: 0.25 },
       { key: 'playmaking', weight: 0.5 },
+      { key: 'height', weight: 0.1 }, { key: 'weight', weight: 0.1 },
     ],
     QB: [
       { key: 'throwing_power', weight: 4 },
@@ -147,34 +196,29 @@ export function usePlayers() {
       { key: 'hip_twist', weight: 1.5 },
     ],
     C: [
-      { key: 'snapping', weight: 4 },
-      { key: 'snap_accuracy', weight: 3 },
-      { key: 'football_iq', weight: 2 },
+      { key: 'snapping', weight: 4 }, { key: 'snap_accuracy', weight: 3 }, { key: 'football_iq', weight: 2 },
+      { key: 'agility', weight: 2 }, { key: 'speed', weight: 2 }, { key: 'catching', weight: 1.5 },
     ],
   }
 
   const DEF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
     _universal: [
-      { key: 'speed', weight: 0.5 },
-      { key: 'acceleration', weight: 0.25 },
+      { key: 'speed', weight: 0.5 }, { key: 'acceleration', weight: 0.25 },
       { key: 'football_iq', weight: 0.5 },
-      { key: 'stamina', weight: 0.25 },
-      { key: 'agility', weight: 0.5 },
-      { key: 'flag_pulling', weight: 0.5 },
-      { key: 'pursuit', weight: 0.5 },
+      { key: 'stamina', weight: 0.25 }, { key: 'agility', weight: 0.5 },
+      { key: 'flag_pulling', weight: 0.5 }, { key: 'pursuit', weight: 0.5 },
       { key: 'playmaking', weight: 0.5 },
+      { key: 'height', weight: 0.1 }, { key: 'weight', weight: 0.1 },
     ],
     DB: [
-      { key: 'coverage', weight: 4 },
-      { key: 'zone_awareness', weight: 3 },
-      { key: 'ball_hawking', weight: 3 },
-      { key: 'agility', weight: 2.5 },
+      { key: 'coverage', weight: 4 }, { key: 'zone_awareness', weight: 3 },
+      { key: 'ball_hawking', weight: 3 }, { key: 'agility', weight: 2.5 },
+      { key: 'height', weight: 1.5 },
     ],
     RSH: [
-      { key: 'rush', weight: 4 },
-      { key: 'rush_moves', weight: 4 },
-      { key: 'timing', weight: 3 },
-      { key: 'agility', weight: 2 },
+      { key: 'rush', weight: 4 }, { key: 'rush_moves', weight: 4 },
+      { key: 'timing', weight: 3 }, { key: 'agility', weight: 2 },
+      { key: 'height', weight: 1 }, { key: 'speed', weight: 2 },
     ],
     MLB: [
       { key: 'play_recognition', weight: 4 },
@@ -432,7 +476,7 @@ export function usePlayers() {
 
   async function bulkCreatePlayers(
     rows: { name: string; number: number; height: number | null; weight: number | null; offense_positions: string[]; defense_positions: string[]; universal_attributes?: Record<string, number>; offense_attributes?: Record<string, number>; defense_attributes?: Record<string, number> }[],
-  ): Promise<{ created: Player[]; errors: { index: number; message: string }[] }> {
+  ): Promise<{ created: { player: Player; index: number }[]; errors: { index: number; message: string }[] }> {
     const user = useSupabaseUser()
     if (!user.value) return { created: [], errors: [{ index: -1, message: 'Not authenticated' }] }
 
@@ -452,31 +496,36 @@ export function usePlayers() {
     // Try batch insert first
     const { data, error: err } = await client
       .from('players')
-      .insert(payload)
+      .insert(payload as any) // suppress payload type mismatch
       .select()
 
     if (!err && data) {
-      const created = data as Player[]
-      players.value.push(...created)
-      return { created, errors: [] }
+      const createdPlayers = data as unknown as Player[]
+      players.value.push(...createdPlayers)
+      // Assume batch insert preserves order
+      return { 
+        created: createdPlayers.map((p, i) => ({ player: p, index: i })), 
+        errors: [] 
+      }
     }
 
     // Fallback: row-by-row
-    const created: Player[] = []
+    const created: { player: Player; index: number }[] = []
     const errors: { index: number; message: string }[] = []
 
     for (let i = 0; i < payload.length; i++) {
       const { data: d, error: e } = await client
         .from('players')
-        .insert(payload[i])
+        .insert(payload[i] as any)
         .select()
         .single()
 
       if (e) {
         errors.push({ index: i, message: e.message })
       } else if (d) {
-        created.push(d as Player)
-        players.value.push(d as Player)
+        const p = d as unknown as Player
+        created.push({ player: p, index: i })
+        players.value.push(p)
       }
     }
 

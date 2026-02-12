@@ -9,43 +9,43 @@ export interface RenderOptions {
   zoom: number
   panOffset: { x: number; y: number }
   selectedPlayerId: string | null
+  viewMode?: 'fit' | 'full'
 }
 
-const PADDING = 40
+const PADDING = 12
+const FIT_VISIBLE_YARDS = 24
 
 const COLORS = {
-  background: '#0f172a', // slate-900
-  fieldFill: '#1e293b',   // slate-800
-  fieldBorder: '#334155', // slate-700
-  yardLine: 'rgba(255,255,255,0.1)',
-  yardLineLight: 'rgba(255,255,255,0.05)',
-  yardNumber: '#94a3b8',  // slate-400
-  hashMark: 'rgba(255,255,255,0.1)',
-  endzoneFill: '#0f172a', // slate-900 (same as bg or slightly different)
-  endzoneBorder: '#334155',
-  endzoneText: '#475569', // slate-600
-  los: '#22d3ee',         // cyan-400 (bright for visibility)
-  firstDown: '#fbbf24',   // amber-400
-  nrz: 'rgba(251, 191, 36, 0.05)',
-  nrzBorder: 'rgba(251, 191, 36, 0.2)',
+  background: 'transparent',
+  fieldFill: '#2d7a2d',
+  fieldBorder: '#1e6b1e',
+  yardLine: 'rgba(255,255,255,0.6)',
+  yardLineLight: 'rgba(255,255,255,0.25)',
+  yardNumber: 'rgba(255,255,255,0.7)',
+  hashMark: 'rgba(255,255,255,0.3)',
+  endzoneFill: '#245e24',
+  endzoneBorder: 'rgba(255,255,255,0.4)',
+  endzoneText: 'rgba(255,255,255,0.25)',
+  los: '#22d3ee',
+  firstDown: '#fbbf24',
+  nrz: 'rgba(251, 191, 36, 0.08)',
+  nrzBorder: 'rgba(251, 191, 36, 0.3)',
 }
 
 /**
  * Compute the aspect-ratio-correct field rectangle that fits within the canvas.
+ * Always computed at zoom=1 (base coordinates). View transforms handle zoom.
  */
 export function computeFieldRect(
   logicalW: number,
   logicalH: number,
-  options: { fieldLength: number; fieldWidth: number; endzoneSize: number; zoom: number },
+  options: { fieldLength: number; fieldWidth: number; endzoneSize: number; zoom?: number },
 ) {
   const totalLength = options.fieldLength + options.endzoneSize * 2
   const aspectRatio = options.fieldWidth / totalLength
 
-  const w = logicalW / options.zoom
-  const h = logicalH / options.zoom
-
-  const availW = w - PADDING * 2
-  const availH = h - PADDING * 2
+  const availW = logicalW - PADDING * 2
+  const availH = logicalH - PADDING * 2
 
   let fieldW: number
   let fieldH: number
@@ -58,10 +58,38 @@ export function computeFieldRect(
     fieldH = fieldW / aspectRatio
   }
 
-  const offsetX = (w - fieldW) / 2
-  const offsetY = (h - fieldH) / 2
+  const offsetX = (logicalW - fieldW) / 2
+  const offsetY = (logicalH - fieldH) / 2
 
   return { offsetX, offsetY, fieldW, fieldH, totalLength }
+}
+
+/**
+ * Compute the effective zoom and pan for a given view mode.
+ * - 'full': Shows the entire field (zoom=1, no pan)
+ * - 'fit': Zooms into ~24 yards centered on the line of scrimmage
+ */
+export function computeViewTransform(
+  logicalW: number,
+  logicalH: number,
+  fieldRect: { offsetX: number; offsetY: number; fieldW: number; fieldH: number; totalLength: number },
+  options: { fieldLength: number; endzoneSize: number; lineOfScrimmage: number; viewMode?: 'fit' | 'full' },
+): { zoom: number; panX: number; panY: number } {
+  if (options.viewMode === 'fit') {
+    const yardHeight = fieldRect.fieldH / fieldRect.totalLength
+    const fitZoom = logicalH / (FIT_VISIBLE_YARDS * yardHeight)
+
+    const fieldCenterX = fieldRect.offsetX + fieldRect.fieldW / 2
+    const losY = fieldRect.offsetY + yardHeight * (options.endzoneSize + options.fieldLength - options.lineOfScrimmage)
+
+    const panX = logicalW / 2 - fieldCenterX * fitZoom
+    const panY = logicalH / 2 - losY * fitZoom
+
+    return { zoom: fitZoom, panX, panY }
+  }
+
+  // Full mode — no extra transform
+  return { zoom: 1, panX: 0, panY: 0 }
 }
 
 export function useCanvasRenderer() {
@@ -75,19 +103,22 @@ export function useCanvasRenderer() {
     const logicalW = canvas.width / dpr
     const logicalH = canvas.height / dpr
 
-    const { offsetX, offsetY, fieldW, fieldH } = computeFieldRect(logicalW, logicalH, options)
+    const fieldRect = computeFieldRect(logicalW, logicalH, options)
+    const { offsetX, offsetY, fieldW, fieldH } = fieldRect
+
+    const view = computeViewTransform(logicalW, logicalH, fieldRect, options)
+
+    // Combine view transform with user zoom/pan
+    const effectiveZoom = view.zoom * options.zoom
+    const effectivePanX = view.panX + options.panOffset.x
+    const effectivePanY = view.panY + options.panOffset.y
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.save()
 
     ctx.scale(dpr, dpr)
-    ctx.translate(options.panOffset.x, options.panOffset.y)
-    ctx.scale(options.zoom, options.zoom)
-
-    const w = logicalW / options.zoom
-    const h = logicalH / options.zoom
-    ctx.fillStyle = COLORS.background
-    ctx.fillRect(0, 0, w, h)
+    ctx.translate(effectivePanX, effectivePanY)
+    ctx.scale(effectiveZoom, effectiveZoom)
 
     ctx.save()
     ctx.translate(offsetX, offsetY)
@@ -127,7 +158,7 @@ export function useCanvasRenderer() {
     // Endzone text
     ctx.fillStyle = COLORS.endzoneText
     const ezFontSize = Math.max(12, fieldW * 0.05)
-    ctx.font = `700 ${ezFontSize}px Inter, sans-serif`
+    ctx.font = `700 ${ezFontSize}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.letterSpacing = `${ezFontSize * 0.3}px`
@@ -167,7 +198,7 @@ export function useCanvasRenderer() {
       if (displayYard > 0 && isMajor) {
         ctx.fillStyle = COLORS.yardNumber
         const numFontSize = Math.max(10, fieldW * 0.035)
-        ctx.font = `600 ${numFontSize}px Inter, sans-serif`
+        ctx.font = `600 ${numFontSize}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(`${displayYard}`, 20, y)
@@ -208,7 +239,7 @@ export function useCanvasRenderer() {
 
      // LOS pill label
     const labelFontSize = Math.max(9, fieldW * 0.022)
-    ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
+    ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
     const losText = `LOS · ${lineOfScrimmage}yd`
     const losTextW = ctx.measureText(losText).width
     const pillPx = 7
@@ -248,7 +279,7 @@ export function useCanvasRenderer() {
     ctx.roundRect(fieldW - fdTextW - pillPx * 2 - 5, midY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
     ctx.fill()
     ctx.fillStyle = COLORS.firstDown
-    ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
+    ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
     ctx.fillText(fdText, fieldW - fdTextW - pillPx - 5, midY + 5 + pillPy)
@@ -450,8 +481,8 @@ export function useCanvasRenderer() {
     ctx.fill()
 
     // Number
-    ctx.fillStyle = '#1a1e2e'
-    ctx.font = `bold ${size}px Inter, sans-serif`
+    ctx.fillStyle = '#1e293b'
+    ctx.font = `bold ${size}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(`${order}`, point.x + size + 4, point.y - size / 2)
@@ -505,10 +536,9 @@ export function useCanvasRenderer() {
       if (player.side === 'defense' && player.coverageRadius) {
         ctx.save()
         ctx.beginPath()
-        // radius in yards * pixels per yard
         const pixRadius = player.coverageRadius * yardHeight 
         ctx.arc(px, py, pixRadius, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)' // Light red coverage zone
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'
         ctx.fill()
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)'
         ctx.lineWidth = 1
@@ -518,7 +548,7 @@ export function useCanvasRenderer() {
       }
 
       ctx.save()
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.25)'
       ctx.shadowBlur = 6
       ctx.shadowOffsetY = 2
 
@@ -529,7 +559,7 @@ export function useCanvasRenderer() {
       const color = POSITION_COLORS[player.position] || (player.side === 'offense' ? '#22c55e' : '#ef4444')
 
       if (isSelected) {
-        // Selected style
+        // Selected: White fill, Colored text/border
         ctx.fillStyle = '#ffffff'
         ctx.fill()
         
@@ -537,8 +567,8 @@ export function useCanvasRenderer() {
         ctx.lineWidth = 4 
         ctx.stroke()
         
-        // Glow
-        ctx.restore() 
+        // Glow effect
+        ctx.restore() // Restore shadow context
         ctx.save()
         ctx.shadowColor = color
         ctx.shadowBlur = 15
@@ -548,31 +578,40 @@ export function useCanvasRenderer() {
         ctx.lineWidth = 2
         ctx.stroke()
         ctx.restore()
+
+        // Text color for selected
+        ctx.fillStyle = color
       } else {
-        // Normal style
-        ctx.fillStyle = '#ffffff'
+        // Normal: Colored fill, White text/border
+        ctx.fillStyle = color
         ctx.fill()
-        ctx.strokeStyle = color
-        ctx.lineWidth = 2.5
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 2
         ctx.stroke()
-        ctx.restore()
+        ctx.restore() // Restore shadow context
+
+        // Text color for normal
+        ctx.fillStyle = '#ffffff'
       }
 
       // Number/Designation text inside circle
       const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
-      ctx.fillStyle = color
-      ctx.font = `bold ${Math.max(10, radius * 0.7)}px Inter, sans-serif`
+      ctx.font = `bold ${Math.max(10, radius * 0.7)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
 
       // Name text
       if (player.name) {
-        ctx.fillStyle = '#94a3b8' // slate-400 (lighter for dark theme)
-        ctx.font = `600 ${Math.max(8, radius * 0.45)}px Inter, sans-serif`
+        ctx.save()
+        ctx.fillStyle = '#ffffff' // White text
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)' // Strong shadow for contrast against grass
+        ctx.shadowBlur = 3
+        ctx.font = `600 ${Math.max(9, radius * 0.45)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillText(player.name, px, py + radius + 4)
+        ctx.fillText(player.name, px, py + radius + 5)
+        ctx.restore()
       }
     })
   }
