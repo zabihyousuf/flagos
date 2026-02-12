@@ -446,87 +446,110 @@
 </template>
 
 <script setup lang="ts">
-import type { ImportRow } from '~/composables/useBulkImport'
-import { OFFENSE_ATTRIBUTE_GROUPS, DEFENSE_ATTRIBUTE_GROUPS, UNIVERSAL_ATTRIBUTE_GROUP } from '~/lib/constants'
-import { Button } from '~/components/ui/button'
-import { Input } from '~/components/ui/input'
-import { Textarea } from '~/components/ui/textarea'
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '~/components/ui/select'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
-import { Plus, X, Upload, Loader2, CheckCircle2, AlertTriangle, Wand2 } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import {
+  X,
+  Upload,
+  Trash2,
+  Plus,
+  AlertTriangle,
+  FileSpreadsheet,
+  CheckCircle2,
+  Loader2,
+  Wand2,
+} from 'lucide-vue-next'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  UNIVERSAL_ATTRIBUTE_GROUP,
+  OFFENSE_ATTRIBUTE_GROUPS,
+  DEFENSE_ATTRIBUTE_GROUPS,
+  POSITION_COLORS,
+  OFFENSE_POSITIONS,
+  DEFENSE_POSITIONS
+} from '@/lib/constants'
+import { useBulkImport } from '@/composables/useBulkImport'
+import { useTeams } from '@/composables/useTeams'
 
 const props = defineProps<{
   open: boolean
 }>()
 
 const emit = defineEmits<{
-  'update:open': [value: boolean]
-  'imported': []
+  (e: 'update:open', value: boolean): void
+  (e: 'import-done'): void
 }>()
 
-const OFFENSE_POS = ['QB', 'WR', 'C']
-const DEFENSE_POS = ['DB', 'RSH', 'MLB']
-
+const { teams, addPlayerToTeam } = useTeams()
 const { bulkCreatePlayers } = usePlayers()
-const { teams, addPlayerToTeam, fetchTeams } = useTeams()
-
-onMounted(() => {
-  if (teams.value.length === 0) fetchTeams()
-})
-
 const {
+  activeTab,
+  csvInput,
   rows,
-  importing,
-  importResult,
   parseError,
+  importing,
+  validRows,
+  rowWarnings,
+  importResult,
   parseCSV,
   addEmptyRow,
   addSampleRow,
   removeRow,
   clearAll,
-  validateRow,
+  performImport,
   revalidateAll,
-  validRows,
-  initQuickAdd,
 } = useBulkImport()
 
-const activeTab = ref('quick')
+// Offense/Defense position options
+const OFF_POS = OFFENSE_POSITIONS
+const DEF_POS = DEFENSE_POSITIONS
+
+const selectableTeams = computed(() => {
+  return teams.value.map(t => ({ id: t.id, name: t.name }))
+})
+
+// Local state for UI not covered by composable
 const dragOver = ref(false)
 const pasteText = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const csvMode = ref<'upload' | 'preview'>('upload')
 
-const rowWarnings = computed(() => {
-  const warnings: string[] = []
-  for (const row of rows.value) {
-    for (const w of row.warnings) {
-      if (!warnings.includes(w)) warnings.push(w)
-    }
-  }
-  return warnings
-})
-
-// Shortened attribute labels for compact table headers
-function attrShortLabel(label: string): string {
+// Helper to shorten attribute labels (e.g. "Throwing Power" -> "THP")
+function attrShortLabel(label: string) {
+  if (label === 'Football IQ') return 'IQ'
   const map: Record<string, string> = {
-    'Speed': 'SPD',
-    'Acceleration': 'ACC',
-    'Football IQ': 'IQ',
-    'Stamina': 'STA',
-    'Catching': 'CTH',
-    'Throwing': 'THR',
-    'Route Running': 'RTE',
-    'Throwing Power': 'PWR',
+    'Heigh': 'HGT',
+    'Weight': 'WGT',
+    'Throwing Power': 'THP',
     'Accuracy': 'ACC',
     'Decision Making': 'DEC',
-    'Pocket Awareness': 'PKT',
+    'Pocket Awareness': 'PAW',
+    'Catching': 'CAT',
+    'Route Running': 'RUN',
     'Release': 'REL',
-    'Separation': 'SEP',
-    'Jump Ball': 'JMP',
-    'Snapping': 'SNP',
-    'Snap Accuracy': 'SNA',
-    'Hip Drop': 'HDP',
-    'Knee Slide': 'KSL',
     'Hip Twist': 'HTW',
     'Coverage': 'COV',
     'Rush': 'RSH',
@@ -552,7 +575,13 @@ function clampAttr(v: string | number): number {
 // Initialize with 5 empty rows when sheet opens
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
-    initQuickAdd(5)
+    // If we have rows, maybe don't clear?
+    // But usually opening means fresh start or continue.
+    // Let's just ensure we have at least 1 row if empty.
+    if (rows.value.length === 0) {
+       for(let i=0; i<5; i++) addEmptyRow()
+    }
+    
     activeTab.value = 'quick'
     pasteText.value = ''
     csvMode.value = 'upload'
@@ -565,13 +594,6 @@ function handleKeydown(e: KeyboardEvent) {
 }
 onMounted(() => window.addEventListener('keydown', handleKeydown))
 onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
-
-function togglePosition(row: ImportRow, side: 'offense' | 'defense', pos: string) {
-  const arr = side === 'offense' ? row.offense_positions : row.defense_positions
-  const idx = arr.indexOf(pos)
-  if (idx === -1) arr.push(pos)
-  else arr.splice(idx, 1)
-}
 
 function updateHeight(row: ImportRow, value: string, unit: 'ft' | 'in') {
   const currentHeight = row.height ?? 0
@@ -712,7 +734,7 @@ async function handleImport() {
           )
         }
       }
-      emit('imported')
+      emit('import-done')
     }
   } finally {
     importing.value = false

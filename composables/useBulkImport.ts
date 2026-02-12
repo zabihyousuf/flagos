@@ -4,7 +4,9 @@ import {
   DEFAULT_DEFENSE_ATTRIBUTES,
   UNIVERSAL_ATTRIBUTE_GROUP,
   OFFENSE_ATTRIBUTE_GROUPS,
-  DEFENSE_ATTRIBUTE_GROUPS
+  DEFENSE_ATTRIBUTE_GROUPS,
+  OFFENSE_POSITIONS,
+  DEFENSE_POSITIONS
 } from '~/lib/constants'
 
 export interface ImportRow {
@@ -28,8 +30,8 @@ export interface ImportResult {
   errors: { index: number; message: string }[]
 }
 
-const VALID_OFFENSE = ['QB', 'WR', 'C']
-const VALID_DEFENSE = ['DB', 'RSH', 'MLB']
+const VALID_OFFENSE = [...OFFENSE_POSITIONS]
+const VALID_DEFENSE = [...DEFENSE_POSITIONS]
 
 // Flexible column name matching
 const NAME_ALIASES = ['name', 'player name', 'player', 'full name', 'fullname']
@@ -54,8 +56,8 @@ function parsePositions(raw: string): { offense: string[]; defense: string[] } {
   const defense: string[] = []
 
   for (const tok of tokens) {
-    if (VALID_OFFENSE.includes(tok)) offense.push(tok)
-    else if (VALID_DEFENSE.includes(tok)) defense.push(tok)
+    if (VALID_OFFENSE.includes(tok as any)) offense.push(tok)
+    else if (VALID_DEFENSE.includes(tok as any)) defense.push(tok)
   }
 
   return { offense, defense }
@@ -116,7 +118,19 @@ export function useBulkImport() {
   const rows = ref<ImportRow[]>([])
   const importing = ref(false)
   const importResult = ref<ImportResult | null>(null)
+
   const parseError = ref<string | null>(null)
+  const activeTab = ref<'quick' | 'csv'>('quick')
+  const csvInput = ref('')
+
+  const rowWarnings = computed(() => {
+    return rows.value.reduce<string[]>((acc, row, i) => {
+      if (row.warnings.length) {
+        row.warnings.forEach((w) => acc.push(`Row ${i + 1}: ${w}`))
+      }
+      return acc
+    }, [])
+  })
 
   function checkDuplicateNumbers(list: ImportRow[]) {
     const seen = new Map<number, number[]>()
@@ -252,15 +266,15 @@ export function useBulkImport() {
 
         for (const [key, colIdx] of uniMap) {
             const val = parseInt(fields[colIdx]?.trim(), 10)
-            if (!isNaN(val)) uniAttrs[key] = clampAttr(val)
+            if (!isNaN(val)) (uniAttrs as any)[key] = clampAttr(val)
         }
         for (const [key, colIdx] of offMap) {
             const val = parseInt(fields[colIdx]?.trim(), 10)
-            if (!isNaN(val)) offAttrs[key] = clampAttr(val)
+            if (!isNaN(val)) (offAttrs as any)[key] = clampAttr(val)
         }
         for (const [key, colIdx] of defMap) {
             const val = parseInt(fields[colIdx]?.trim(), 10)
-            if (!isNaN(val)) defAttrs[key] = clampAttr(val)
+            if (!isNaN(val)) (defAttrs as any)[key] = clampAttr(val)
         }
   
         parsed.push({
@@ -268,6 +282,7 @@ export function useBulkImport() {
           number: num !== null && !isNaN(num) ? num : null,
           height: height !== null && !isNaN(height) ? height : null,
           weight: weight !== null && !isNaN(weight) ? weight : null,
+          team_id: 'unassigned', // Default to unassigned
           offense_positions: offense,
           defense_positions: defense,
           universal_attributes: uniAttrs,
@@ -296,9 +311,9 @@ export function useBulkImport() {
       team_id: 'unassigned',
       offense_positions: [],
       defense_positions: [],
-      universal_attributes: UNIVERSAL_ATTRIBUTE_GROUP.attrs.reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
-      offense_attributes: OFFENSE_ATTRIBUTE_GROUPS.flatMap(g => g.attrs).reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
-      defense_attributes: DEFENSE_ATTRIBUTE_GROUPS.flatMap(g => g.attrs).reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
+      universal_attributes: (UNIVERSAL_ATTRIBUTE_GROUP.attrs as unknown as any[]).reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
+      offense_attributes: (OFFENSE_ATTRIBUTE_GROUPS as unknown as any[]).flatMap(g => g.attrs).reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
+      defense_attributes: (DEFENSE_ATTRIBUTE_GROUPS as unknown as any[]).flatMap(g => g.attrs).reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
       errors: [],
       warnings: [],
     })
@@ -332,6 +347,10 @@ export function useBulkImport() {
       if (!defense_positions.includes(pos)) defense_positions.push(pos)
     }
 
+    const uniAttrs = (UNIVERSAL_ATTRIBUTE_GROUP.attrs as unknown as any[])
+    const offAttrs = (OFFENSE_ATTRIBUTE_GROUPS as unknown as any[]).flatMap(g => g.attrs)
+    const defAttrs = (DEFENSE_ATTRIBUTE_GROUPS as unknown as any[]).flatMap(g => g.attrs)
+
     rows.value.push({
       name,
       number,
@@ -340,9 +359,9 @@ export function useBulkImport() {
       team_id: 'unassigned',
       offense_positions: [...new Set(offense_positions)],
       defense_positions: [...new Set(defense_positions)],
-      universal_attributes: UNIVERSAL_ATTRIBUTE_GROUP.attrs.reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),
-      offense_attributes: OFFENSE_ATTRIBUTE_GROUPS.flatMap(g => g.attrs).reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),
-      defense_attributes: DEFENSE_ATTRIBUTE_GROUPS.flatMap(g => g.attrs).reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),
+      universal_attributes: uniAttrs.reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),
+      offense_attributes: offAttrs.reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),
+      defense_attributes: defAttrs.reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),
       errors: [],
       warnings: [],
     })
@@ -396,6 +415,10 @@ export function useBulkImport() {
     validateRow,
     revalidateAll,
     validRows,
+
     initQuickAdd,
+    activeTab,
+    csvInput,
+    rowWarnings,
   }
 }

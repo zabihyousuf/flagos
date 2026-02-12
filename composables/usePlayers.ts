@@ -169,31 +169,25 @@ export function usePlayers() {
   // Universal attrs (from universal_attributes) are referenced with 'u:' prefix internally
   const OFF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
     _universal: [
-      { key: 'speed', weight: 0.5 },
-      { key: 'acceleration', weight: 0.25 },
+      { key: 'speed', weight: 0.5 }, { key: 'acceleration', weight: 0.25 },
       { key: 'football_iq', weight: 0.5 },
-      { key: 'stamina', weight: 0.25 },
-      { key: 'agility', weight: 0.25 },
+      { key: 'stamina', weight: 0.25 }, { key: 'agility', weight: 0.25 },
       { key: 'hip_drop', weight: 0.25 },
-      { key: 'knee_slide', weight: 0.25 },
-      { key: 'hip_twist', weight: 0.25 },
+      { key: 'knee_slide', weight: 0.25 }, { key: 'hip_twist', weight: 0.25 },
       { key: 'playmaking', weight: 0.5 },
       { key: 'height', weight: 0.1 }, { key: 'weight', weight: 0.1 },
     ],
     QB: [
-      { key: 'throwing_power', weight: 4 },
-      { key: 'accuracy', weight: 4 },
+      { key: 'throwing_power', weight: 4 }, { key: 'accuracy', weight: 4 },
       { key: 'decision_making', weight: 3 },
       { key: 'pocket_awareness', weight: 2.5 },
+      { key: 'height', weight: 1.5 },
     ],
     WR: [
-      { key: 'catching', weight: 4 },
-      { key: 'route_running', weight: 4 },
-      { key: 'separation', weight: 3 },
-      { key: 'release', weight: 2 },
-      { key: 'jump_ball', weight: 2 },
-      { key: 'hip_drop', weight: 1.5 },
-      { key: 'hip_twist', weight: 1.5 },
+      { key: 'catching', weight: 4 }, { key: 'route_running', weight: 4 },
+      { key: 'separation', weight: 3 }, { key: 'release', weight: 2 },
+      { key: 'jump_ball', weight: 2 }, { key: 'hip_drop', weight: 1.5 }, { key: 'hip_twist', weight: 1.5 },
+      { key: 'height', weight: 2 },
     ],
     C: [
       { key: 'snapping', weight: 4 }, { key: 'snap_accuracy', weight: 3 }, { key: 'football_iq', weight: 2 },
@@ -221,10 +215,9 @@ export function usePlayers() {
       { key: 'height', weight: 1 }, { key: 'speed', weight: 2 },
     ],
     MLB: [
-      { key: 'play_recognition', weight: 4 },
-      { key: 'field_awareness', weight: 4 },
-      { key: 'coverage', weight: 2 },
-      { key: 'agility', weight: 2 },
+      { key: 'play_recognition', weight: 4 }, { key: 'field_awareness', weight: 4 },
+      { key: 'coverage', weight: 2 }, { key: 'agility', weight: 2 },
+      { key: 'height', weight: 1 }, { key: 'weight', weight: 1 },
     ],
   }
 

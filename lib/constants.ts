@@ -1,34 +1,24 @@
 import type { CanvasData, CanvasPlayer, Player, UniversalAttributes, OffenseAttributes, DefenseAttributes } from './types'
 
-export const OFFENSE_POSITIONS = ['QB', 'C', 'WR', 'RB', 'TE'] as const
-export const DEFENSE_POSITIONS = ['RSH', 'LB', 'CB', 'S', 'DB'] as const
+export const OFFENSE_POSITIONS = ['QB', 'C', 'WR'] as const
+export const DEFENSE_POSITIONS = ['DB', 'RSH', 'MLB'] as const
 
 export const POSITION_COLORS: Record<string, string> = {
   QB: '#f97316',
   WR: '#22c55e',
   C: '#f59e0b',
-  RB: '#06b6d4',
-  TE: '#8b5cf6',
   DB: '#ef4444',
   RSH: '#a855f7',
   MLB: '#3b82f6',
-  LB: '#3b82f6',
-  CB: '#ec4899',
-  S: '#14b8a6',
 }
 
 export const POSITION_LABELS: Record<string, string> = {
   QB: 'Quarterback',
   WR: 'Wide Receiver',
   C: 'Center',
-  RB: 'Running Back',
-  TE: 'Tight End',
   DB: 'Defensive Back',
   RSH: 'Rusher',
   MLB: 'Middle Linebacker',
-  LB: 'Linebacker',
-  CB: 'Cornerback',
-  S: 'Safety',
 }
 
 export const DEFAULT_UNIVERSAL_ATTRIBUTES: UniversalAttributes = {
@@ -234,10 +224,10 @@ export function getDefaultFormation(
       ]
     : [
         { position: 'RSH', x: 0.5, yOffset: -7 }, // 7 yds off ball (towards top/defense side)
-        { position: 'LB', x: 0.5, yOffset: -5 },
-        { position: 'CB', x: 0.2, yOffset: -5 },
-        { position: 'CB', x: 0.8, yOffset: -5 },
-        { position: 'S', x: 0.5, yOffset: -10 },
+        { position: 'MLB', x: 0.5, yOffset: -5 },
+        { position: 'DB', x: 0.2, yOffset: -5 },
+        { position: 'DB', x: 0.8, yOffset: -5 },
+        { position: 'DB', x: 0.5, yOffset: -10 },
       ]
 
   slots.forEach((slot, index) => {

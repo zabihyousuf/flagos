@@ -214,7 +214,7 @@ export function useTeams() {
         .order('created_at', { ascending: false })
 
       if (err) throw err
-      teams.value = (data ?? []) as Team[]
+      teams.value = (data ?? []) as unknown as Team[]
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -318,9 +318,9 @@ export function useTeams() {
       const team = teams.value.find((t) => t.id === teamId)
       if (team) {
         if (!team.team_players) team.team_players = []
-        team.team_players.push(data as TeamPlayer)
+        team.team_players.push(data as unknown as TeamPlayer)
       }
-      return data as TeamPlayer
+      return data as unknown as TeamPlayer
     } catch (e: any) {
       error.value = e.message
       return null
