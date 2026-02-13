@@ -1,7 +1,7 @@
 <template>
-  <div class="w-full h-full bg-card border-r border-border flex flex-col overflow-hidden">
+  <div class="w-full h-full bg-card  flex flex-col overflow-hidden">
     <!-- Panel Header -->
-    <div class="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
+    <div class="h-10 flex items-center justify-between px-3 shrink-0">
       <span class="text-xs font-semibold text-foreground">Roster</span>
       <span class="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/5</span>
     </div>
@@ -9,7 +9,7 @@
     <div class="p-2 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-0 flex-1">
       <!-- On Field -->
       <div v-if="players.length > 0" class="space-y-1">
-        <p class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-1">On Field</p>
+        <p class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-1">On the Field</p>
         <div class="space-y-1">
           <div
             v-for="player in players"

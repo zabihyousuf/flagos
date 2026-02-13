@@ -120,7 +120,7 @@
       <Tooltip>
         <TooltipTrigger as-child>
           <Button size="icon" variant="ghost" class="h-8 w-8" @click="$emit('clear-routes')">
-            <RotateCcw class="w-3.5 h-3.5" />
+            <Trash2 class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom"><p>Clear all routes</p></TooltipContent>
@@ -142,7 +142,7 @@ import {
   Move,
   ListOrdered,
   Eraser,
-  RotateCcw,
+  Trash2,
   Sparkles,
   Shuffle,
   Wand2

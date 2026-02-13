@@ -24,7 +24,7 @@ export function usePlaybooks() {
     try {
       const { data, error: err } = await client
         .from('playbooks')
-        .select('*')
+        .select('*, plays(id)')
         .eq('user_id', user.value.id)
         .order('updated_at', { ascending: false })
 
@@ -69,7 +69,7 @@ export function usePlaybooks() {
         .from('playbooks')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .select()
+        .select('*, plays(id)')
         .single()
 
       if (err) throw err

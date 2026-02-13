@@ -18,56 +18,56 @@
         </Button>
       </div>
       <div class="grid grid-cols-3 gap-4">
-        <template v-for="i in 3" :key="i">
-          <!-- Empty slot -->
-          <div
-            v-if="!trackedTeams[i - 1]"
-            class="rounded-lg border-2 border-dashed border-muted-foreground/15 p-4 min-h-[80px] flex flex-col justify-center"
-          >
-            <Select :model-value="''" @update:model-value="(v: any) => selectSlot(i - 1, String(v ?? ''))">
-              <SelectTrigger class="border-none bg-transparent shadow-none h-auto p-0 text-muted-foreground">
-                <SelectValue placeholder="+ Select team" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  v-for="t in availableTeamsForSlot"
-                  :key="t.id"
-                  :value="t.id"
-                >
-                  {{ t.name }}
-                </SelectItem>
-                <SelectItem value="__new__">+ New Team</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <!-- Filled slot — solid card -->
-          <div
-            v-else
-            class="rounded-lg border bg-card p-4 min-h-[80px] flex flex-col justify-center shadow hover:shadow-md transition-shadow"
-            :style="{ borderColor: SLOT_COLORS[i - 1] + '40' }"
-          >
-            <div class="space-y-1">
-              <div class="flex items-center justify-between">
-                <NuxtLink
-                  :to="`/teams?id=${trackedTeams[i - 1]!.id}`"
-                  class="font-semibold text-sm hover:underline"
-                  :style="{ color: SLOT_COLORS[i - 1] }"
-                >
-                  {{ trackedTeams[i - 1]!.name }}
-                </NuxtLink>
-                <Button size="icon" variant="ghost" class="h-6 w-6" @click="removeSlot(i - 1)">
-                  <X class="w-3 h-3" />
-                </Button>
-              </div>
-              <div class="flex gap-3 text-xs text-muted-foreground">
-                <span>OVR <span class="font-semibold text-primary">{{ slotScores[i - 1]?.overall ?? 0 }}</span></span>
-                <span>OFF <span class="font-semibold text-chart-1">{{ slotScores[i - 1]?.off ?? 0 }}</span></span>
-                <span>DEF <span class="font-semibold text-chart-4">{{ slotScores[i - 1]?.def ?? 0 }}</span></span>
-                <span>{{ slotPlayerCounts[i - 1] }} players</span>
-              </div>
+        <!-- Filled slots -->
+        <div
+          v-for="team in trackedTeams"
+          :key="team.id"
+          class="rounded-lg border bg-card p-4 min-h-[80px] flex flex-col justify-center shadow hover:shadow-md transition-shadow"
+          :style="{ borderColor: (teamColorMap.get(team.id) ?? '#888') + '40' }"
+        >
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <NuxtLink
+                :to="`/teams?id=${team.id}`"
+                class="font-semibold text-sm hover:underline"
+                :style="{ color: teamColorMap.get(team.id) ?? '#888' }"
+              >
+                {{ team.name }}
+              </NuxtLink>
+              <Button size="icon" variant="ghost" class="h-6 w-6" @click="removeTrackedTeam(team.id)">
+                <X class="w-3 h-3" />
+              </Button>
+            </div>
+            <div class="flex gap-3 text-xs text-muted-foreground">
+              <span>OVR <span class="font-semibold text-primary">{{ slotScores[team.id]?.overall ?? 0 }}</span></span>
+              <span>OFF <span class="font-semibold text-chart-1">{{ slotScores[team.id]?.off ?? 0 }}</span></span>
+              <span>DEF <span class="font-semibold text-chart-4">{{ slotScores[team.id]?.def ?? 0 }}</span></span>
+              <span>{{ slotPlayerCounts[team.id] ?? 0 }} players</span>
             </div>
           </div>
-        </template>
+        </div>
+
+        <!-- Empty slot (Add Team) - Only show if < 3 teams -->
+        <div
+          v-if="trackedTeams.length < 3"
+          class="rounded-lg border-2 border-dashed border-muted-foreground/15 p-4 min-h-[80px] flex flex-col justify-center"
+        >
+          <Select :model-value="''" @update:model-value="(v: any) => addTrackedTeam(String(v ?? ''))">
+            <SelectTrigger class="border-none bg-transparent shadow-none h-auto p-0 text-muted-foreground">
+              <SelectValue placeholder="+ Select team" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="t in availableTeamsForSlot"
+                :key="t.id"
+                :value="t.id"
+              >
+                {{ t.name }}
+              </SelectItem>
+              <SelectItem value="__new__">+ New Team</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
 
@@ -1420,22 +1420,25 @@ const filteredPlayers = computed(() => {
 // Up to 3 tracked team IDs — persisted to localStorage
 const STORAGE_KEY = 'flagos:tracked-teams'
 const trackedTeamIds = ref<string[]>([])
+
 if (import.meta.client) {
-  trackedTeamIds.value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+  // Sanitize: filter out empty strings immediately
+  const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+  trackedTeamIds.value = raw.filter((id: any) => typeof id === 'string' && id)
 }
+
 watch(trackedTeamIds, (ids) => {
   if (import.meta.client) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
   }
 }, { deep: true })
 
-const trackedTeams = computed(() =>
-  [0, 1, 2].map((i) => {
-    const id = trackedTeamIds.value[i]
-    if (!id) return null
-    return teams.value.find((t) => t.id === id) ?? null
-  })
-)
+const trackedTeams = computed(() => {
+  // Return the actual Team objects for the IDs we have
+  return trackedTeamIds.value
+    .map(id => teams.value.find(t => t.id === id))
+    .filter((t): t is Team => !!t)
+})
 
 const availableTeamsForSlot = computed(() =>
   teams.value.filter((t) => !trackedTeamIds.value.includes(t.id) && t.name !== 'Free Agent')
@@ -1455,16 +1458,25 @@ const trackedPlayerSets = computed(() => {
   return map
 })
 
-// Scores per slot
-const slotScores = computed(() =>
-  [0, 1, 2].map((i) => {
-    const team = trackedTeams.value[i]
-    if (!team?.team_players) return { off: 0, def: 0, overall: 0 }
+// Scores per slot (keyed by teamId)
+const slotScores = computed(() => {
+  const scores: Record<string, { off: number, def: number, overall: number }> = {}
+  
+  for (const team of trackedTeams.value) {
+    if (!team?.team_players) {
+       scores[team.id] = { off: 0, def: 0, overall: 0 }
+       continue
+    }
+
     const ids = trackedPlayerSets.value.get(team.id)
-    if (!ids || ids.size === 0) return { off: 0, def: 0, overall: 0 }
+    if (!ids || ids.size === 0) {
+       scores[team.id] = { off: 0, def: 0, overall: 0 }
+       continue
+    }
+
     const teamPlayers = players.value.filter((p) => ids.has(p.id))
 
-    // Build position/starter data from team_players
+    // Build position/starter data
     const offData = team.team_players.map((tp) => ({
       player_id: tp.player_id,
       position: tp.offense_position,
@@ -1479,16 +1491,18 @@ const slotScores = computed(() =>
     const off = teamScore(teamPlayers, 'offense', offData)
     const def = teamScore(teamPlayers, 'defense', defData)
     const overall = teamPlayers.length > 0 ? Math.round(((off + def) / 2) * 10) / 10 : 0
-    return { off, def, overall }
-  })
-)
+    scores[team.id] = { off, def, overall }
+  }
+  return scores
+})
 
-const slotPlayerCounts = computed(() =>
-  [0, 1, 2].map((i) => {
-    const id = trackedTeamIds.value[i]
-    return id ? (trackedPlayerSets.value.get(id)?.size ?? 0) : 0
-  })
-)
+const slotPlayerCounts = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const id of trackedTeamIds.value) {
+    counts[id] = trackedPlayerSets.value.get(id)?.size ?? 0
+  }
+  return counts
+})
 
 function isPlayerOnTeam(playerId: string, teamId: string): boolean {
   return trackedPlayerSets.value.get(teamId)?.has(playerId) ?? false
@@ -1620,26 +1634,20 @@ function getTeamInitial(name: string): string {
   return name.charAt(0).toUpperCase()
 }
 
-function selectSlot(index: number, teamId: string) {
+function addTrackedTeam(teamId: string) {
   if (teamId === '__new__') {
-    pendingSlotIndex.value = index
+    pendingSlotIndex.value = -1 // No specific index anymore
     teamDialogOpen.value = true
     return
   }
-  // Always maintain a 3-slot sparse array so middle card stays in position
-  const ids = [...trackedTeamIds.value]
-  // Pad with empty strings up to the index
-  while (ids.length <= index) ids.push('')
-  ids[index] = teamId
-  trackedTeamIds.value = ids
+  if (trackedTeamIds.value.includes(teamId)) return
+  if (trackedTeamIds.value.length >= 3) return
+
+  trackedTeamIds.value = [...trackedTeamIds.value, teamId]
 }
 
-function removeSlot(index: number) {
-  const ids = [...trackedTeamIds.value]
-  ids[index] = ''
-  // Trim trailing empty slots
-  while (ids.length > 0 && !ids[ids.length - 1]) ids.pop()
-  trackedTeamIds.value = ids
+function removeTrackedTeam(teamId: string) {
+  trackedTeamIds.value = trackedTeamIds.value.filter(id => id !== teamId)
 }
 
 async function togglePlayerTeam(player: Player, teamId: string) {
@@ -1782,14 +1790,10 @@ async function handleDelete(id: string) {
 async function handleCreateTeam(data: { name: string; description: string }) {
   const team = await createTeam(data.name, data.description)
   if (team) {
-    const idx = pendingSlotIndex.value >= 0 ? pendingSlotIndex.value : trackedTeamIds.value.length
-    if (idx < 3) {
-      const ids = [...trackedTeamIds.value]
-      while (ids.length <= idx) ids.push('')
-      ids[idx] = team.id
-      trackedTeamIds.value = ids
+    // If we were adding via the new team slot, auto-select it if possible
+    if (trackedTeamIds.value.length < 3) {
+      trackedTeamIds.value = [...trackedTeamIds.value, team.id]
     }
-    pendingSlotIndex.value = -1
   }
 }
 

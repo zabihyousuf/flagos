@@ -416,8 +416,36 @@ export function useTeams() {
     const offZ = offRoster.length > 0 ? computeZScores(offRoster, 'offense') : new Map()
     const defZ = defRoster.length > 0 ? computeZScores(defRoster, 'defense') : new Map()
 
-    const offStarters = pickStarters(['QB', 'C', 'WR', 'WR', 'WR'], 5, offRoster, offZ, OFF_WEIGHTS, 'offense_positions')
-    const defStarters = pickStarters(['RSH'], 5, defRoster, defZ, DEF_WEIGHTS, 'defense_positions')
+    // Identify locked players
+    const lockedOffStarters = team.team_players.filter((tp) => tp.offense_starter && tp.offense_starter_locked)
+    const lockedDefStarters = team.team_players.filter((tp) => tp.defense_starter && tp.defense_starter_locked)
+
+    // Locked IDs (bench OR starter) - these cannot be moved by auto-fill
+    const lockedOffIds = new Set(team.team_players.filter((tp) => tp.offense_starter_locked).map((tp) => tp.player_id))
+    const lockedDefIds = new Set(team.team_players.filter((tp) => tp.defense_starter_locked).map((tp) => tp.player_id))
+
+    // Filter available pool (exclude anyone locked)
+    const availableOff = offRoster.filter((p) => !lockedOffIds.has(p.id))
+    const availableDef = defRoster.filter((p) => !lockedDefIds.has(p.id))
+
+    // Determine remaining slots to fill
+    const offSlots = ['QB', 'C', 'WR', 'WR', 'WR']
+    lockedOffStarters.forEach((tp) => {
+      const idx = offSlots.indexOf(tp.offense_position || '')
+      if (idx !== -1) offSlots.splice(idx, 1)
+    })
+
+    const defSlots = ['RSH']
+    lockedDefStarters.forEach((tp) => {
+      const idx = defSlots.indexOf(tp.defense_position || '')
+      if (idx !== -1) defSlots.splice(idx, 1)
+    })
+
+    const offTarget = Math.max(0, 5 - lockedOffStarters.length)
+    const defTarget = Math.max(0, 5 - lockedDefStarters.length)
+
+    const offStarters = pickStarters(offSlots, offTarget, availableOff, offZ, OFF_WEIGHTS, 'offense_positions')
+    const defStarters = pickStarters(defSlots, defTarget, availableDef, defZ, DEF_WEIGHTS, 'defense_positions')
 
     // Update each team_player record with starter flag + starting position
     for (const tp of team.team_players) {

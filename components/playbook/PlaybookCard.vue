@@ -20,7 +20,7 @@
         <div class="flex items-center gap-4 text-sm text-muted-foreground">
           <div class="flex items-center gap-1.5">
             <BookOpen class="w-3.5 h-3.5" />
-            <span>{{ playbook.plays?.length ?? 0 }} plays</span>
+            <span>{{ playbook.plays?.length ?? 0 }} {{ (playbook.plays?.length ?? 0) === 1 ? 'play' : 'plays' }}</span>
           </div>
           <div class="flex items-center gap-1.5">
             <Clock class="w-3.5 h-3.5" />
