@@ -19,6 +19,16 @@ interface InteractionOptions {
   onAssignReadOrder: (playerId: string) => void
   onClearRoute: (playerId: string) => void
   onRequestRender: () => void
+  /** When route tool is active and user clicks a player (no selection yet), switch to move mode instead of selecting for route */
+  onSelectPlayerForMove?: (playerId: string) => void
+  /** When select tool and user starts dragging a player (mousedown on player), call once so undo can save state before move */
+  onDragStart?: () => void
+  /** When user releases after dragging a player, call so we can save state after move for undo stack */
+  onDragEnd?: () => void
+  /** When user clicks on a route (select tool, no player hit), call with playerId and click client position for delete chip */
+  onSelectRoute?: (playerId: string, clientX: number, clientY: number) => void
+  /** When user clicks empty (deselect), call so delete chip can be hidden */
+  onDeselectRoute?: () => void
 }
 
 export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, options: InteractionOptions) {
@@ -95,6 +105,38 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     return null
   }
 
+  /** Distance from point (px, py) to line segment (ax,ay)-(bx,by) in 0-1 field coords */
+  function pointToSegmentDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+    const dx = bx - ax
+    const dy = by - ay
+    const lenSq = dx * dx + dy * dy
+    if (lenSq === 0) return Math.sqrt((px - ax) ** 2 + (py - ay) ** 2)
+    let t = ((px - ax) * dx + (py - ay) * dy) / lenSq
+    t = Math.max(0, Math.min(1, t))
+    const qx = ax + t * dx
+    const qy = ay + t * dy
+    return Math.sqrt((px - qx) ** 2 + (py - qy) ** 2)
+  }
+
+  /** Find player whose route path is near the given field coords (for delete chip) */
+  function findRouteAt(coords: { x: number; y: number }): CanvasPlayer | null {
+    const threshold = 0.04
+    for (const player of [...options.canvasData.value.players].reverse()) {
+      if (!player.route?.segments?.length) continue
+      let lastX = player.x
+      let lastY = player.y
+      for (const seg of player.route.segments) {
+        for (const pt of seg.points) {
+          const d = pointToSegmentDist(coords.x, coords.y, lastX, lastY, pt.x, pt.y)
+          if (d < threshold) return player
+          lastX = pt.x
+          lastY = pt.y
+        }
+      }
+    }
+    return null
+  }
+
   function isDrawingTool(tool: CanvasTool): boolean {
     return tool === 'straight' || tool === 'curve' || tool === 'option'
   }
@@ -115,11 +157,19 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     if (tool === 'select') {
       const player = findPlayerAt(coords)
       if (player) {
+        options.onDragStart?.()
         options.onSelectPlayer(player.id)
         isDragging.value = true
         dragPlayerId.value = player.id
       } else {
-        options.onSelectPlayer(null)
+        const routePlayer = findRouteAt(coords)
+        if (routePlayer && options.onSelectRoute) {
+          options.onSelectRoute(routePlayer.id, e.clientX, e.clientY)
+          options.onSelectPlayer(routePlayer.id)
+        } else {
+          options.onDeselectRoute?.()
+          options.onSelectPlayer(null)
+        }
       }
     } else if (isDrawingTool(tool)) {
       const selectedId = options.selectedPlayerId.value
@@ -137,10 +187,16 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
         }
         options.onRequestRender()
       } else {
-        // Click on player to select for drawing
+        // Route tool active, no player selected: switch to move and select (do not start route)
         const player = findPlayerAt(coords)
         if (player) {
-          options.onSelectPlayer(player.id)
+          if (options.onSelectPlayerForMove) {
+            options.onSelectPlayerForMove(player.id)
+            isDragging.value = true
+            dragPlayerId.value = player.id
+          } else {
+            options.onSelectPlayer(player.id)
+          }
         }
       }
     } else if (tool === 'motion') {
@@ -199,12 +255,18 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
         let clampedX = Math.max(0, Math.min(1, coords.x))
         let clampedY = Math.max(0, Math.min(1, coords.y))
         const player = options.canvasData.value.players.find((p) => p.id === dragPlayerId.value)
-        if (player?.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')) {
-          const fs = options.fieldSettings.value
-          const totalLength = fs.field_length + fs.endzone_size * 2
-          const losY = (fs.endzone_size + fs.field_length - fs.line_of_scrimmage) / totalLength
-          const maxY = losY - 7 / totalLength
+        const fs = options.fieldSettings.value
+        const totalLength = fs.field_length + fs.endzone_size * 2
+        const losY = (fs.endzone_size + fs.field_length - fs.line_of_scrimmage) / totalLength
+        // Defenders cannot pass the line of scrimmage; rushers must stay 7 yards behind LOS
+        if (player?.side === 'defense') {
+          const isRusher = player.designation === 'R' || player.position === 'RSH'
+          const maxY = isRusher ? losY - 7 / totalLength : losY
           clampedY = Math.min(clampedY, maxY)
+        }
+        // Offensive players cannot pass the LOS (stay on offense side)
+        if (player?.side === 'offense') {
+          clampedY = Math.max(clampedY, losY)
         }
         options.onMovePlayer(dragPlayerId.value, clampedX, clampedY)
         options.onRequestRender()
@@ -213,6 +275,9 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
   }
 
   function handleMouseUp(_e: MouseEvent) {
+    if (isDragging.value) {
+      options.onDragEnd?.()
+    }
     isDragging.value = false
     dragPlayerId.value = null
     isPanning.value = false

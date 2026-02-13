@@ -1,5 +1,5 @@
 <template>
-  <div class="relative w-full h-full overflow-hidden bg-background">
+  <div ref="wrapperRef" class="relative w-full h-full overflow-hidden bg-background">
     <canvas
       ref="canvasRef"
       class="w-full h-full"
@@ -7,13 +7,23 @@
       @dragover.prevent
       @drop="handleDrop"
     />
+    <!-- Delete route chip when user clicked on a route -->
+    <div
+      v-if="routeDeleteChip"
+      class="absolute z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-destructive text-destructive-foreground text-xs font-medium shadow-lg border border-destructive/80"
+      :style="routeDeleteChipStyle"
+    >
+      <Trash2 class="w-3 h-3" />
+      <button type="button" class="hover:underline" @click="confirmDeleteRoute">Delete route</button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { CanvasData, Player } from '~/lib/types'
+import type { CanvasData, CanvasPlayer, Player } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
+import { Trash2 } from 'lucide-vue-next'
 
 const props = defineProps<{
   initialData?: CanvasData
@@ -23,11 +33,14 @@ const props = defineProps<{
     field_width: number
     endzone_size: number
     line_of_scrimmage: number
+    first_down?: number
   }
   starters?: Player[]
   allRoster?: Player[]
   starterPositionMap?: Record<string, string>
   viewMode?: 'fit' | 'full'
+  /** Overlay defense from another play (ghost style) */
+  ghostPlayers?: CanvasPlayer[]
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +48,36 @@ const emit = defineEmits<{
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const wrapperRef = ref<HTMLElement | null>(null)
+
+const routeDeleteChip = ref<{ playerId: string; clientX: number; clientY: number } | null>(null)
+const routeDeleteChipStyle = computed(() => {
+  if (!routeDeleteChip.value || !wrapperRef.value) return {}
+  const rect = wrapperRef.value.getBoundingClientRect()
+  return {
+    left: `${routeDeleteChip.value.clientX - rect.left + 8}px`,
+    top: `${routeDeleteChip.value.clientY - rect.top}px`,
+  }
+})
+
+function onSelectRoute(playerId: string, clientX: number, clientY: number) {
+  const player = canvasData.value.players.find((p) => p.id === playerId)
+  const isRusher = player?.side === 'defense' && (player?.designation === 'R' || player?.position === 'RSH')
+  if (isRusher) return // Rusher's path to QB cannot be deleted
+  routeDeleteChip.value = { playerId, clientX, clientY }
+}
+
+function onDeselectRoute() {
+  routeDeleteChip.value = null
+}
+
+function confirmDeleteRoute() {
+  if (routeDeleteChip.value) {
+    clearRoute(routeDeleteChip.value.playerId)
+    routeDeleteChip.value = null
+    requestRender()
+  }
+}
 
 const {
   canvasData,
@@ -63,6 +106,13 @@ const {
   addPlayerToCanvasData,
   removePlayerFromCanvasData,
   updatePlayerAttribute,
+  pushHistoryBeforeDrag,
+  pushHistoryAfterDrag,
+  undo,
+  redo,
+  seedHistory,
+  canUndo,
+  canRedo,
 } = useCanvas()
 
 const { render } = useCanvasRenderer()
@@ -81,6 +131,11 @@ const canvasCursor = computed(() => {
   return 'cursor-default'
 })
 
+function onSelectPlayerForMove(playerId: string) {
+  setTool('select')
+  selectPlayer(playerId)
+}
+
 function requestRender() {
   if (!canvasRef.value) return
   const ctx = canvasRef.value.getContext('2d')
@@ -91,11 +146,13 @@ function requestRender() {
     fieldWidth: fieldSettings.value.field_width,
     endzoneSize: fieldSettings.value.endzone_size,
     lineOfScrimmage: fieldSettings.value.line_of_scrimmage,
+    firstDownYardLine: fieldSettings.value.first_down ?? Math.floor(fieldSettings.value.field_length / 2),
     zoom: zoom.value,
     panOffset: panOffset.value,
     selectedPlayerId: selectedPlayerId.value,
     viewMode: props.viewMode ?? 'fit',
     playType: props.playType,
+    ghostPlayers: props.ghostPlayers,
   })
 }
 
@@ -119,6 +176,11 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   onAssignReadOrder: assignReadOrder,
   onClearRoute: clearRoute,
   onRequestRender: requestRender,
+  onSelectPlayerForMove: onSelectPlayerForMove,
+  onDragStart: pushHistoryBeforeDrag,
+  onDragEnd: pushHistoryAfterDrag,
+  onSelectRoute: onSelectRoute,
+  onDeselectRoute: onDeselectRoute,
 })
 
 function handleSave() {
@@ -184,13 +246,14 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers], () => {
   requestRender()
 }, { deep: true })
 
 watch(() => props.initialData, (data) => {
   if (data) {
     loadCanvasData(data)
+    nextTick(() => seedHistory())
   }
 }, { immediate: true })
 
@@ -215,6 +278,7 @@ onMounted(() => {
         length: fieldSettings.value.field_length,
         endzone: fieldSettings.value.endzone_size,
       }, props.starterPositionMap)
+      nextTick(() => seedHistory())
     }
   })
 })
@@ -248,5 +312,9 @@ defineExpose({
   handleAiAction,
   fieldSettings,
   allRoster,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
 })
 </script>

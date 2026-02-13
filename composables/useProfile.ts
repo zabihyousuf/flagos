@@ -39,6 +39,7 @@ export function useProfile() {
 
   async function updateProfile(updates: Partial<Profile>) {
     const user = useSupabaseUser()
+    const authClient = useSupabaseClient()
     if (!user.value || !profile.value) return null
 
     loading.value = true
@@ -56,6 +57,11 @@ export function useProfile() {
 
       if (err) throw err
       profile.value = data as Profile
+
+      if (updates.display_name !== undefined) {
+        await authClient.auth.updateUser({ data: { display_name: updates.display_name } })
+      }
+
       return data as Profile
     } catch (e: any) {
       error.value = e.message

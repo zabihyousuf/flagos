@@ -13,6 +13,7 @@ export interface FieldSettings {
   field_width: number
   endzone_size: number
   line_of_scrimmage: number
+  first_down?: number // yard line; defaults to midfield if missing (e.g. before migration)
   created_at: string
   updated_at: string
 }
@@ -153,6 +154,8 @@ export interface CanvasPlayer {
   /** Defensive attributes */
   coverageRadius?: number // In yards
   alignment?: 'tight' | 'normal' | 'soft' | 'off' // Alignment depth
+  /** Offense: QB throws to this receiver regardless of read progression */
+  primaryTarget?: boolean
   /** @deprecated Use designation instead */
   label?: string
 }

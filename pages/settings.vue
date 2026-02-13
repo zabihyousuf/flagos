@@ -106,6 +106,21 @@
                   <span class="config-unit">yard line</span>
                 </div>
               </div>
+
+              <div class="config-field">
+                <Label class="config-label">First Down Line</Label>
+                <div class="config-input-row">
+                  <Input
+                    type="number"
+                    :model-value="settings.first_down ?? Math.floor(settings.field_length / 2)"
+                    @update:model-value="(v: string | number) => debouncedUpdate({ first_down: Number(v) })"
+                    :min="1"
+                    :max="69"
+                    class="config-input"
+                  />
+                  <span class="config-unit">yard line</span>
+                </div>
+              </div>
             </div>
 
             <!-- Quick Stats -->

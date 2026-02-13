@@ -152,26 +152,45 @@
             <span v-if="seg.readOrder" class="bg-primary text-primary-foreground text-[8px] w-3.5 h-3.5 flex items-center justify-center rounded-full -mr-1 shadow-sm">{{ seg.readOrder }}</span>
           </div>
         </div>
+
+        <!-- QB throws here (primary target) -->
+        <div v-if="selectedPlayer.route && selectedPlayer.route.segments.length > 0 && !pendingRoute" class="pt-1.5">
+          <Button
+            size="sm"
+            :variant="selectedPlayer.primaryTarget ? 'default' : 'outline'"
+            class="h-7 px-2 text-[10px] w-full"
+            @click="$emit('update-attribute', selectedPlayer.id, { primaryTarget: !selectedPlayer.primaryTarget })"
+          >
+            <Target class="w-3 h-3 mr-1.5" />
+            {{ selectedPlayer.primaryTarget ? 'QB throws here' : 'QB throws here (set as primary)' }}
+          </Button>
+        </div>
       </div>
 
-      <!-- Analytics -->
+      <!-- Analytics (route for offense, rush-to-QB for rushers) -->
       <div v-if="routeAnalytics" class="space-y-2 pt-2 border-t border-border/50">
         <div class="flex items-center justify-between">
-          <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Analytics</p>
+          <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            {{ isRusher(selectedPlayer) ? 'Rush to QB' : 'Route analytics' }}
+          </p>
           <span class="text-[9px] text-muted-foreground/60 font-mono">SPD: {{ playerSpeedAttr }}/10</span>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-            <p class="text-[9px] text-muted-foreground font-medium mb-0.5">EST. TIME</p>
+            <p class="text-[9px] text-muted-foreground font-medium mb-0.5">
+              {{ isRusher(selectedPlayer) ? 'TIME TO QB' : 'EST. TIME' }}
+            </p>
             <p class="text-sm font-mono font-bold text-emerald-500 leading-none">{{ routeAnalytics.totalDuration.toFixed(2) }}s</p>
           </div>
           <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-            <p class="text-[9px] text-muted-foreground font-medium mb-0.5">DISTANCE</p>
+            <p class="text-[9px] text-muted-foreground font-medium mb-0.5">
+              {{ isRusher(selectedPlayer) ? 'PATH TO QB' : 'DISTANCE' }}
+            </p>
             <p class="text-sm font-mono font-bold leading-none text-foreground">{{ routeAnalytics.totalDistance.toFixed(1) }} <span class="text-[9px] font-normal text-muted-foreground">yd</span></p>
           </div>
         </div>
 
-        <!-- Timeline -->
+        <!-- Timeline: segment duration (rush path vs route segments) -->
         <div class="space-y-px pl-1 pt-1">
           <div v-for="(seg, i) in routeAnalytics.segments" :key="i" class="flex items-center text-[10px] gap-2 h-5 relative group">
             <!-- Connector line -->
@@ -182,9 +201,11 @@
               :class="seg.isCut ? 'bg-amber-500' : 'bg-muted-foreground'"
             />
             <span class="text-muted-foreground min-w-[3rem] font-medium">
-              {{ i === 0 ? 'Start' : (seg.isCut ? 'Cut' : 'Leg') }}
+              {{ segmentLabel(routeAnalytics.segments.length, i, seg, isRusher(selectedPlayer)) }}
             </span>
-            <span class="font-mono text-foreground font-medium">{{ seg.cumulativeTime.toFixed(2) }}s</span>
+            <span class="font-mono text-foreground font-medium" :title="'Segment: ' + seg.duration.toFixed(2) + 's' + (routeAnalytics.segments.length > 1 ? ' · Total: ' + seg.cumulativeTime.toFixed(2) + 's' : '')">
+              {{ seg.duration.toFixed(2) }}s
+            </span>
             <span class="text-muted-foreground ml-auto font-mono text-[9px]">{{ seg.distance.toFixed(1) }}yd</span>
           </div>
         </div>
@@ -206,7 +227,7 @@ import {
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
-import { Sparkles, Check, X } from 'lucide-vue-next'
+import { Sparkles, Check, X, Target } from 'lucide-vue-next'
 
 const props = defineProps<{
   selectedPlayer: CanvasPlayer | null
@@ -272,6 +293,13 @@ const playerAttributes = computed(() => {
 const playerSpeedAttr = computed(() => {
   return playerAttributes.value?.speed ?? 5
 })
+
+/** Route: Route/Start/Cut/Leg. Rusher: Rush/Start/Turn/Leg (time-to-QB path). */
+function segmentLabel(totalSegments: number, index: number, seg: { isCut: boolean }, isRusherPlayer: boolean): string {
+  if (totalSegments === 1) return isRusherPlayer ? 'Rush' : 'Route'
+  if (index === 0) return 'Start'
+  return seg.isCut ? (isRusherPlayer ? 'Turn' : 'Cut') : 'Leg'
+}
 
 const routeAnalytics = computed(() => {
   if (!props.selectedPlayer) return null

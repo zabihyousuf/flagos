@@ -32,6 +32,8 @@ function migrateCanvasData(data: CanvasData): CanvasData {
   return migrated
 }
 
+const HISTORY_CAP = 30
+
 export function useCanvas() {
   const canvasData = ref<CanvasData>(getDefaultFormation('offense'))
   const selectedTool = ref<CanvasTool>('select')
@@ -41,6 +43,9 @@ export function useCanvas() {
   const isDirty = ref(false)
   const activeSegmentIndex = ref<number | null>(null) // track which segment is being drawn
   const nextReadOrder = ref(1) // auto-incrementing read order counter
+
+  const historyStack = ref<CanvasData[]>([])
+  const historyIndex = ref(-1)
 
   const selectedPlayer = computed(() => {
     if (!selectedPlayerId.value) return null
@@ -58,6 +63,41 @@ export function useCanvas() {
       })
     })
     nextReadOrder.value = maxOrder + 1
+  }
+
+  /** Push current state to history (call before or after a mutation depending on convention). Used for undo/redo. */
+  function pushHistory() {
+    const snapshot = getExportData()
+    if (historyIndex.value < historyStack.value.length - 1) {
+      historyStack.value = historyStack.value.slice(0, historyIndex.value + 1)
+    }
+    historyStack.value.push(snapshot)
+    if (historyStack.value.length > HISTORY_CAP) {
+      historyStack.value.shift()
+      historyIndex.value = Math.max(0, historyIndex.value - 1)
+    }
+    historyIndex.value = historyStack.value.length - 1
+  }
+
+  function undo() {
+    if (historyIndex.value <= 0) return
+    historyIndex.value--
+    loadCanvasData(historyStack.value[historyIndex.value])
+  }
+
+  function redo() {
+    if (historyIndex.value >= historyStack.value.length - 1) return
+    historyIndex.value++
+    loadCanvasData(historyStack.value[historyIndex.value])
+  }
+
+  const canUndo = computed(() => historyIndex.value > 0)
+  const canRedo = computed(() => historyIndex.value >= 0 && historyIndex.value < historyStack.value.length - 1)
+
+  /** Call after loading initial play data so undo has a starting point */
+  function seedHistory() {
+    historyStack.value = [getExportData()]
+    historyIndex.value = 0
   }
 
   function setTool(tool: CanvasTool) {
@@ -87,6 +127,16 @@ export function useCanvas() {
     }
   }
 
+  /** Call before starting a drag so we have state to undo to (called once per drag from interaction) */
+  function pushHistoryBeforeDrag() {
+    pushHistory()
+  }
+
+  /** Call after drag ends to save the new state to history */
+  function pushHistoryAfterDrag() {
+    pushHistory()
+  }
+
   // ─── Segment-based route drawing ───────────────────────
 
   function startRouteSegment(playerId: string, x: number, y: number) {
@@ -107,6 +157,7 @@ export function useCanvas() {
     })
     activeSegmentIndex.value = player.route.segments.length - 1
     isDirty.value = true
+    pushHistory()
   }
 
   function addPointToSegment(playerId: string, x: number, y: number) {
@@ -118,6 +169,7 @@ export function useCanvas() {
 
     segment.points.push({ x, y })
     isDirty.value = true
+    pushHistory()
   }
 
   function finalizeSegment() {
@@ -126,19 +178,24 @@ export function useCanvas() {
 
   function clearRoute(playerId: string) {
     const player = canvasData.value.players.find((p) => p.id === playerId)
-    if (player) {
-      player.route = null
-      isDirty.value = true
-    }
+    if (!player) return
+    const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
+    if (isRusher) return // Rusher's path to QB cannot be deleted
+    player.route = null
+    isDirty.value = true
+    pushHistory()
   }
 
   function clearAllRoutes() {
     canvasData.value.players.forEach((p) => {
+      const isRusher = p.side === 'defense' && (p.designation === 'R' || p.position === 'RSH')
+      if (isRusher) return
       p.route = null
       p.motionPath = null
     })
     nextReadOrder.value = 1
     isDirty.value = true
+    pushHistory()
   }
 
   // ─── Read order ────────────────────────────────────────
@@ -159,6 +216,7 @@ export function useCanvas() {
       segment.readOrder = nextReadOrder.value++
     }
     isDirty.value = true
+    pushHistory()
   }
 
   // ─── Motion / QB rollout ───────────────────────────────
@@ -172,6 +230,7 @@ export function useCanvas() {
     }
     player.motionPath.push({ x, y })
     isDirty.value = true
+    pushHistory()
   }
 
   function clearMotionPath(playerId: string) {
@@ -192,6 +251,7 @@ export function useCanvas() {
         player.coverageRadius = undefined // Rushers do not cover a zone
       }
       isDirty.value = true
+      pushHistory()
     }
   }
 
@@ -213,11 +273,23 @@ export function useCanvas() {
   function updatePlayerAttribute(playerId: string, attrs: Partial<CanvasPlayer>) {
     const player = canvasData.value.players.find((p) => p.id === playerId)
     if (player) {
+      const wasRusher = player.position === 'RSH' || player.designation === 'R'
+      if (attrs.primaryTarget === true) {
+        canvasData.value.players.forEach((p) => { p.primaryTarget = false })
+      }
       Object.assign(player, attrs)
       if (attrs.position === 'RSH' || attrs.designation === 'R') {
         player.coverageRadius = undefined // Rushers do not cover a zone
       }
+      // If switched from rusher to non-rusher (e.g. DB), remove the line to QB and set default coverage
+      const isRusher = player.position === 'RSH' || player.designation === 'R'
+      if (wasRusher && !isRusher) {
+        player.route = null
+        player.motionPath = null
+        player.coverageRadius = 5 // Default coverage radius for defenders
+      }
       isDirty.value = true
+      pushHistory()
     }
   }
 
@@ -312,6 +384,7 @@ export function useCanvas() {
       alignment: side === 'defense' ? 'normal' : undefined,
     })
     isDirty.value = true
+    pushHistory()
   }
 
   function removePlayerFromCanvasData(playerId: string) {
@@ -320,6 +393,7 @@ export function useCanvas() {
       selectedPlayerId.value = null
     }
     isDirty.value = true
+    pushHistory()
   }
 
   return {
@@ -332,10 +406,19 @@ export function useCanvas() {
     isDirty,
     activeSegmentIndex,
     nextReadOrder,
+    historyStack,
+    historyIndex,
+    canUndo,
+    canRedo,
     loadCanvasData,
     setTool,
     selectPlayer,
     updatePlayerPosition,
+    pushHistoryBeforeDrag,
+    pushHistoryAfterDrag,
+    undo,
+    redo,
+    seedHistory,
     startRouteSegment,
     addPointToSegment,
     finalizeSegment,

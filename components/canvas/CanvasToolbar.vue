@@ -1,5 +1,41 @@
 <template>
   <div class="flex items-center gap-1">
+    <!-- Undo / Redo -->
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8"
+            :disabled="!canUndo"
+            @click="$emit('undo')"
+          >
+            <Undo2 class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>Undo</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8"
+            :disabled="!canRedo"
+            @click="$emit('redo')"
+          >
+            <Redo2 class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>Redo</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <Separator orientation="vertical" class="h-5 mx-0.5" />
+
     <!-- Select tool -->
     <TooltipProvider>
       <Tooltip>
@@ -145,17 +181,23 @@ import {
   Trash2,
   Sparkles,
   Shuffle,
-  Wand2
+  Wand2,
+  Undo2,
+  Redo2,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
   selectedTool: CanvasTool
+  canUndo?: boolean
+  canRedo?: boolean
 }>()
 
 defineEmits<{
   'select-tool': [tool: CanvasTool]
   'clear-routes': []
   'ai-action': [action: string]
+  'undo': []
+  'redo': []
 }>()
 
 const showAiMenu = ref(false)

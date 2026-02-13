@@ -20,6 +20,7 @@ export type Database = {
           endzone_size: number
           field_length: number
           field_width: number
+          first_down: number
           id: string
           line_of_scrimmage: number
           updated_at: string | null
@@ -30,6 +31,7 @@ export type Database = {
           endzone_size?: number
           field_length?: number
           field_width?: number
+          first_down?: number
           id?: string
           line_of_scrimmage?: number
           updated_at?: string | null
@@ -40,6 +42,7 @@ export type Database = {
           endzone_size?: number
           field_length?: number
           field_width?: number
+          first_down?: number
           id?: string
           line_of_scrimmage?: number
           updated_at?: string | null

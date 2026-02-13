@@ -6,11 +6,15 @@ export interface RenderOptions {
   fieldWidth: number
   endzoneSize: number
   lineOfScrimmage: number
+  /** Yard line for first down (from user settings); defaults to midfield if not set */
+  firstDownYardLine?: number
   zoom: number
   panOffset: { x: number; y: number }
   selectedPlayerId: string | null
   viewMode?: 'fit' | 'full'
   playType?: 'offense' | 'defense'
+  /** Overlay defense from another play (drawn as ghost, not interactive) */
+  ghostPlayers?: CanvasPlayer[]
 }
 
 const PADDING = 12
@@ -136,6 +140,22 @@ export function useCanvasRenderer() {
       drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
     }
 
+    // Ghost defense overlay (from another play): routes first, then players
+    if (options.ghostPlayers?.length) {
+      const qb = data.players.find(
+        (p) => p.side === 'offense' && (p.position === 'QB' || p.designation === 'Q')
+      )
+      const qbPosition = qb ? { x: qb.x, y: qb.y } : null
+      options.ghostPlayers.forEach((player) => {
+        const isRusher = player.designation === 'R' || player.position === 'RSH'
+        const hasRoute = player.route?.segments?.length
+        if (hasRoute || (isRusher && qbPosition)) {
+          drawGhostPlayerRoute(ctx, player, fieldW, fieldH, qbPosition)
+        }
+      })
+      drawGhostPlayers(ctx, options.ghostPlayers, fieldW, fieldH, options)
+    }
+
     // Draw players on top
     drawPlayers(ctx, data.players, fieldW, fieldH, options)
 
@@ -149,7 +169,7 @@ export function useCanvasRenderer() {
     fieldH: number,
     options: RenderOptions,
   ) {
-    const { fieldLength, endzoneSize, lineOfScrimmage } = options
+    const { fieldLength, endzoneSize, lineOfScrimmage, firstDownYardLine } = options
     const totalLength = fieldLength + endzoneSize * 2
     const yardHeight = fieldH / totalLength
 
@@ -263,8 +283,9 @@ export function useCanvasRenderer() {
     ctx.fillText(losText, 5 + pillPx, losY + 5 + pillPy)
 
 
-    // First Down Line (Midfield)
-    const midY = yardHeight * (endzoneSize + fieldLength / 2)
+    // First Down Line (from user settings, or midfield)
+    const firstDownYard = firstDownYardLine ?? fieldLength / 2
+    const midY = yardHeight * (endzoneSize + firstDownYard)
     ctx.save()
     ctx.shadowColor = COLORS.firstDown
     ctx.shadowBlur = 3
@@ -521,6 +542,153 @@ export function useCanvasRenderer() {
     ctx.fill()
   }
 
+  // ─── Ghost players (overlay from another play) ────────
+
+  function drawGhostPlayerRoute(
+    ctx: CanvasRenderingContext2D,
+    player: CanvasPlayer,
+    fieldW: number,
+    fieldH: number,
+    qbPosition: { x: number; y: number } | null,
+  ) {
+    const startX = player.x * fieldW
+    const startY = player.y * fieldH
+    const color = POSITION_COLORS[player.position] ?? '#ef4444'
+    const isRusher = player.designation === 'R' || player.position === 'RSH'
+
+    // Rusher: line always follows the offense QB so it updates when QB is moved
+    if (isRusher && qbPosition) {
+      const endX = qbPosition.x * fieldW
+      const endY = qbPosition.y * fieldH
+      ctx.save()
+      ctx.globalAlpha = 0.55
+      ctx.strokeStyle = color
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.setLineDash([6, 4])
+      ctx.beginPath()
+      ctx.moveTo(startX, startY)
+      ctx.lineTo(endX, endY)
+      ctx.stroke()
+      drawArrowHead(ctx, { x: startX, y: startY }, { x: endX, y: endY }, color, 8)
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+      ctx.restore()
+      return
+    }
+
+    if (!player.route?.segments || player.route.segments.length === 0) return
+
+    let lastEndPoint = { x: startX, y: startY }
+
+    ctx.save()
+    ctx.globalAlpha = 0.55
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.setLineDash([6, 4])
+
+    player.route.segments.forEach((segment) => {
+      if (segment.points.length === 0) return
+
+      const points = segment.points.map((p) => ({
+        x: p.x * fieldW,
+        y: p.y * fieldH,
+      }))
+
+      ctx.beginPath()
+      ctx.moveTo(lastEndPoint.x, lastEndPoint.y)
+
+      if (segment.type === 'curve') {
+        drawCurveSegment(ctx, lastEndPoint, points)
+      } else {
+        points.forEach((p) => ctx.lineTo(p.x, p.y))
+      }
+
+      ctx.stroke()
+
+      if (points.length > 0) {
+        const lastPt = points[points.length - 1]
+        const prevPt = points.length > 1 ? points[points.length - 2] : lastEndPoint
+        drawArrowHead(ctx, prevPt, lastPt, color, 8)
+      }
+
+      if (segment.type !== 'option' && points.length > 0) {
+        lastEndPoint = points[points.length - 1]
+      }
+    })
+
+    ctx.setLineDash([])
+    ctx.globalAlpha = 1
+    ctx.restore()
+  }
+
+  function drawGhostPlayers(
+    ctx: CanvasRenderingContext2D,
+    players: CanvasPlayer[],
+    fieldW: number,
+    fieldH: number,
+    options: RenderOptions,
+  ) {
+    const { fieldLength, endzoneSize } = options
+    const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
+    const ghostOpacity = 0.5
+
+    players.forEach((player) => {
+      const px = player.x * fieldW
+      const py = player.y * fieldH
+      const radius = Math.max(12, fieldW * 0.035)
+      const color = POSITION_COLORS[player.position] || '#ef4444'
+      const isRusher = player.designation === 'R' || player.position === 'RSH'
+
+      // Ghost coverage zone (defense only; rushers have no zone)
+      if (player.side === 'defense' && player.coverageRadius && !isRusher) {
+        ctx.save()
+        ctx.globalAlpha = 0.35
+        ctx.beginPath()
+        const pixRadius = player.coverageRadius * yardHeight
+        ctx.arc(px, py, pixRadius, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.25)'
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.4)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([5, 5])
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.globalAlpha = 1
+        ctx.restore()
+      }
+
+      // Ghost circle: semi-transparent fill, dashed border
+      ctx.save()
+      ctx.globalAlpha = ghostOpacity
+      ctx.setLineDash([6, 4])
+      ctx.beginPath()
+      ctx.arc(px, py, radius, 0, Math.PI * 2)
+      ctx.fillStyle = color
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+      ctx.lineWidth = 2
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+      ctx.restore()
+
+      const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
+      ctx.save()
+      ctx.globalAlpha = 0.85
+      ctx.fillStyle = '#ffffff'
+      ctx.font = `bold ${Math.max(9, radius * 0.65)}px Oracle Sans, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, px, py)
+      ctx.globalAlpha = 1
+      ctx.restore()
+    })
+  }
+
   // ─── Player rendering ─────────────────────────────────
 
   function drawPlayers(
@@ -619,6 +787,34 @@ export function useCanvasRenderer() {
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillText(player.name, px, py + radius + 5)
+        ctx.restore()
+      }
+
+      // Primary target indicator (offense only): ring + "1" badge
+      if (player.side === 'offense' && player.primaryTarget) {
+        ctx.save()
+        const ringRadius = radius + 6
+        ctx.beginPath()
+        ctx.arc(px, py, ringRadius, 0, Math.PI * 2)
+        ctx.strokeStyle = '#f59e0b'
+        ctx.lineWidth = 2.5
+        ctx.setLineDash([6, 4])
+        ctx.stroke()
+        ctx.setLineDash([])
+        // Small "1" badge above player
+        const badgeY = py - ringRadius - 8
+        ctx.beginPath()
+        ctx.arc(px, badgeY, 10, 0, Math.PI * 2)
+        ctx.fillStyle = '#f59e0b'
+        ctx.fill()
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+        ctx.fillStyle = '#fff'
+        ctx.font = `bold ${Math.max(10, radius * 0.5)}px Oracle Sans, sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('1', px, badgeY)
         ctx.restore()
       }
     })

@@ -1,11 +1,11 @@
 <template>
-  <div class="h-full w-full flex flex-col overflow-hidden">
-    <!-- Header Bar -->
-    <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-4">
-      <!-- Left: Breadcrumbs -->
-      <div class="flex items-center gap-1.5 min-w-0 shrink-0">
+  <div class="h-full w-full flex flex-col overflow-hidden py-4">
+    <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
+    <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-4 rounded-lg shadow-md">
+      <!-- Left: Breadcrumbs + title + sport (equal flex with right for centering) -->
+      <div class="flex-1 min-w-0 flex items-center gap-1.5">
         <button
-          class="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1"
+          class="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1 shrink-0"
           @click="goBack"
         >
           <ArrowLeft class="w-3.5 h-3.5" />
@@ -13,51 +13,104 @@
         </button>
         <ChevronRight class="w-3 h-3 text-muted-foreground/50 shrink-0" />
         
-        <!-- Editable Play Name -->
-        <div class="relative group">
+        <!-- Editable Play Name (fixed width) -->
+        <div class="w-52 shrink-0" v-if="currentPlay">
           <input
-            v-if="currentPlay"
             v-model="currentPlay.name"
-            class="bg-transparent text-sm font-medium truncate max-w-[200px] border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
+            class="w-full bg-transparent text-sm font-medium truncate border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
             @change="handleNameChange"
           />
-          <span v-else class="text-sm font-medium">Loading...</span>
         </div>
+        <span v-else class="text-sm font-medium">Loading...</span>
 
-        <!-- Sport Toggle -->
+        <!-- Offense / Defense Toggle (disabled for saved plays) -->
         <div class="flex items-center bg-muted rounded-full p-0.5 ml-2" v-if="currentPlay">
           <button
-            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1"
-            :class="currentPlay.play_type === 'offense' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="currentPlay.play_type === 'offense'
+              ? 'bg-primary/15 text-primary shadow-sm border border-primary/30'
+              : 'text-primary/70 hover:bg-primary/10 hover:text-primary'"
+            :disabled="playId !== 'new'"
             @click="handleTypeChange('offense')"
           >
             <Swords class="w-3 h-3" />
-            <span v-if="currentPlay.play_type === 'offense'">OFFENSE</span>
+            <span>Offense</span>
           </button>
           <button
-            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1"
-            :class="currentPlay.play_type === 'defense' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+            :class="currentPlay.play_type === 'defense'
+              ? 'bg-destructive/15 text-destructive shadow-sm border border-destructive/30'
+              : 'text-destructive/70 hover:bg-destructive/10 hover:text-destructive'"
+            :disabled="playId !== 'new'"
             @click="handleTypeChange('defense')"
           >
             <Shield class="w-3 h-3" />
-            <span v-if="currentPlay.play_type === 'defense'">DEFENSE</span>
+            <span>Defense</span>
           </button>
         </div>
       </div>
 
-      <!-- Center: Toolbar -->
-      <div class="flex-1 flex justify-center">
+      <!-- Center: Toolbar (equal flex so centered between left/right) -->
+      <div class="flex-1 flex justify-center min-w-0">
         <CanvasToolbar
           v-if="canvasReady"
           :selected-tool="cSelectedTool"
+          :can-undo="cCanUndo"
+          :can-redo="cCanRedo"
           @select-tool="onSetTool"
           @clear-routes="onClearAllRoutes"
           @ai-action="onAiAction"
+          @undo="canvasRef?.undo()"
+          @redo="canvasRef?.redo()"
         />
       </div>
 
-      <!-- Right: View Toggle + Save -->
-      <div class="flex items-center gap-2 shrink-0">
+      <!-- Right: Ghost defense (offense only) + View Toggle + Save -->
+      <div class="flex-1 min-w-0 flex items-center justify-end gap-2">
+        <!-- Ghost defense overlay: pick a defensive play to show as ghosts -->
+        <DropdownMenu v-if="currentPlay?.play_type === 'offense'" v-model:open="ghostDropdownOpen">
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="outline"
+              size="sm"
+              class="h-8 gap-1.5"
+              :class="ghostPlayers.length ? 'border-primary/50 text-primary bg-primary/5' : ''"
+            >
+              <Ghost class="w-3.5 h-3.5" />
+              <span class="text-[11px] font-medium">{{ ghostLabel }}</span>
+              <ChevronDown class="w-3 h-3 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-56 max-h-[280px] overflow-y-auto">
+            <DropdownMenuItem
+              class="text-[12px]"
+              :class="!ghostPlayers.length ? 'bg-accent' : ''"
+              @click="setGhostFromPlay(null)"
+            >
+              <span class="truncate">None</span>
+            </DropdownMenuItem>
+            <template v-if="defensePlaysForGhost.length === 0 && !ghostPlaysLoading">
+              <DropdownMenuItem disabled class="text-muted-foreground text-[11px]">
+                No defense plays in this playbook
+              </DropdownMenuItem>
+            </template>
+            <template v-else-if="ghostPlaysLoading">
+              <DropdownMenuItem disabled class="text-muted-foreground text-[11px]">
+                Loading…
+              </DropdownMenuItem>
+            </template>
+            <DropdownMenuItem
+              v-for="play in defensePlaysForGhost"
+              :key="play.id"
+              class="text-[12px]"
+              :class="ghostPlayId === play.id ? 'bg-accent' : ''"
+              @click="setGhostFromPlay(play)"
+            >
+              <span class="truncate">{{ play.name }}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <div class="flex items-center bg-muted rounded-md p-0.5">
           <button
             class="px-2.5 py-1 text-[11px] font-medium rounded transition-colors"
@@ -101,10 +154,10 @@
       Loading play...
     </div>
 
-    <!-- Three-column body -->
-    <div v-else-if="currentPlay" class="flex-1 flex overflow-hidden min-h-0">
+    <!-- Three-column body: spacing below header, rounded shadowed panels -->
+    <div v-else-if="currentPlay" class="flex-1 flex overflow-hidden min-h-0 mt-3 gap-3">
       <!-- Left: Roster Panel -->
-      <div class="w-60 shrink-0">
+      <div class="w-60 shrink-0 rounded-xl shadow-md overflow-hidden bg-card">
         <CanvasRosterCard
           v-if="canvasReady"
           :players="cPlayers"
@@ -117,34 +170,38 @@
         />
       </div>
 
-      <!-- Center: Canvas -->
-      <div class="flex-1 min-w-0">
-        <PlayCanvas
-          ref="canvasRef"
-          :initial-data="currentPlay.canvas_data"
-          :play-type="currentPlay.play_type"
-          :field-settings="fieldSettingsData"
-          :starters="starters"
-          :all-roster="roster"
-          :starter-position-map="starterPositionMap"
-          :view-mode="viewMode"
-          @save="handleSaveData"
-          class="w-full h-full block"
-        />
+      <!-- Center: Canvas (same space always; right column reserves width so this doesn't shift) -->
+      <div class="flex-1 min-w-0 flex justify-center items-center">
+        <div class="w-full h-full max-w-4xl max-h-full min-w-0">
+          <PlayCanvas
+            ref="canvasRef"
+            :initial-data="currentPlay.canvas_data"
+            :play-type="currentPlay.play_type"
+            :field-settings="fieldSettingsData"
+            :starters="starters"
+            :all-roster="roster"
+            :starter-position-map="starterPositionMap"
+            :view-mode="viewMode"
+            :ghost-players="ghostPlayers"
+            @save="handleSaveData"
+            class="w-full h-full block"
+          />
+        </div>
       </div>
 
-      <!-- Right: Player Details Panel (always reserves space for centering) -->
-      <div class="w-72 shrink-0">
-        <CanvasPlayerCard
-          v-if="cSelectedPlayer"
-          :selected-player="cSelectedPlayer"
-          :all-roster="roster"
-          :field-settings="fieldSettingsData"
-          :play-type="currentPlay.play_type"
-          @update-designation="onSetPlayerDesignation"
-          @update-attribute="onUpdatePlayerAttribute"
-          @clear-route="onClearRoute"
-        />
+      <!-- Right: Player Details (always reserve width so canvas stays fixed when panel opens/closes) -->
+      <div class="w-72 shrink-0 flex flex-col min-w-0">
+        <div v-if="cSelectedPlayer" class="rounded-xl shadow-md overflow-hidden bg-card flex-1 min-h-0">
+          <CanvasPlayerCard
+            :selected-player="cSelectedPlayer"
+            :all-roster="roster"
+            :field-settings="fieldSettingsData"
+            :play-type="currentPlay.play_type"
+            @update-designation="onSetPlayerDesignation"
+            @update-attribute="onUpdatePlayerAttribute"
+            @clear-route="onClearRoute"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -153,8 +210,14 @@
 <script setup lang="ts">
 import type { CanvasData, CanvasPlayer, CanvasTool, Player } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
-import { ArrowLeft, ChevronRight, Check, Maximize2, Fullscreen } from 'lucide-vue-next'
+import { ArrowLeft, ChevronRight, Check, Maximize2, Fullscreen, Ghost, ChevronDown } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import PlayCanvas from '~/components/canvas/PlayCanvas.vue'
 import CanvasToolbar from '~/components/canvas/CanvasToolbar.vue'
 import CanvasRosterCard from '~/components/canvas/CanvasRosterCard.vue'
@@ -180,12 +243,26 @@ const viewMode = ref<'fit' | 'full'>('fit')
 const canvasRef = ref<InstanceType<typeof PlayCanvas> | null>(null)
 const canvasReady = ref(false)
 
+// Ghost defense overlay (offense only): show a defensive play as semi-transparent overlay
+const ghostPlayers = ref<CanvasPlayer[]>([])
+const ghostPlayId = ref<string | null>(null)
+const ghostDropdownOpen = ref(false)
+const defensePlaysForGhost = ref<Array<{ id: string; name: string; canvas_data: CanvasData }>>([])
+const ghostPlaysLoading = ref(false)
+const ghostLabel = computed(() =>
+  ghostPlayers.value.length
+    ? (defensePlaysForGhost.value.find((p) => p.id === ghostPlayId.value)?.name ?? 'Ghost defense')
+    : 'Ghost defense'
+)
+
 // Safe computed accessors — proxyRefs auto-unwraps exposed refs, so no .value needed
 const cPlayers = computed(() => canvasRef.value?.canvasData?.players ?? [])
 const cSelectedPlayerId = computed(() => canvasRef.value?.selectedPlayerId ?? null)
 const cSelectedPlayer = computed(() => canvasRef.value?.selectedPlayer ?? null)
 const cSelectedTool = computed<CanvasTool>(() => canvasRef.value?.selectedTool ?? 'select')
 const cIsDirty = computed(() => canvasRef.value?.isDirty ?? false)
+const cCanUndo = computed(() => canvasRef.value?.canUndo ?? false)
+const cCanRedo = computed(() => canvasRef.value?.canRedo ?? false)
 
 // Wrapper functions — safe to call even if ref not ready
 function onSelectPlayer(id: string) { canvasRef.value?.selectPlayer(id) }
@@ -255,11 +332,13 @@ const roster = computed<Player[]>(() => {
 
 const fieldSettingsData = computed(() => {
   if (!fieldSettings.value) return DEFAULT_FIELD_SETTINGS
+  const fs = fieldSettings.value
   return {
-    field_length: fieldSettings.value.field_length,
-    field_width: fieldSettings.value.field_width,
-    endzone_size: fieldSettings.value.endzone_size,
-    line_of_scrimmage: fieldSettings.value.line_of_scrimmage,
+    field_length: fs.field_length,
+    field_width: fs.field_width,
+    endzone_size: fs.endzone_size,
+    line_of_scrimmage: fs.line_of_scrimmage,
+    first_down: fs.first_down ?? Math.floor(fs.field_length / 2),
   }
 })
 
@@ -379,6 +458,70 @@ async function fetchPlaybookName(playbookId: string) {
     playbookName.value = (data as any).name
   }
 }
+
+async function fetchDefensePlaysForGhost() {
+  const client = useSupabaseDB()
+  const user = useSupabaseUser()
+  if (!user.value) return
+  ghostPlaysLoading.value = true
+  try {
+    let query = client
+      .from('plays')
+      .select('id, name, canvas_data')
+      .eq('user_id', user.value.id)
+      .eq('play_type', 'defense')
+      .order('updated_at', { ascending: false })
+    if (currentPlay.value?.playbook_id) {
+      query = query.eq('playbook_id', currentPlay.value.playbook_id)
+    }
+    const { data } = await query
+    defensePlaysForGhost.value = (data ?? []) as Array<{ id: string; name: string; canvas_data: CanvasData }>
+  } finally {
+    ghostPlaysLoading.value = false
+  }
+}
+
+function setGhostFromPlay(
+  play: { id: string; name: string; canvas_data: CanvasData } | null
+) {
+  if (!play) {
+    ghostPlayers.value = []
+    ghostPlayId.value = null
+    return
+  }
+  const players = play.canvas_data?.players ?? []
+  ghostPlayers.value = JSON.parse(JSON.stringify(players))
+  ghostPlayId.value = play.id
+}
+
+watch(ghostDropdownOpen, (open) => {
+  if (open && currentPlay.value?.play_type === 'offense') {
+    fetchDefensePlaysForGhost()
+  }
+})
+
+// When navigating to /plays/new (e.g. after "New Play" in sidebar), re-init draft and canvas
+watch(playId, async (id) => {
+  if (id === 'new') {
+    initDraftPlay()
+    ghostPlayers.value = []
+    ghostPlayId.value = null
+    playbookName.value = null
+    await nextTick()
+    if (canvasRef.value && currentPlay.value) {
+      canvasRef.value.resetFormation(
+        currentPlay.value.play_type,
+        starters.value,
+        {
+          los: fieldSettingsData.value.line_of_scrimmage,
+          length: fieldSettingsData.value.field_length,
+          endzone: fieldSettingsData.value.endzone_size,
+        },
+        starterPositionMap.value
+      )
+    }
+  }
+})
 
 onMounted(async () => {
   if (playId.value === 'new') {

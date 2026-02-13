@@ -9,3 +9,27 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+const router = useRouter()
+
+function handleKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+    e.preventDefault()
+    router.push('/plays/new')
+  }
+}
+function handleOpenQuickPlay() {
+  router.push('/plays/new')
+}
+
+// New Play: same behavior as default layout so sidebar "New Play" and ⌘N work in canvas
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('open-quick-play', handleOpenQuickPlay)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('open-quick-play', handleOpenQuickPlay)
+})
+</script>

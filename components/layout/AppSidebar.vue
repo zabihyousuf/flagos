@@ -1,7 +1,7 @@
 <template>
   <aside
     class="sidebar"
-    :class="{ collapsed }"
+    :class="{ collapsed, 'sidebar--hover': hovering }"
     @mouseenter="hovering = true"
     @mouseleave="hovering = false"
   >
@@ -165,6 +165,7 @@ import {
 const route = useRoute()
 const user = useSupabaseUser()
 const client = useSupabaseClient()
+const { profile, fetchProfile } = useProfile()
 
 const collapsed = ref(false)
 const hovering = ref(false)
@@ -175,6 +176,7 @@ onMounted(() => {
   const saved = localStorage.getItem('flagos-sidebar-collapsed')
   if (saved !== null) collapsed.value = saved === 'true'
   document.addEventListener('click', handleClickOutside)
+  fetchProfile()
 })
 
 onUnmounted(() => {
@@ -194,8 +196,10 @@ function toggleCollapse() {
 }
 
 const displayName = computed(() => {
-  if (!user.value) return ''
-  return user.value.user_metadata?.display_name || 'User'
+  const fromProfile = profile.value?.display_name
+  if (fromProfile?.trim()) return fromProfile.trim()
+  if (user.value?.user_metadata?.display_name) return user.value.user_metadata.display_name
+  return 'User'
 })
 
 const emailAddress = computed(() => {
@@ -235,7 +239,6 @@ const navGroups: NavGroup[] = [
     label: 'Locker Room',
     items: [
       { to: '/playbooks', label: 'Playbooks', icon: BookOpen },
-      { to: '/plays', label: 'All Plays', icon: Swords },
       { to: '/squad', label: 'Squad', icon: Users }
     ]
   },
@@ -271,13 +274,17 @@ async function handleLogout() {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-background); /* Updated to match app background */
-  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  /* overflow: hidden; Removed to allow popups to overflow */
+  background: var(--color-background);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
   flex-shrink: 0;
   width: 260px;
   position: relative;
   z-index: 40;
+}
+
+/* Hover background only when collapsed (hover anywhere on the narrow strip) */
+.sidebar.collapsed.sidebar--hover {
+  background: color-mix(in oklch, var(--color-background) 92%, var(--color-muted));
 }
 
 .sidebar.collapsed {
@@ -397,7 +404,7 @@ async function handleLogout() {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 9999px;
   border: none;
   background: transparent;
   color: var(--color-muted-foreground);

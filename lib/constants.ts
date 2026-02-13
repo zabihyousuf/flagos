@@ -147,6 +147,7 @@ export const DEFAULT_FIELD_SETTINGS = {
   field_width: 25, // Standard 5v5 width
   endzone_size: 7,
   line_of_scrimmage: 5,
+  first_down: 25, // yard line for first down (e.g. midfield on 50yd field)
 }
 
 export const FIELD_COLORS = {
