@@ -7,14 +7,24 @@
       @dragover.prevent
       @drop="handleDrop"
     />
-    <!-- Delete route chip when user clicked on a route -->
+    <!-- Delete route chip when user clicked on a route (hide if that player no longer has a route) -->
     <div
-      v-if="routeDeleteChip"
+      v-if="routeDeleteChip && chipPlayerHasRoute"
       class="absolute z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-destructive text-destructive-foreground text-xs font-medium shadow-lg border border-destructive/80"
       :style="routeDeleteChipStyle"
     >
       <Trash2 class="w-3 h-3" />
       <button type="button" class="hover:underline" @click="confirmDeleteRoute">Delete route</button>
+    </div>
+    <!-- Suggest Play loading overlay -->
+    <div
+      v-if="suggestPlayLoading"
+      class="absolute inset-0 z-20 flex items-center justify-center bg-background/80 rounded-lg"
+    >
+      <div class="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+        <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+        <span>Suggesting play…</span>
+      </div>
     </div>
   </div>
 </template>
@@ -47,12 +57,14 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [data: CanvasData]
+  'suggest-play-error': [message: string]
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const wrapperRef = ref<HTMLElement | null>(null)
 
 const routeDeleteChip = ref<{ playerId: string; clientX: number; clientY: number } | null>(null)
+
 const routeDeleteChipStyle = computed(() => {
   if (!routeDeleteChip.value || !wrapperRef.value) return {}
   const rect = wrapperRef.value.getBoundingClientRect()
@@ -98,6 +110,7 @@ const {
   addPointToSegment,
   finalizeSegment,
   clearRoute,
+  deleteRouteSegment,
   clearAllRoutes,
   assignReadOrder,
   addMotionPoint,
@@ -119,8 +132,18 @@ const {
   canRedo,
 } = useCanvas()
 
+const chipPlayerHasRoute = computed(() => {
+  if (!routeDeleteChip.value) return false
+  const player = canvasData.value.players.find((p) => p.id === routeDeleteChip.value!.playerId)
+  return (player?.route?.segments?.length ?? 0) > 0
+})
+
 const { render } = useCanvasRenderer()
-const { generateOptimizedRoutes } = useRouteAnalysis()
+const { buildRouteForType } = useRouteAnalysis()
+const { suggestPlay } = useSuggestPlay()
+
+const suggestPlayLoading = ref(false)
+const suggestPlayError = ref<string | null>(null)
 
 const fieldSettings = computed(() => props.fieldSettings ?? DEFAULT_FIELD_SETTINGS)
 const allRoster = computed(() => props.allRoster ?? props.starters ?? [])
@@ -194,37 +217,78 @@ function handleSave() {
   isDirty.value = false
 }
 
-function handleAiAction(action: string) {
-  if (action === 'optimize-routes' && props.playType === 'offense') {
-    pushHistory()
-    const roster = allRoster.value
-    const { routes, primaryTargetPlayerId, readOrderPlayerIds } = generateOptimizedRoutes(
-      canvasData.value.players,
-      roster,
-      {
-        field_length: fieldSettings.value.field_length,
-        field_width: fieldSettings.value.field_width,
-        endzone_size: fieldSettings.value.endzone_size,
-        line_of_scrimmage: fieldSettings.value.line_of_scrimmage,
-      }
-    )
-    routes.forEach(({ playerId, route }) => {
-      const p = canvasData.value.players.find((x) => x.id === playerId)
-      if (p) p.route = route
-    })
-    canvasData.value.players.forEach((p) => {
-      p.primaryTarget = p.id === primaryTargetPlayerId
-    })
-    readOrderPlayerIds.forEach((playerId, index) => {
-      const p = canvasData.value.players.find((x) => x.id === playerId)
-      const segs = p?.route?.segments
-      if (p && segs?.length) {
+async function handleAiAction(action: string) {
+  if (action !== 'suggest-play' || props.playType !== 'offense') return
+
+  pushHistory()
+  suggestPlayLoading.value = true
+  suggestPlayError.value = null
+  const fs = {
+    field_length: fieldSettings.value.field_length,
+    field_width: fieldSettings.value.field_width,
+    endzone_size: fieldSettings.value.endzone_size,
+    line_of_scrimmage: fieldSettings.value.line_of_scrimmage,
+  }
+  const roster = allRoster.value
+  const players = canvasData.value.players
+
+  try {
+    const result = await suggestPlay(players, roster, fs)
+    if (!result) {
+      suggestPlayError.value = 'Could not parse play from API'
+      return
+    }
+    const offensePlayers = players
+      .filter((p) => p.side === 'offense' && (p.designation || '').toUpperCase() !== 'Q' && (p.position || '').toUpperCase() !== 'QB')
+      .sort((a, b) => {
+        const aIsC = (a.position || a.designation || '').toUpperCase() === 'C'
+        const bIsC = (b.position || b.designation || '').toUpperCase() === 'C'
+        if (aIsC && !bIsC) return -1
+        if (!aIsC && bIsC) return 1
+        return a.x - b.x
+      })
+    const allowedRouteTypes = ['fly', 'post', 'corner', 'in', 'out', 'curl', 'slant', 'center', 'center_seam', 'option_out_in'] as const
+    for (let i = 0; i < offensePlayers.length && i < result.routes.length; i++) {
+      const p = offensePlayers[i]
+      const r = result.routes[i]
+      let routeType = (r?.routeType || '').toLowerCase().trim()
+      if (!allowedRouteTypes.includes(routeType as any)) routeType = 'slant'
+      const built = buildRouteForType(p, fs, routeType as any)
+      if (built) p.route = built
+    }
+    offensePlayers.forEach((p, index) => {
+      p.primaryTarget = index === 0
+      const segs = p.route?.segments
+      if (segs?.length) {
         const last = segs[segs.length - 1]
         if (last) last.readOrder = index + 1
       }
     })
+    const qbMotion = (result.qbMotion || 'none').toLowerCase()
+    if (qbMotion && qbMotion !== 'none') {
+      const qb = players.find((p) => p.side === 'offense' && ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q'))
+      if (qb) {
+        const dx = qbMotion.includes('right') ? 0.06 : qbMotion.includes('left') ? -0.06 : 0
+        const depth = qbMotion.startsWith('boot') ? 0.06 : 0.03
+        if (dx !== 0) {
+          qb.motionPath = [
+            { x: qb.x + dx, y: Math.max(0.1, qb.y - depth * 0.5) },
+            { x: qb.x + dx * 2, y: Math.max(0.1, qb.y - depth) },
+          ]
+        }
+      }
+    } else {
+      const qb = players.find((p) => p.side === 'offense' && ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q'))
+      if (qb) qb.motionPath = null
+    }
     isDirty.value = true
     requestRender()
+  } catch (e: any) {
+    const msg = e?.message || 'Suggest Play failed'
+    suggestPlayError.value = msg
+    emit('suggest-play-error', msg)
+  } finally {
+    suggestPlayLoading.value = false
   }
 }
 
@@ -315,6 +379,10 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
 })
 
+function setDirty(value: boolean) {
+  isDirty.value = value
+}
+
 // Expose state and methods for parent page to wire to side panels
 defineExpose({
   canvasData,
@@ -322,11 +390,13 @@ defineExpose({
   selectedPlayerId,
   selectedTool,
   isDirty,
+  setDirty,
   zoom,
   panOffset,
   selectPlayer,
   setTool,
   clearRoute,
+  deleteRouteSegment,
   clearAllRoutes,
   setPlayerDesignation,
   updatePlayerAttribute,

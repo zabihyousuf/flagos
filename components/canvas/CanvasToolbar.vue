@@ -38,7 +38,7 @@
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
 
-    <!-- Motion / Rollout -->
+    <!-- Motion / Rollout (C cannot motion; QB only rollout via Suggest Play) -->
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger as-child>
@@ -46,12 +46,15 @@
             size="icon"
             :variant="selectedTool === 'motion' ? 'default' : 'ghost'"
             class="h-8 w-8"
+            :disabled="motionToolDisabled"
             @click="$emit('select-tool', 'motion')"
           >
             <Move class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom"><p>QB Rollout / Motion</p></TooltipContent>
+        <TooltipContent side="bottom">
+          <p>{{ motionToolDisabled ? 'Motion (not for C or QB)' : 'Motion (C and QB: QB rollout only)' }}</p>
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -69,6 +72,23 @@
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom"><p>Read Progression (1, 2, 3…)</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <!-- QB throws here (primary target) - offense only, when a receiver is selected -->
+    <TooltipProvider v-if="canSetPrimaryTarget">
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            :variant="selectedPlayerIsPrimary ? 'default' : 'ghost'"
+            class="h-8 w-8 text-amber-600 hover:text-amber-700"
+            @click="$emit('set-primary-target')"
+          >
+            <Target class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>{{ selectedPlayerIsPrimary ? 'QB throws here' : 'QB throws here (set as primary)' }}</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -91,25 +111,25 @@
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
 
-    <!-- AI Tools -->
-    <div class="relative">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger as-child>
-            <Button size="icon" variant="ghost" class="h-8 w-8 text-primary" @click="handleAiClick">
-              <Sparkles class="w-3.5 h-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom"><p>AI Tools</p></TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      <div v-if="showAiMenu" class="absolute top-10 left-0 w-52 bg-popover rounded-md border shadow-md p-1 flex flex-col gap-0.5 z-50">
-        <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" @click="$emit('ai-action', 'optimize-routes'); showAiMenu = false">
-          <Sparkles class="w-3 h-3 mr-2" /> Optimize routes for squad
-        </Button>
-      </div>
-    </div>
+    <!-- Suggest Play (offense only) -->
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8 text-primary"
+            :disabled="suggestPlayDisabled"
+            @click="$emit('ai-action', 'suggest-play')"
+          >
+            <Sparkles class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>{{ suggestPlayDisabled ? 'Suggest Play (offense only)' : 'Suggest Play' }}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
 
@@ -141,26 +161,31 @@ import {
   Eraser,
   Trash2,
   Sparkles,
+  Target,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
   selectedTool: CanvasTool
+  /** Show "QB throws here" button when an offense receiver is selected */
+  canSetPrimaryTarget?: boolean
+  /** Selected player is currently the primary target */
+  selectedPlayerIsPrimary?: boolean
+  /** Disable Suggest Play (e.g. for defense) */
+  suggestPlayDisabled?: boolean
+  /** Disable Motion tool (e.g. when C or QB selected — C cannot motion, QB only rollout) */
+  motionToolDisabled?: boolean
 }>()
 
 defineEmits<{
   'select-tool': [tool: CanvasTool]
   'clear-routes': []
   'ai-action': [action: string]
+  'set-primary-target': []
 }>()
 
-const showAiMenu = ref(false)
 const routeTools = [
   { id: 'straight' as CanvasTool, label: 'Straight Route', icon: Minus },
   { id: 'curve' as CanvasTool, label: 'Curve Route', icon: Spline },
   { id: 'option' as CanvasTool, label: 'Option Route (dashed)', icon: GitBranch },
 ]
-
-function handleAiClick() {
-  showAiMenu.value = !showAiMenu.value
-}
 </script>

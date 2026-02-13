@@ -17,6 +17,10 @@ export interface RenderOptions {
   ghostPlayers?: CanvasPlayer[]
   /** When false, do not draw player names below icons on the field (default true) */
   showPlayerNames?: boolean
+  /** Scale for preview thumbnails: multiplies player size, route width, fonts (default 1). Use ~0.35–0.5 for small previews. */
+  previewScale?: number
+  /** Minimal B&W thumbnail: no field, zoomed to fit play, small circles and numbers only. */
+  thumbnailMode?: boolean
 }
 
 const PADDING = 12
@@ -74,29 +78,67 @@ export function computeFieldRect(
 /**
  * Compute the effective zoom and pan for a given view mode.
  * - 'full': Shows the entire field (zoom=1, no pan)
- * - 'fit': Zooms into ~24 yards centered on the line of scrimmage
+ * - 'fit': Zooms into ~24 yards. Offense: centered on LOS. Defense: bottom of viewport is 1 yard below LOS.
  */
 export function computeViewTransform(
   logicalW: number,
   logicalH: number,
   fieldRect: { offsetX: number; offsetY: number; fieldW: number; fieldH: number; totalLength: number },
-  options: { fieldLength: number; endzoneSize: number; lineOfScrimmage: number; viewMode?: 'fit' | 'full' },
+  options: { fieldLength: number; endzoneSize: number; lineOfScrimmage: number; viewMode?: 'fit' | 'full'; playType?: 'offense' | 'defense' },
 ): { zoom: number; panX: number; panY: number } {
   if (options.viewMode === 'fit') {
     const yardHeight = fieldRect.fieldH / fieldRect.totalLength
     const fitZoom = logicalH / (FIT_VISIBLE_YARDS * yardHeight)
 
     const fieldCenterX = fieldRect.offsetX + fieldRect.fieldW / 2
-    const losY = fieldRect.offsetY + yardHeight * (options.endzoneSize + options.fieldLength - options.lineOfScrimmage)
+    const losYardIndex = options.endzoneSize + options.fieldLength - options.lineOfScrimmage
+    const losY = fieldRect.offsetY + yardHeight * losYardIndex
+
+    // Defense: bottom of viewport = 1 yard below LOS → center view so bottom is at LOS+1
+    const isDefense = options.playType === 'defense'
+    const centerYard = isDefense
+      ? losYardIndex + 1 - FIT_VISIBLE_YARDS / 2
+      : losYardIndex
+    const centerY = fieldRect.offsetY + yardHeight * centerYard
 
     const panX = logicalW / 2 - fieldCenterX * fitZoom
-    const panY = logicalH / 2 - losY * fitZoom
+    const panY = logicalH / 2 - centerY * fitZoom
 
     return { zoom: fitZoom, panX, panY }
   }
 
   // Full mode — no extra transform
   return { zoom: 1, panX: 0, panY: 0 }
+}
+
+/** Bounding box in normalized 0–1 coords from all players, route points, and motion. */
+function computePlayBbox(data: CanvasData): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  let minX = 1
+  let minY = 1
+  let maxX = 0
+  let maxY = 0
+  let hasAny = false
+
+  function add(x: number, y: number) {
+    const px = Math.max(0, Math.min(1, x))
+    const py = Math.max(0, Math.min(1, y))
+    minX = Math.min(minX, px)
+    minY = Math.min(minY, py)
+    maxX = Math.max(maxX, px)
+    maxY = Math.max(maxY, py)
+    hasAny = true
+  }
+
+  for (const p of data.players) {
+    add(p.x, p.y)
+    for (const seg of p.route?.segments ?? []) {
+      for (const pt of seg.points) add(pt.x, pt.y)
+    }
+    for (const pt of p.motionPath ?? []) add(pt.x, pt.y)
+  }
+
+  if (!hasAny) return null
+  return { minX, minY, maxX, maxY }
 }
 
 export function useCanvasRenderer() {
@@ -109,6 +151,11 @@ export function useCanvasRenderer() {
     const dpr = window.devicePixelRatio || 1
     const logicalW = canvas.width / dpr
     const logicalH = canvas.height / dpr
+
+    if (options.thumbnailMode) {
+      renderThumbnail(ctx, logicalW, logicalH, data)
+      return
+    }
 
     const fieldRect = computeFieldRect(logicalW, logicalH, options)
     const { offsetX, offsetY, fieldW, fieldH } = fieldRect
@@ -133,12 +180,12 @@ export function useCanvasRenderer() {
     drawField(ctx, fieldW, fieldH, options)
     // Draw routes behind players
     data.players.forEach((player) => {
-      drawPlayerRoute(ctx, player, fieldW, fieldH)
-      drawMotionPath(ctx, player, fieldW, fieldH)
+      drawPlayerRoute(ctx, player, fieldW, fieldH, options)
+      drawMotionPath(ctx, player, fieldW, fieldH, options)
     })
 
     if (options.playType === 'offense') {
-      drawPrimaryTargetThrowLine(ctx, data.players, fieldW, fieldH)
+      drawPrimaryTargetThrowLine(ctx, data.players, fieldW, fieldH, options)
     }
     
     if (options.playType === 'defense') {
@@ -156,7 +203,7 @@ export function useCanvasRenderer() {
         const isRusher = player.designation === 'R' || player.position === 'RSH'
         const hasRoute = player.route?.segments?.length
         if (hasRoute || (isRusher && qbPosition)) {
-          drawGhostPlayerRoute(ctx, player, fieldW, fieldH, qbPosition)
+          drawGhostPlayerRoute(ctx, player, fieldW, fieldH, qbPosition, options)
         }
       })
       drawGhostPlayers(ctx, options.ghostPlayers, fieldW, fieldH, options)
@@ -178,6 +225,8 @@ export function useCanvasRenderer() {
     const { fieldLength, endzoneSize, lineOfScrimmage, firstDownYardLine } = options
     const totalLength = fieldLength + endzoneSize * 2
     const yardHeight = fieldH / totalLength
+    const scale = options.previewScale ?? 1
+    const isPreview = scale < 1
 
     // Field fill
     ctx.fillStyle = COLORS.fieldFill
@@ -188,25 +237,27 @@ export function useCanvasRenderer() {
     ctx.fillRect(0, 0, fieldW, yardHeight * endzoneSize)
     ctx.fillRect(0, fieldH - yardHeight * endzoneSize, fieldW, yardHeight * endzoneSize)
 
-    // Endzone text
-    ctx.fillStyle = COLORS.endzoneText
-    const ezFontSize = Math.max(13, fieldW * 0.05)
-    ctx.font = `700 ${ezFontSize}px Oracle Sans, sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.letterSpacing = `${ezFontSize * 0.3}px`
-    ctx.fillText('END ZONE', fieldW / 2, (yardHeight * endzoneSize) / 2)
-    ctx.fillText('END ZONE', fieldW / 2, fieldH - (yardHeight * endzoneSize) / 2)
-    ctx.letterSpacing = '0px'
+    // Endzone text (skip in preview to keep identifiers prominent)
+    if (!isPreview) {
+      ctx.fillStyle = COLORS.endzoneText
+      const ezFontSize = Math.max(13, fieldW * 0.05)
+      ctx.font = `700 ${ezFontSize}px Oracle Sans, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.letterSpacing = `${ezFontSize * 0.3}px`
+      ctx.fillText('END ZONE', fieldW / 2, (yardHeight * endzoneSize) / 2)
+      ctx.fillText('END ZONE', fieldW / 2, fieldH - (yardHeight * endzoneSize) / 2)
+      ctx.letterSpacing = '0px'
+    }
 
     // Field border
     ctx.strokeStyle = COLORS.fieldBorder
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = Math.max(0.5, 1.5 * scale)
     ctx.strokeRect(0, 0, fieldW, fieldH)
 
     // Endzone separation lines
     ctx.strokeStyle = COLORS.endzoneBorder
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = Math.max(0.5, 1.5 * scale)
     ctx.beginPath()
     ctx.moveTo(0, yardHeight * endzoneSize)
     ctx.lineTo(fieldW, yardHeight * endzoneSize)
@@ -221,14 +272,14 @@ export function useCanvasRenderer() {
       const isMajor = yard % 10 === 0
 
       ctx.strokeStyle = isMajor ? COLORS.yardLine : COLORS.yardLineLight
-      ctx.lineWidth = isMajor ? 1 : 0.7
+      ctx.lineWidth = Math.max(0.4, (isMajor ? 1 : 0.7) * scale)
       ctx.beginPath()
       ctx.moveTo(0, y)
       ctx.lineTo(fieldW, y)
       ctx.stroke()
 
       const displayYard = yard <= fieldLength / 2 ? yard : fieldLength - yard
-      if (displayYard > 0 && isMajor) {
+      if (!isPreview && displayYard > 0 && isMajor) {
         ctx.fillStyle = COLORS.yardNumber
         const numFontSize = Math.max(11, fieldW * 0.035)
         ctx.font = `600 ${numFontSize}px Oracle Sans, sans-serif`
@@ -239,29 +290,31 @@ export function useCanvasRenderer() {
       }
     }
 
-    // Hash marks every yard
-    ctx.strokeStyle = COLORS.hashMark
-    ctx.lineWidth = 0.7
-    for (let yard = 1; yard < fieldLength; yard++) {
-      if (yard % 5 === 0) continue
-      const y = yardHeight * (endzoneSize + yard)
-      ctx.beginPath()
-      ctx.moveTo(fieldW * 0.33, y)
-      ctx.lineTo(fieldW * 0.33 + 6, y)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(fieldW * 0.67 - 6, y)
-      ctx.lineTo(fieldW * 0.67, y)
-      ctx.stroke()
+    // Hash marks every yard (skip in preview to reduce clutter)
+    if (!isPreview) {
+      ctx.strokeStyle = COLORS.hashMark
+      ctx.lineWidth = Math.max(0.4, 0.7 * scale)
+      for (let yard = 1; yard < fieldLength; yard++) {
+        if (yard % 5 === 0) continue
+        const y = yardHeight * (endzoneSize + yard)
+        ctx.beginPath()
+        ctx.moveTo(fieldW * 0.33, y)
+        ctx.lineTo(fieldW * 0.33 + 6, y)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(fieldW * 0.67 - 6, y)
+        ctx.lineTo(fieldW * 0.67, y)
+        ctx.stroke()
+      }
     }
 
     // Line of Scrimmage
     const losY = yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
     ctx.save()
     ctx.shadowColor = COLORS.los
-    ctx.shadowBlur = 4
+    ctx.shadowBlur = isPreview ? 2 : 4
     ctx.strokeStyle = COLORS.los
-    ctx.lineWidth = 2
+    ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.setLineDash([8, 4])
     ctx.beginPath()
     ctx.moveTo(0, losY)
@@ -270,23 +323,25 @@ export function useCanvasRenderer() {
     ctx.setLineDash([])
     ctx.restore()
 
-     // LOS pill label
-    const labelFontSize = Math.max(10, fieldW * 0.022)
-    ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
-    const losText = `LOS · ${lineOfScrimmage}yd`
-    const losTextW = ctx.measureText(losText).width
-    const pillPx = 7
-    const pillPy = 3
-    const pillR = 4
+     // LOS pill label (skip in preview)
+    if (!isPreview) {
+      const labelFontSize = Math.max(10, fieldW * 0.022)
+      ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
+      const losText = `LOS · ${lineOfScrimmage}yd`
+      const losTextW = ctx.measureText(losText).width
+      const pillPx = 7
+      const pillPy = 3
+      const pillR = 4
 
-    ctx.fillStyle = 'rgba(6, 182, 212, 0.12)'
-    ctx.beginPath()
-    ctx.roundRect(5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
-    ctx.fill()
-    ctx.fillStyle = COLORS.los
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'top'
-    ctx.fillText(losText, 5 + pillPx, losY + 5 + pillPy)
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.12)'
+      ctx.beginPath()
+      ctx.roundRect(5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
+      ctx.fill()
+      ctx.fillStyle = COLORS.los
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      ctx.fillText(losText, 5 + pillPx, losY + 5 + pillPy)
+    }
 
 
     // First Down Line (from user settings, or midfield)
@@ -294,9 +349,9 @@ export function useCanvasRenderer() {
     const midY = yardHeight * (endzoneSize + firstDownYard)
     ctx.save()
     ctx.shadowColor = COLORS.firstDown
-    ctx.shadowBlur = 3
+    ctx.shadowBlur = isPreview ? 2 : 3
     ctx.strokeStyle = COLORS.firstDown
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = Math.max(0.4, 1.5 * scale)
     ctx.setLineDash([6, 3])
     ctx.beginPath()
     ctx.moveTo(0, midY)
@@ -305,18 +360,25 @@ export function useCanvasRenderer() {
     ctx.setLineDash([])
     ctx.restore()
 
-    // 1st down pill label
-    const fdText = '1ST DOWN'
-    const fdTextW = ctx.measureText(fdText).width
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.1)'
-    ctx.beginPath()
-    ctx.roundRect(fieldW - fdTextW - pillPx * 2 - 5, midY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
-    ctx.fill()
-    ctx.fillStyle = COLORS.firstDown
-    ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'top'
-    ctx.fillText(fdText, fieldW - fdTextW - pillPx - 5, midY + 5 + pillPy)
+    // 1st down pill label (skip in preview)
+    if (!isPreview) {
+      const labelFontSize = Math.max(10, fieldW * 0.022)
+      ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
+      const pillPx = 7
+      const pillPy = 3
+      const pillR = 4
+      const fdText = '1ST DOWN'
+      const fdTextW = ctx.measureText(fdText).width
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.1)'
+      ctx.beginPath()
+      ctx.roundRect(fieldW - fdTextW - pillPx * 2 - 5, midY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
+      ctx.fill()
+      ctx.fillStyle = COLORS.firstDown
+      ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      ctx.fillText(fdText, fieldW - fdTextW - pillPx - 5, midY + 5 + pillPy)
+    }
 
     // No-Run Zones
     const nrzZones = [
@@ -329,7 +391,7 @@ export function useCanvasRenderer() {
       ctx.fillStyle = COLORS.nrz
       ctx.fillRect(0, zoneStartY, fieldW, zoneEndY - zoneStartY)
       ctx.strokeStyle = COLORS.nrzBorder
-      ctx.lineWidth = 1
+      ctx.lineWidth = Math.max(0.4, 1 * scale)
       ctx.setLineDash([3, 3])
       ctx.beginPath()
       if (zone.start > 0) {
@@ -350,14 +412,21 @@ export function useCanvasRenderer() {
     player: CanvasPlayer,
     fieldW: number,
     fieldH: number,
+    options: RenderOptions,
   ) {
     if (!player.route || !player.route.segments || player.route.segments.length === 0) return
 
-    const startX = player.x * fieldW
-    const startY = player.y * fieldH
+    const scale = options.previewScale ?? 1
+    const playerX = player.x * fieldW
+    const playerY = player.y * fieldH
     const color = POSITION_COLORS[player.position] ?? '#888888'
 
-    let lastEndPoint = { x: startX, y: startY }
+    // Route starts at end of motion when present, otherwise at player position
+    const motionEnd = player.motionPath?.length ? player.motionPath[player.motionPath.length - 1] : null
+    const routeStart = motionEnd
+      ? { x: motionEnd.x * fieldW, y: motionEnd.y * fieldH }
+      : { x: playerX, y: playerY }
+    let lastEndPoint = { ...routeStart }
 
     // Draw full path (all segments) with no arrows at intermediate points
     player.route.segments.forEach((segment) => {
@@ -370,7 +439,7 @@ export function useCanvasRenderer() {
 
       ctx.save()
       ctx.strokeStyle = color
-      ctx.lineWidth = segment.type === 'option' ? 2 : 2.5
+      ctx.lineWidth = Math.max(0.5, (segment.type === 'option' ? 2 : 2.5) * scale)
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
 
@@ -393,7 +462,14 @@ export function useCanvasRenderer() {
       // Read order badge at segment end (no arrow here)
       if (segment.readOrder != null && points.length > 0) {
         const endPt = points[points.length - 1]
-        drawReadOrderBadge(ctx, endPt, segment.readOrder)
+        drawReadOrderBadge(ctx, endPt, segment.readOrder, scale)
+      }
+
+      // Option segments always get an arrow at their end
+      if (segment.type === 'option' && points.length > 0) {
+        const endPt = points[points.length - 1]
+        const prevPt = lastEndPoint
+        drawArrowHead(ctx, prevPt, endPt, color, Math.max(3, 10 * scale))
       }
 
       ctx.restore()
@@ -403,36 +479,42 @@ export function useCanvasRenderer() {
       }
     })
 
-    // Single arrow only at the very end of the entire route
-    let arrowEnd: { x: number; y: number } | null = null
-    let arrowPrev: { x: number; y: number } = { x: startX, y: startY }
-    let px = startX
-    let py = startY
-    for (const segment of player.route.segments) {
-      if (segment.points.length === 0) continue
-      for (const p of segment.points) {
-        const nx = p.x * fieldW
-        const ny = p.y * fieldH
-        arrowPrev = { x: px, y: py }
-        arrowEnd = { x: nx, y: ny }
-        px = nx
-        py = ny
+    // Single arrow at the very end of the entire route (only when last segment is not option; option segments get their own arrow above)
+    const lastSeg = player.route.segments[player.route.segments.length - 1]
+    const lastSegIsOption = lastSeg?.type === 'option' && (lastSeg?.points?.length ?? 0) > 0
+    if (!lastSegIsOption) {
+      let arrowEnd: { x: number; y: number } | null = null
+      let arrowPrev = { x: routeStart.x, y: routeStart.y }
+      let px = routeStart.x
+      let py = routeStart.y
+      for (const segment of player.route.segments) {
+        if (segment.points.length === 0) continue
+        for (const p of segment.points) {
+          const nx = p.x * fieldW
+          const ny = p.y * fieldH
+          arrowPrev = { x: px, y: py }
+          arrowEnd = { x: nx, y: ny }
+          px = nx
+          py = ny
+        }
       }
-    }
-    if (arrowEnd) {
-      drawArrowHead(ctx, arrowPrev, arrowEnd, color, 10)
+      if (arrowEnd) {
+        drawArrowHead(ctx, arrowPrev, arrowEnd, color, Math.max(3, 10 * scale))
+      }
     }
   }
 
   /**
-   * Draw dashed line from QB to the end of the primary target's route, with a dot at the throw point.
+   * Draw dashed line from QB to the end of the primary target's route.
    */
   function drawPrimaryTargetThrowLine(
     ctx: CanvasRenderingContext2D,
     players: CanvasPlayer[],
     fieldW: number,
     fieldH: number,
+    options: RenderOptions,
   ) {
+    const scale = options.previewScale ?? 1
     const qb = players.find((p) => p.side === 'offense' && (p.position === 'QB' || p.designation === 'Q'))
     const primary = players.find((p) => p.side === 'offense' && p.primaryTarget && p.route?.segments?.length)
     if (!qb || !primary?.route?.segments?.length) return
@@ -448,22 +530,13 @@ export function useCanvasRenderer() {
 
     ctx.save()
     ctx.strokeStyle = '#f59e0b'
-    ctx.lineWidth = 2
+    ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.setLineDash([8, 6])
     ctx.beginPath()
     ctx.moveTo(qbX, qbY)
     ctx.lineTo(endX, endY)
     ctx.stroke()
     ctx.setLineDash([])
-
-    const dotRadius = Math.max(6, fieldW * 0.018)
-    ctx.fillStyle = '#f59e0b'
-    ctx.beginPath()
-    ctx.arc(endX, endY, dotRadius, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = '#fff'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
     ctx.restore()
   }
 
@@ -506,14 +579,121 @@ export function useCanvasRenderer() {
     }
   }
 
+  /** B&W miniature: no field, zoomed to fit play, small circles + numbers only. */
+  function renderThumbnail(
+    ctx: CanvasRenderingContext2D,
+    logicalW: number,
+    logicalH: number,
+    data: CanvasData,
+  ) {
+    const dpr = window.devicePixelRatio || 1
+    const canvasW = logicalW * dpr
+    const canvasH = logicalH * dpr
+    ctx.clearRect(0, 0, canvasW, canvasH)
+    if (logicalW < 2 || logicalH < 2) return
+
+    const bbox = computePlayBbox(data)
+    if (!bbox) return
+
+    const pad = 0.1
+    const contentMinX = Math.max(0, bbox.minX - pad)
+    const contentMinY = Math.max(0, bbox.minY - pad)
+    const contentMaxX = Math.min(1, bbox.maxX + pad)
+    const contentMaxY = Math.min(1, bbox.maxY + pad)
+    const contentW = Math.max(0.01, contentMaxX - contentMinX)
+    const contentH = Math.max(0.01, contentMaxY - contentMinY)
+    let scale = Math.min(logicalW / contentW, logicalH / contentH)
+    if (scale <= 0 || !Number.isFinite(scale)) scale = Math.min(logicalW, logicalH)
+    const cx = (contentMinX + contentMaxX) / 2
+    const cy = (contentMinY + contentMaxY) / 2
+
+    ctx.save()
+    ctx.scale(dpr, dpr)
+    ctx.translate(logicalW / 2, logicalH / 2)
+    ctx.scale(scale, scale)
+    ctx.translate(-cx, -cy)
+
+    const routeColor = '#444'
+    const motionColor = '#999'
+    const playerFill = '#1a1a1a'
+    const playerStroke = '#e5e5e5'
+    const labelColor = '#ffffff'
+    const radius = 0.014
+    const onePx = 1 / scale
+
+    // Routes (behind players); start from end of motion when present
+    data.players.forEach((player) => {
+      if (!player.route?.segments?.length) return
+      const motionEnd = player.motionPath?.length ? player.motionPath[player.motionPath.length - 1] : null
+      let last = motionEnd ? { x: motionEnd.x, y: motionEnd.y } : { x: player.x, y: player.y }
+      player.route.segments.forEach((seg) => {
+        if (seg.points.length === 0) return
+        const points = seg.points.map((p) => ({ x: p.x, y: p.y }))
+        ctx.strokeStyle = routeColor
+        ctx.lineWidth = Math.max(0.002, onePx * 0.8)
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+        ctx.setLineDash(seg.type === 'option' ? [3 * onePx, 2 * onePx] : [])
+        ctx.beginPath()
+        ctx.moveTo(last.x, last.y)
+        if (seg.type === 'curve') {
+          drawCurveSegment(ctx, last, points)
+        } else {
+          points.forEach((p) => ctx.lineTo(p.x, p.y))
+        }
+        ctx.stroke()
+        ctx.setLineDash([])
+        if (seg.type !== 'option' && points.length > 0) last = points[points.length - 1]
+      })
+    })
+
+    // Motion paths
+    data.players.forEach((player) => {
+      if (!player.motionPath?.length) return
+      const pts = player.motionPath.map((p) => ({ x: p.x, y: p.y }))
+      ctx.strokeStyle = motionColor
+      ctx.lineWidth = Math.max(0.002, onePx * 0.5)
+      ctx.setLineDash([2 * onePx, 3 * onePx])
+      ctx.globalAlpha = 0.8
+      ctx.beginPath()
+      ctx.moveTo(player.x, player.y)
+      if (pts.length === 1) ctx.lineTo(pts[0].x, pts[0].y)
+      else drawCurveSegment(ctx, { x: player.x, y: player.y }, pts)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+    })
+
+    // Players: small black circles + white number
+    data.players.forEach((player) => {
+      const label = player.number != null ? String(player.number) : (player.designation ?? player.position ?? '?')
+      ctx.fillStyle = playerFill
+      ctx.strokeStyle = playerStroke
+      ctx.lineWidth = Math.max(0.001, onePx * 0.4)
+      ctx.beginPath()
+      ctx.arc(player.x, player.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+      ctx.fillStyle = labelColor
+      ctx.font = '8px Oracle Sans, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, player.x, player.y)
+    })
+
+    ctx.restore()
+  }
+
   function drawMotionPath(
     ctx: CanvasRenderingContext2D,
     player: CanvasPlayer,
     fieldW: number,
     fieldH: number,
+    options: RenderOptions,
   ) {
     if (!player.motionPath || player.motionPath.length === 0) return
 
+    const scale = options.previewScale ?? 1
     const startX = player.x * fieldW
     const startY = player.y * fieldH
     const color = POSITION_COLORS[player.position] ?? '#888888'
@@ -525,7 +705,7 @@ export function useCanvasRenderer() {
 
     ctx.save()
     ctx.strokeStyle = color
-    ctx.lineWidth = 2
+    ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.setLineDash([4, 6])
@@ -546,8 +726,9 @@ export function useCanvasRenderer() {
     // Small circle at the end of motion path
     if (points.length > 0) {
       const endPt = points[points.length - 1]
+      const r = Math.max(1.5, 4 * scale)
       ctx.beginPath()
-      ctx.arc(endPt.x, endPt.y, 4, 0, Math.PI * 2)
+      ctx.arc(endPt.x, endPt.y, r, 0, Math.PI * 2)
       ctx.fillStyle = color
       ctx.fill()
     }
@@ -559,8 +740,9 @@ export function useCanvasRenderer() {
     ctx: CanvasRenderingContext2D,
     point: { x: number; y: number },
     order: number,
+    scale: number = 1,
   ) {
-    const size = 12
+    const size = Math.max(4, 12 * scale)
     ctx.save()
 
     // White circle background
@@ -611,7 +793,9 @@ export function useCanvasRenderer() {
     fieldW: number,
     fieldH: number,
     qbPosition: { x: number; y: number } | null,
+    options: RenderOptions,
   ) {
+    const scale = options.previewScale ?? 1
     const startX = player.x * fieldW
     const startY = player.y * fieldH
     const color = POSITION_COLORS[player.position] ?? '#ef4444'
@@ -624,7 +808,7 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.globalAlpha = 0.55
       ctx.strokeStyle = color
-      ctx.lineWidth = 2
+      ctx.lineWidth = Math.max(0.5, 2 * scale)
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       ctx.setLineDash([6, 4])
@@ -632,7 +816,7 @@ export function useCanvasRenderer() {
       ctx.moveTo(startX, startY)
       ctx.lineTo(endX, endY)
       ctx.stroke()
-      drawArrowHead(ctx, { x: startX, y: startY }, { x: endX, y: endY }, color, 8)
+      drawArrowHead(ctx, { x: startX, y: startY }, { x: endX, y: endY }, color, Math.max(3, 8 * scale))
       ctx.setLineDash([])
       ctx.globalAlpha = 1
       ctx.restore()
@@ -646,7 +830,7 @@ export function useCanvasRenderer() {
     ctx.save()
     ctx.globalAlpha = 0.55
     ctx.strokeStyle = color
-    ctx.lineWidth = 2
+    ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.setLineDash([6, 4])
@@ -693,7 +877,7 @@ export function useCanvasRenderer() {
       }
     }
     if (gArrowEnd) {
-      drawArrowHead(ctx, gArrowPrev, gArrowEnd, color, 8)
+      drawArrowHead(ctx, gArrowPrev, gArrowEnd, color, Math.max(3, 8 * scale))
     }
 
     ctx.setLineDash([])
@@ -711,11 +895,12 @@ export function useCanvasRenderer() {
     const { fieldLength, endzoneSize } = options
     const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
     const ghostOpacity = 0.5
+    const scale = options.previewScale ?? 1
 
     players.forEach((player) => {
       const px = player.x * fieldW
       const py = player.y * fieldH
-      const radius = Math.max(12, fieldW * 0.035)
+      const radius = Math.max(3, Math.max(12, fieldW * 0.035) * scale)
       const color = POSITION_COLORS[player.position] || '#ef4444'
       const isRusher = player.designation === 'R' || player.position === 'RSH'
 
@@ -729,7 +914,7 @@ export function useCanvasRenderer() {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.25)'
         ctx.fill()
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.4)'
-        ctx.lineWidth = 1
+        ctx.lineWidth = Math.max(0.4, 1 * scale)
         ctx.setLineDash([5, 5])
         ctx.stroke()
         ctx.setLineDash([])
@@ -746,7 +931,7 @@ export function useCanvasRenderer() {
       ctx.fillStyle = color
       ctx.fill()
       ctx.strokeStyle = 'rgba(255,255,255,0.9)'
-      ctx.lineWidth = 2
+      ctx.lineWidth = Math.max(0.5, 2 * scale)
       ctx.stroke()
       ctx.setLineDash([])
       ctx.globalAlpha = 1
@@ -756,7 +941,7 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.globalAlpha = 0.85
       ctx.fillStyle = '#ffffff'
-      ctx.font = `bold ${Math.max(10, radius * 0.65)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(6, radius * 0.65)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
@@ -776,9 +961,11 @@ export function useCanvasRenderer() {
   ) {
     const { fieldLength, endzoneSize } = options
     const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
+    const scale = options.previewScale ?? 1
 
     const isFitView = options.viewMode === 'fit'
-    const playerRadius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
+    let playerRadius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
+    playerRadius = Math.max(3, playerRadius * scale)
 
     players.forEach((player) => {
       const px = player.x * fieldW
@@ -800,7 +987,7 @@ export function useCanvasRenderer() {
         ctx.moveTo(px, py)
         ctx.lineTo(zoneX, zoneY)
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
-        ctx.lineWidth = 2
+        ctx.lineWidth = Math.max(0.5, 2 * scale)
         ctx.setLineDash([8, 6])
         ctx.stroke()
         ctx.setLineDash([])
@@ -816,7 +1003,7 @@ export function useCanvasRenderer() {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'
         ctx.fill()
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)'
-        ctx.lineWidth = 1
+        ctx.lineWidth = Math.max(0.4, 1 * scale)
         ctx.setLineDash([5, 5])
         ctx.stroke()
         ctx.restore()
@@ -824,8 +1011,8 @@ export function useCanvasRenderer() {
 
       ctx.save()
       ctx.shadowColor = 'rgba(0, 0, 0, 0.25)'
-      ctx.shadowBlur = 6
-      ctx.shadowOffsetY = 2
+      ctx.shadowBlur = scale < 1 ? 2 : 6
+      ctx.shadowOffsetY = scale < 1 ? 0.5 : 2
 
       ctx.beginPath()
       ctx.arc(px, py, radius, 0, Math.PI * 2)
@@ -839,18 +1026,18 @@ export function useCanvasRenderer() {
         ctx.fill()
         
         ctx.strokeStyle = color
-        ctx.lineWidth = 4 
+        ctx.lineWidth = Math.max(0.5, 4 * scale)
         ctx.stroke()
         
         // Glow effect
         ctx.restore() // Restore shadow context
         ctx.save()
         ctx.shadowColor = color
-        ctx.shadowBlur = 15
+        ctx.shadowBlur = scale < 1 ? 4 : 15
         ctx.beginPath()
         ctx.arc(px, py, radius, 0, Math.PI * 2)
         ctx.strokeStyle = color
-        ctx.lineWidth = 2
+        ctx.lineWidth = Math.max(0.5, 2 * scale)
         ctx.stroke()
         ctx.restore()
 
@@ -861,7 +1048,7 @@ export function useCanvasRenderer() {
         ctx.fillStyle = color
         ctx.fill()
         ctx.strokeStyle = '#ffffff'
-        ctx.lineWidth = 2
+        ctx.lineWidth = Math.max(0.5, 2 * scale)
         ctx.stroke()
         ctx.restore() // Restore shadow context
 
@@ -889,33 +1076,6 @@ export function useCanvasRenderer() {
         ctx.restore()
       }
 
-      // Primary target indicator (offense only): ring + "1" badge
-      if (player.side === 'offense' && player.primaryTarget) {
-        ctx.save()
-        const ringRadius = radius + 6
-        ctx.beginPath()
-        ctx.arc(px, py, ringRadius, 0, Math.PI * 2)
-        ctx.strokeStyle = '#f59e0b'
-        ctx.lineWidth = 2.5
-        ctx.setLineDash([6, 4])
-        ctx.stroke()
-        ctx.setLineDash([])
-        // Small "1" badge above player
-        const badgeY = py - ringRadius - 8
-        ctx.beginPath()
-        ctx.arc(px, badgeY, 10, 0, Math.PI * 2)
-        ctx.fillStyle = '#f59e0b'
-        ctx.fill()
-        ctx.strokeStyle = '#fff'
-        ctx.lineWidth = 1.5
-        ctx.stroke()
-        ctx.fillStyle = '#fff'
-        ctx.font = `bold ${Math.max(11, radius * 0.5)}px Oracle Sans, sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('1', px, badgeY)
-        ctx.restore()
-      }
     })
   }
 
@@ -929,13 +1089,14 @@ export function useCanvasRenderer() {
     const totalLength = fieldLength + endzoneSize * 2
     const yardHeight = fieldH / totalLength
 
+    const scale = options.previewScale ?? 1
     // LOS Y position
     const losY = yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
     
     // QA is 5 yards back (down/higher Y) from LOS
     const qbY = losY + (5 * yardHeight)
     const qbX = fieldW * 0.5
-    const radius = Math.max(14, fieldW * 0.04)
+    const radius = Math.max(3, Math.max(14, fieldW * 0.04) * scale)
 
     ctx.save()
     // Ghostly appearance
@@ -948,12 +1109,12 @@ export function useCanvasRenderer() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
     ctx.fill()
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)'
-    ctx.lineWidth = 2
+    ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.stroke()
 
     // Label
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-    ctx.font = `bold ${Math.max(11, radius * 0.7)}px Oracle Sans, sans-serif`
+    ctx.font = `bold ${Math.max(6, radius * 0.7)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('QB', qbX, qbY)
@@ -970,6 +1131,7 @@ export function useCanvasRenderer() {
   ) {
     const { fieldLength, endzoneSize } = options
     const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
+    const scale = options.previewScale ?? 1
 
     players.forEach((player) => {
       if (player.side !== 'defense' || !player.coverageRadius || player.coverageRadius <= 0) return
@@ -990,7 +1152,7 @@ export function useCanvasRenderer() {
         ctx.moveTo(px, py)
         ctx.lineTo(zx, zy)
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
-        ctx.lineWidth = 1.5
+        ctx.lineWidth = Math.max(0.4, 1.5 * scale)
         ctx.setLineDash([6, 4])
         ctx.stroke()
         ctx.setLineDash([])
@@ -1003,12 +1165,12 @@ export function useCanvasRenderer() {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
       ctx.fill()
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
-      ctx.lineWidth = 1
+      ctx.lineWidth = Math.max(0.4, 1 * scale)
       ctx.setLineDash([4, 4])
       ctx.stroke()
-      if (radiusPx > 20) {
+      if (radiusPx > 20 * scale) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-        ctx.font = `600 11px Oracle Sans, sans-serif`
+        ctx.font = `600 ${Math.max(6, 11 * scale)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
         ctx.fillText(`${player.coverageRadius}y`, zx, zy - radiusPx + 12)

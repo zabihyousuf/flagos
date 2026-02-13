@@ -230,12 +230,13 @@ export function useRouteAnalysis() {
   const MAX_ROUTE_DEPTH_YDS = 16
 
   /**
-   * Build a single route for one player with a given type, capping depth so we don't require endzone.
+   * Build a single route for one player with a given type. Produces segments that can be drawn on the canvas
+   * (straight, curve, or option). Capping depth so we don't require endzone.
    */
   function buildRouteForType(
     player: CanvasPlayer,
     fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number },
-    type: 'fly' | 'post' | 'corner' | 'in' | 'out' | 'curl' | 'slant' | 'center'
+    type: 'fly' | 'post' | 'corner' | 'in' | 'out' | 'curl' | 'slant' | 'center' | 'center_seam' | 'option_out_in'
   ): { segments: RouteSegment[] } {
     const { field_width, field_length, endzone_size, line_of_scrimmage } = fieldSettings
     const totalLength = field_length + endzone_size * 2
@@ -247,12 +248,22 @@ export function useRouteAnalysis() {
 
     const segments: RouteSegment[] = []
 
-    if (type === 'center') {
-      // Center: short release (depth and direction randomized each time)
-      const releaseDepthYds = 2 + Math.random() * 2.5  // 2–4.5 yd
+    if (type === 'center' || type === 'center_seam') {
+      if (type === 'center_seam') {
+        // Center: short seam up the middle (3–5 yd)
+        const seamDepthYds = 3 + Math.random() * 2
+        const seamY = (playerY - seamDepthYds) / totalLength
+        segments.push({
+          type: 'straight',
+          points: [{ x: player.x, y: seamY }]
+        })
+        return { segments }
+      }
+      // Center: short release to flat (depth and direction randomized)
+      const releaseDepthYds = 2 + Math.random() * 2.5
       const releaseY = (playerY - releaseDepthYds) / totalLength
-      const releaseRight = Math.random() < 0.5  // random left or right flat
-      const flatX = releaseRight ? 0.3 + Math.random() * 0.15 : 0.55 + Math.random() * 0.15  // 0.3–0.45 or 0.55–0.7
+      const releaseRight = Math.random() < 0.5
+      const flatX = releaseRight ? 0.3 + Math.random() * 0.15 : 0.55 + Math.random() * 0.15
       segments.push({
         type: 'straight',
         points: [
@@ -271,6 +282,21 @@ export function useRouteAnalysis() {
       return { segments }
     }
 
+    if (type === 'option_out_in') {
+      const stemDist = 4 + Math.random() * 3
+      const stemEndY = Math.max(minY, (playerY - stemDist) / totalLength)
+      segments.push({
+        type: 'straight',
+        points: [{ x: player.x, y: stemEndY }]
+      })
+      const lastPt = segments[0].points[0]
+      const outX = isLeft ? 0.06 : 0.94
+      const inX = isLeft ? Math.min(0.5, lastPt.x + 0.22) : Math.max(0.5, lastPt.x - 0.22)
+      segments.push({ type: 'option', points: [{ x: outX, y: lastPt.y }] })
+      segments.push({ type: 'option', points: [{ x: inX, y: lastPt.y }] })
+      return { segments }
+    }
+
     const stemDist = type === 'fly' ? 8 : 4 + Math.random() * 4
     const stemEndY = Math.max(minY, (playerY - stemDist) / totalLength)
     segments.push({
@@ -278,6 +304,9 @@ export function useRouteAnalysis() {
       points: [{ x: player.x, y: stemEndY }]
     })
     const lastPt = segments[0].points[0]
+
+    const useCurve = type === 'in' || type === 'out' || type === 'curl'
+    const segType: 'straight' | 'curve' = useCurve ? 'curve' : 'straight'
 
     switch (type) {
       case 'fly':
@@ -291,19 +320,19 @@ export function useRouteAnalysis() {
         break
       case 'in':
         segments.push({
-          type: 'straight',
+          type: segType,
           points: [{ x: isLeft ? Math.min(0.5, lastPt.x + 0.22) : Math.max(0.5, lastPt.x - 0.22), y: lastPt.y }]
         })
         break
       case 'out':
         segments.push({
-          type: 'straight',
+          type: segType,
           points: [{ x: isLeft ? 0.06 : 0.94, y: lastPt.y }]
         })
         break
       case 'curl':
         segments.push({
-          type: 'straight',
+          type: segType,
           points: [{ x: isLeft ? lastPt.x + 0.06 : lastPt.x - 0.06, y: Math.min(lastPt.y + 4 / totalLength, 1) }]
         })
         break
@@ -373,8 +402,9 @@ export function useRouteAnalysis() {
 
     const result: { playerId: string; route: { segments: RouteSegment[] } }[] = []
 
+    const centerTypes: Array<'center' | 'center_seam'> = ['center', 'center_seam']
     centers.forEach((e) => {
-      result.push({ playerId: e.player.id, route: buildRouteForType(e.player, fieldSettings, 'center') })
+      result.push({ playerId: e.player.id, route: buildRouteForType(e.player, fieldSettings, pick(centerTypes)) })
     })
 
     const shuffledNonCenters = shuffleArray(nonCenters)
@@ -405,9 +435,47 @@ export function useRouteAnalysis() {
     return { routes: result, primaryTargetPlayerId, readOrderPlayerIds }
   }
 
+  type RouteType = 'fly' | 'post' | 'corner' | 'in' | 'out' | 'curl' | 'slant' | 'center' | 'center_seam'
+  const deepTypes: RouteType[] = ['fly', 'post', 'corner']
+  const sharpTypes: RouteType[] = ['slant', 'in', 'out']
+  const mediumTypes: RouteType[] = ['in', 'out', 'curl']
+
+  /**
+   * Suggest a single route for one player that fits their attributes (best chance to get the ball).
+   * Uses straight/curve-compatible segment types; center can get release or seam.
+   */
+  function suggestRouteForPlayer(
+    player: CanvasPlayer,
+    roster: Player[],
+    fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }
+  ): { segments: RouteSegment[] } | null {
+    const rosterPlayer = roster.find(
+      (r) => r.id === player.id || (r.name === player.name && r.number === player.number)
+    )
+    const u = rosterPlayer?.universal_attributes
+    const o = rosterPlayer?.offense_attributes
+    const speed = (u?.speed ?? 5) as number
+    const routeRunning = (o?.route_running ?? 5) as number
+    const pos = (player.position || player.designation || '').toUpperCase()
+
+    if (pos === 'C') {
+      const centerTypes: RouteType[] = ['center', 'center_seam']
+      return buildRouteForType(player, fieldSettings, centerTypes[Math.floor(Math.random() * centerTypes.length)])
+    }
+    if (player.designation === 'Q' || player.position === 'QB') return null
+
+    let type: RouteType
+    if (speed >= 8) type = pick(deepTypes)
+    else if (routeRunning >= 8) type = pick(sharpTypes)
+    else type = pick(mediumTypes)
+    return buildRouteForType(player, fieldSettings, type)
+  }
+
   return {
     analyzeRoute,
     generateRandomRoute,
-    generateOptimizedRoutes
+    generateOptimizedRoutes,
+    suggestRouteForPlayer,
+    buildRouteForType,
   }
 }

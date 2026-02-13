@@ -151,8 +151,16 @@ export function useCanvas() {
       : selectedTool.value === 'straight' ? 'straight'
         : 'curve'
 
+    // When player has motion, route starts from the end of motion (first point = motion end, second = click)
+    const motionEnd = player.motionPath?.length
+      ? player.motionPath[player.motionPath.length - 1]
+      : null
+    const firstPoint = motionEnd ? { x: motionEnd.x, y: motionEnd.y } : { x, y }
+    const points = [firstPoint]
+    if (motionEnd) points.push({ x, y }) // click is second point so route visibly starts at motion end
+
     player.route.segments.push({
-      points: [{ x, y }],
+      points,
       type: type as 'straight' | 'curve' | 'option',
     })
     activeSegmentIndex.value = player.route.segments.length - 1
@@ -183,6 +191,25 @@ export function useCanvas() {
     if (isRusher) return // Rusher's path to QB cannot be deleted
     activeSegmentIndex.value = null
     player.route = null
+    isDirty.value = true
+    pushHistory()
+  }
+
+  function deleteRouteSegment(playerId: string, segmentIndex: number) {
+    const player = canvasData.value.players.find((p) => p.id === playerId)
+    if (!player || !player.route?.segments?.length) return
+    const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
+    if (isRusher) return
+    const idx = Math.max(0, Math.min(segmentIndex, player.route.segments.length - 1))
+    player.route.segments.splice(idx, 1)
+    if (player.route.segments.length === 0) {
+      player.route = null
+      player.primaryTarget = false
+    }
+    if (activeSegmentIndex.value !== null) {
+      if (activeSegmentIndex.value === idx) activeSegmentIndex.value = null
+      else if (activeSegmentIndex.value > idx) activeSegmentIndex.value--
+    }
     isDirty.value = true
     pushHistory()
   }
@@ -227,6 +254,13 @@ export function useCanvas() {
   function addMotionPoint(playerId: string, x: number, y: number) {
     const player = canvasData.value.players.find((p) => p.id === playerId)
     if (!player) return
+
+    const pos = (player.position || '').toUpperCase()
+    const des = (player.designation || '').toUpperCase()
+    // Centers cannot go in motion
+    if (pos === 'C' || des === 'C') return
+    // QB can only use rollout (set by suggest play), not free-form motion
+    if (pos === 'QB' || des === 'Q') return
 
     if (!player.motionPath) {
       player.motionPath = []
@@ -439,6 +473,7 @@ export function useCanvas() {
     addPointToSegment,
     finalizeSegment,
     clearRoute,
+    deleteRouteSegment,
     clearAllRoutes,
     assignReadOrder,
     addMotionPoint,

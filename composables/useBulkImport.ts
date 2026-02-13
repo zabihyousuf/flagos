@@ -132,6 +132,8 @@ export function useBulkImport() {
     }, [])
   })
 
+  const DB_DUPLICATE_WARNING = 'Name already in roster'
+
   function checkDuplicateNumbers(list: ImportRow[]) {
     const seen = new Map<number, number[]>()
     list.forEach((r, i) => {
@@ -147,6 +149,19 @@ export function useBulkImport() {
           list[i].warnings.push(`Duplicate #${num}`)
         }
       }
+    }
+  }
+
+  /** Mark rows whose name exists in the DB (case-insensitive). Call after parse or when existing names change. */
+  function checkDuplicateNamesInDb(existingNames: string[]) {
+    const set = new Set(existingNames.map((n) => n.trim().toLowerCase()).filter(Boolean))
+    for (const row of rows.value) {
+      const name = row.name.trim()
+      if (!name) continue
+      const isDuplicate = set.has(name.toLowerCase())
+      const hasWarning = row.warnings.some((w) => w === DB_DUPLICATE_WARNING)
+      if (isDuplicate && !hasWarning) row.warnings.push(DB_DUPLICATE_WARNING)
+      if (!isDuplicate && hasWarning) row.warnings = row.warnings.filter((w) => w !== DB_DUPLICATE_WARNING)
     }
   }
 
@@ -300,6 +315,7 @@ export function useBulkImport() {
 
     checkDuplicateNumbers(parsed)
     rows.value = parsed
+    // Caller should call checkDuplicateNamesInDb(existingPlayerNames) after parse to mark DB duplicates
   }
 
   function addEmptyRow() {
@@ -402,12 +418,20 @@ export function useBulkImport() {
     for (let i = 0; i < count; i++) addEmptyRow()
   }
 
+  const duplicateNamesInRoster = computed(() => {
+    return rows.value
+      .filter((r) => r.warnings.some((w) => w === DB_DUPLICATE_WARNING))
+      .map((r) => r.name.trim())
+      .filter(Boolean)
+  })
+
   return {
     rows,
     importing,
     importResult,
     parseError,
     parseCSV,
+    checkDuplicateNamesInDb,
     addEmptyRow,
     addSampleRow,
     removeRow,
@@ -420,5 +444,6 @@ export function useBulkImport() {
     activeTab,
     csvInput,
     rowWarnings,
+    duplicateNamesInRoster,
   }
 }

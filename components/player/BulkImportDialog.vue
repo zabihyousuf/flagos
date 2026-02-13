@@ -74,6 +74,20 @@
 
           <!-- Quick Add Tab -->
           <div v-if="activeTab === 'quick'" class="flex-1 min-h-0 relative border-t">
+            <!-- Rows-from-CSV summary and duplicate-name warning -->
+            <div v-if="rowsFromCsvCount > 0" class="px-6 py-3 border-b bg-muted/30 space-y-2">
+              <p class="text-sm font-medium text-foreground">
+                {{ rowsFromCsvCount }} row{{ rowsFromCsvCount !== 1 ? 's' : '' }} parsed from CSV
+              </p>
+              <div v-if="duplicateNamesInRoster.length > 0" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                <p class="font-medium">Names already in your roster</p>
+                <p class="mt-1 text-muted-foreground">
+                  The following {{ duplicateNamesInRoster.length }} name{{ duplicateNamesInRoster.length !== 1 ? 's' : '' }} already exist in your roster and will be skipped if you add without changing them:
+                  <span class="font-mono font-medium text-foreground">{{ duplicateNamesInRoster.join(', ') }}</span>
+                </p>
+                <p class="mt-1 text-xs text-muted-foreground">Edit or remove these rows before adding, or they will fail to import.</p>
+              </div>
+            </div>
             <!-- Scroll indicator -->
             <div class="absolute top-2 right-6 z-40 bg-background/80 backdrop-blur px-2 py-1 rounded-md border shadow-sm pointer-events-none text-xs text-muted-foreground flex items-center gap-1.5 animate-pulse">
               <ArrowRight class="w-3 h-3" />
@@ -386,11 +400,10 @@
               </div>
             </template>
 
-            <!-- Preview table -->
+            <!-- Preview table (after parse we switch to Quick Add; this is when user clicks back to CSV tab) -->
             <template v-else>
-              <div class="flex items-center justify-between mb-3">
-                <p class="text-sm text-muted-foreground">{{ rows.length }} row{{ rows.length !== 1 ? 's' : '' }} parsed</p>
-                <Button variant="ghost" size="sm" class="text-xs" @click="csvMode = 'upload'; clearAll()">
+              <div class="flex items-center justify-end mb-3">
+                <Button variant="ghost" size="sm" class="text-xs" @click="csvMode = 'upload'; rowsFromCsvCount = 0; clearAll()">
                   Re-upload
                 </Button>
               </div>
@@ -513,10 +526,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
   (e: 'import-done'): void
+  (e: 'imported'): void
 }>()
 
 const { teams, addPlayerToTeam } = useTeams()
-const { bulkCreatePlayers } = usePlayers()
+const { players, bulkCreatePlayers } = usePlayers()
 const {
   activeTab,
   csvInput,
@@ -527,12 +541,13 @@ const {
   rowWarnings,
   importResult,
   parseCSV,
+  checkDuplicateNamesInDb,
   addEmptyRow,
   addSampleRow,
   removeRow,
   clearAll,
-  performImport,
   revalidateAll,
+  duplicateNamesInRoster,
 } = useBulkImport()
 
 // Offense/Defense position options
@@ -548,6 +563,8 @@ const dragOver = ref(false)
 const pasteText = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const csvMode = ref<'upload' | 'preview'>('upload')
+/** When set, rows were loaded from CSV; show "X rows from CSV" and duplicate warning on Quick Add. */
+const rowsFromCsvCount = ref(0)
 
 // Helper to shorten attribute labels (e.g. "Throwing Power" -> "THP")
 function attrShortLabel(label: string) {
@@ -587,17 +604,10 @@ function clampAttr(v: string | number): number {
 // Initialize with 5 empty rows when sheet opens
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
-    // If we have rows, maybe don't clear?
-    // But usually opening means fresh start or continue.
-    // Let's just ensure we have at least 1 row if empty.
-    // Start with 0 rows as requested
-    // if (rows.value.length === 0) {
-    //    for(let i=0; i<5; i++) addEmptyRow()
-    // }
-    
     activeTab.value = 'quick'
     pasteText.value = ''
     csvMode.value = 'upload'
+    rowsFromCsvCount.value = 0
   }
 })
 
@@ -649,14 +659,24 @@ function readFile(file: File) {
   reader.onload = () => {
     const text = reader.result as string
     parseCSV(text)
-    if (!parseError.value) csvMode.value = 'preview'
+    if (!parseError.value) {
+      checkDuplicateNamesInDb(players.value.map((p) => p.name))
+      rowsFromCsvCount.value = rows.value.length
+      csvMode.value = 'preview'
+      activeTab.value = 'quick'
+    }
   }
   reader.readAsText(file)
 }
 
 function handlePaste() {
   parseCSV(pasteText.value)
-  if (!parseError.value) csvMode.value = 'preview'
+  if (!parseError.value) {
+    checkDuplicateNamesInDb(players.value.map((p) => p.name))
+    rowsFromCsvCount.value = rows.value.length
+    csvMode.value = 'preview'
+    activeTab.value = 'quick'
+  }
 }
 
 function loadSampleCSV() {
@@ -710,6 +730,7 @@ function downloadTemplate() {
 
 async function handleImport() {
   revalidateAll()
+  checkDuplicateNamesInDb(players.value.map((p) => p.name))
   const toImport = validRows.value.map((r) => ({
     name: r.name.trim(),
     number: r.number ?? 0,
@@ -748,6 +769,7 @@ async function handleImport() {
         }
       }
       emit('import-done')
+      emit('imported')
     }
   } finally {
     importing.value = false

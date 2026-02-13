@@ -2,7 +2,7 @@
   <div v-if="selectedPlayer" class="w-full h-full bg-card border-border flex flex-col overflow-hidden">
     <!-- Panel Header -->
     <div class="h-10 border-border flex items-center px-3 shrink-0">
-      <span class="text-xs font-semibold text-foreground">Player Details</span>
+      <span class="text-sm font-semibold text-foreground">Player Details</span>
     </div>
 
     <div class="p-3 space-y-3 overflow-y-auto custom-scrollbar flex-1">
@@ -10,15 +10,15 @@
       <div class="space-y-3">
         <div class="flex items-center gap-3">
           <div
-            class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-border/20"
+            class="w-10 h-10 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ring-2 ring-border/20"
             :style="{ background: posColor(selectedPlayer.position) }"
           >
             {{ selectedPlayer.designation }}
           </div>
           <div class="flex-1">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-foreground">{{ selectedPlayer.name ?? 'Unnamed' }}</span>
-              <span v-if="selectedPlayer.number" class="text-[9px] font-mono text-muted-foreground">#{{ selectedPlayer.number }}</span>
+              <span class="text-base font-bold text-foreground">{{ selectedPlayer.name ?? 'Unnamed' }}</span>
+              <span v-if="selectedPlayer.number" class="text-[13px] font-mono text-muted-foreground">#{{ selectedPlayer.number }}</span>
             </div>
             <div class="grid grid-cols-2 gap-2 mt-1.5">
             <!-- Combined Role Selector -->
@@ -26,7 +26,7 @@
                 :model-value="selectedPlayerRole"
                 @update:model-value="(v) => handleRoleChange(v as string)"
               >
-                <SelectTrigger class="h-6 text-[9px] bg-muted/30 border-border/50 col-span-2">
+                <SelectTrigger class="h-6 text-[13px] bg-muted/30 border-border/50 col-span-2">
                   <SelectValue placeholder="Select Position" />
                 </SelectTrigger>
                 <SelectContent>
@@ -37,7 +37,7 @@
                   >
                     <div class="flex items-center justify-between w-full min-w-[120px]">
                       <span>{{ role.label }}</span>
-                      <span class="text-muted-foreground ml-2 text-[9px] uppercase">{{ role.position }}</span>
+                      <span class="text-muted-foreground ml-2 text-[13px] uppercase">{{ role.position }}</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -48,12 +48,12 @@
 
         <!-- Defensive Settings (rushers do not cover a zone) -->
         <div v-if="playType === 'defense' && !isRusher(selectedPlayer)" class="space-y-3 pt-2 border-t border-border/50">
-          <p class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Defensive Coverage</p>
+          <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Defensive Coverage</p>
 
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
-              <label class="text-[9px] text-muted-foreground">Coverage Radius</label>
-              <span class="text-[9px] font-mono">{{ selectedPlayer.coverageRadius ?? 5 }} yd</span>
+              <label class="text-[13px] text-muted-foreground">Coverage Radius</label>
+              <span class="text-[13px] font-mono">{{ selectedPlayer.coverageRadius ?? 5 }} yd</span>
             </div>
             <input
               type="range"
@@ -67,10 +67,10 @@
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-[9px] text-muted-foreground">Zone position</label>
+            <label class="text-[13px] text-muted-foreground">Zone position</label>
             <button
               type="button"
-              class="w-full px-2 py-1.5 text-[9px] font-medium rounded border transition-colors"
+              class="w-full px-2 py-1.5 text-[13px] font-medium rounded border transition-colors"
               :class="selectedPlayer.coverageZoneUnlocked ? 'bg-primary/15 text-primary border-primary/30' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
               @click="$emit('update-attribute', selectedPlayer!.id, {
                 coverageZoneUnlocked: !selectedPlayer.coverageZoneUnlocked,
@@ -82,12 +82,12 @@
           </div>
 
           <div class="space-y-1.5">
-            <label class="text-[9px] text-muted-foreground">Alignment</label>
+            <label class="text-[13px] text-muted-foreground">Alignment</label>
             <div class="grid grid-cols-4 gap-1">
                <button
                 v-for="align in ['tight', 'normal', 'soft', 'off']"
                 :key="align"
-                class="px-1 py-1 text-[9px] rounded border transition-colors capitalize"
+                class="px-1 py-1 text-[13px] rounded border transition-colors capitalize"
                 :class="(selectedPlayer.alignment || 'normal') === align ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
                 @click="$emit('update-attribute', selectedPlayer!.id, { alignment: align as 'tight' | 'normal' | 'soft' | 'off' })"
                >
@@ -101,25 +101,25 @@
       <!-- Stats Grid -->
       <div class="grid grid-cols-2 gap-2">
         <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-          <p class="text-[9px] text-muted-foreground font-medium mb-0.5">YARD LINE</p>
-          <p class="text-xs font-mono font-bold text-foreground">{{ yardLine }}</p>
+          <p class="text-[13px] text-muted-foreground font-medium mb-0.5">YARD LINE</p>
+          <p class="text-base font-mono font-bold text-foreground">{{ yardLine }}</p>
         </div>
         <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-          <p class="text-[9px] text-muted-foreground font-medium mb-0.5">FROM SIDELINE</p>
-          <p class="text-xs font-mono font-bold text-foreground">{{ sidelineDistance }}</p>
+          <p class="text-[13px] text-muted-foreground font-medium mb-0.5">FROM SIDELINE</p>
+          <p class="text-base font-mono font-bold text-foreground">{{ sidelineDistance }}</p>
         </div>
       </div>
 
       <!-- Route Info -->
       <div v-if="playType === 'offense'" class="space-y-2 pt-2 border-t border-border/50">
         <div class="flex items-center justify-between">
-          <p class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Route Segments</p>
+          <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Route Segments</p>
           <div class="flex items-center gap-1">
             <Button
               v-if="!pendingRoute"
               size="sm"
               variant="ghost"
-              class="h-5 px-2 text-[9px] text-primary hover:text-primary hover:bg-primary/10"
+              class="h-5 px-2 text-[13px] text-primary hover:text-primary hover:bg-primary/10"
               @click="handleSuggestRoute"
             >
               <Sparkles class="w-3 h-3 mr-1" />
@@ -129,17 +129,17 @@
               v-if="selectedPlayer.route && selectedPlayer.route.segments.length > 0 && !pendingRoute"
               size="sm"
               variant="ghost"
-              class="h-5 px-2 text-[9px] text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2"
+              class="h-5 px-2 text-[13px] text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2"
               @click="$emit('clear-route', selectedPlayer.id)"
             >
-              Clear
+              Delete route
             </Button>
           </div>
         </div>
 
         <!-- Pending Route Actions -->
         <div v-if="pendingRoute" class="flex items-center justify-between bg-muted/40 p-1.5 rounded border border-primary/20 mb-2">
-          <span class="text-[9px] font-medium text-primary flex items-center gap-1">
+          <span class="text-[13px] font-medium text-primary flex items-center gap-1">
             <Sparkles class="w-3 h-3" />
             Suggested Route
           </span>
@@ -154,17 +154,26 @@
         </div>
 
         <div class="flex items-center gap-1.5 flex-wrap min-h-[22px]">
-          <div v-if="(!selectedPlayer.route || selectedPlayer.route.segments.length === 0) && !pendingRoute" class="text-[9px] text-muted-foreground italic px-2">
+          <div v-if="(!selectedPlayer.route || selectedPlayer.route.segments.length === 0) && !pendingRoute" class="text-[13px] text-muted-foreground italic px-2">
             No route assigned
           </div>
           <div
             v-for="(seg, i) in (pendingRoute ? pendingRoute.segments : selectedPlayer.route?.segments)"
             :key="i"
-            class="text-[9px] px-2 py-0.5 rounded-full border text-foreground font-medium flex items-center gap-1 transition-colors"
+            class="text-[13px] pl-2 pr-1 py-0.5 rounded-full border text-foreground font-medium flex items-center gap-1 transition-colors group/seg"
             :class="pendingRoute ? 'bg-primary/10 border-primary/30' : 'bg-muted border-border'"
           >
             <span>{{ seg.type }}</span>
-            <span v-if="seg.readOrder" class="bg-primary text-primary-foreground text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full -mr-1 shadow-sm">{{ seg.readOrder }}</span>
+            <span v-if="seg.readOrder" class="bg-primary text-primary-foreground text-[11px] w-3.5 h-3.5 flex items-center justify-center rounded-full -mr-1 shadow-sm">{{ seg.readOrder }}</span>
+            <button
+              v-if="!pendingRoute && selectedPlayer.route?.segments"
+              type="button"
+              class="p-0.5 rounded hover:bg-destructive/20 text-destructive transition-colors"
+              title="Remove segment"
+              @click.stop="$emit('delete-segment', selectedPlayer.id, i)"
+            >
+              <X class="w-3 h-3" />
+            </button>
           </div>
         </div>
 
@@ -173,7 +182,7 @@
           <Button
             size="sm"
             :variant="selectedPlayer.primaryTarget ? 'default' : 'outline'"
-            class="h-7 px-2 text-[9px] w-full"
+            class="h-7 px-2 text-[13px] w-full"
             @click="$emit('update-attribute', selectedPlayer.id, { primaryTarget: !selectedPlayer.primaryTarget })"
           >
             <Target class="w-3 h-3 mr-1.5" />
@@ -185,29 +194,29 @@
       <!-- Analytics (route for offense, rush-to-QB for rushers) -->
       <div v-if="routeAnalytics" class="space-y-2 pt-2 border-t border-border/50">
         <div class="flex items-center justify-between">
-          <p class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+          <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">
             {{ isRusher(selectedPlayer) ? 'Rush to QB' : 'Route analytics' }}
           </p>
-          <span class="text-[9px] text-muted-foreground/60 font-mono">SPD: {{ playerSpeedAttr }}/10</span>
+          <span class="text-[13px] text-muted-foreground/60 font-mono">SPD: {{ playerSpeedAttr }}/10</span>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-            <p class="text-[9px] text-muted-foreground font-medium mb-0.5">
+            <p class="text-[13px] text-muted-foreground font-medium mb-0.5">
               {{ isRusher(selectedPlayer) ? 'TIME TO QB' : 'EST. TIME' }}
             </p>
-            <p class="text-sm font-mono font-bold text-emerald-500 leading-none">{{ routeAnalytics.totalDuration.toFixed(2) }}s</p>
+            <p class="text-base font-mono font-bold text-emerald-500 leading-none">{{ routeAnalytics.totalDuration.toFixed(2) }}s</p>
           </div>
           <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-            <p class="text-[9px] text-muted-foreground font-medium mb-0.5">
+            <p class="text-[13px] text-muted-foreground font-medium mb-0.5">
               {{ isRusher(selectedPlayer) ? 'PATH TO QB' : 'DISTANCE' }}
             </p>
-            <p class="text-sm font-mono font-bold leading-none text-foreground">{{ routeAnalytics.totalDistance.toFixed(1) }} <span class="text-[9px] font-normal text-muted-foreground">yd</span></p>
+            <p class="text-base font-mono font-bold leading-none text-foreground">{{ routeAnalytics.totalDistance.toFixed(1) }} <span class="text-[13px] font-normal text-muted-foreground">yd</span></p>
           </div>
         </div>
 
         <!-- Timeline: segment duration (rush path vs route segments) -->
         <div class="space-y-px pl-1 pt-1">
-          <div v-for="(seg, i) in routeAnalytics.segments" :key="i" class="flex items-center text-[9px] gap-2 h-5 relative group">
+          <div v-for="(seg, i) in routeAnalytics.segments" :key="i" class="flex items-center text-[13px] gap-2 h-5 relative group">
             <!-- Connector line -->
             <div v-if="i < routeAnalytics.segments.length - 1" class="absolute left-[2.5px] top-2.5 bottom-[-8px] w-px bg-border group-last:hidden" />
 
@@ -221,7 +230,7 @@
             <span class="font-mono text-foreground font-medium" :title="'Segment: ' + seg.duration.toFixed(2) + 's' + (routeAnalytics.segments.length > 1 ? ' · Total: ' + seg.cumulativeTime.toFixed(2) + 's' : '')">
               {{ seg.duration.toFixed(2) }}s
             </span>
-            <span class="text-muted-foreground ml-auto font-mono text-[9px]">{{ seg.distance.toFixed(1) }}yd</span>
+            <span class="text-muted-foreground ml-auto font-mono text-[13px]">{{ seg.distance.toFixed(1) }}yd</span>
           </div>
         </div>
       </div>
@@ -255,9 +264,10 @@ const emit = defineEmits<{
   'update-designation': [playerId: string, designation: string]
   'update-attribute': [playerId: string, attributes: Partial<CanvasPlayer>]
   'clear-route': [playerId: string]
+  'delete-segment': [playerId: string, segmentIndex: number]
 }>()
 
-const { analyzeRoute, generateRandomRoute } = useRouteAnalysis()
+const { analyzeRoute, generateRandomRoute, suggestRouteForPlayer } = useRouteAnalysis()
 
 // State for suggested route
 const pendingRoute = ref<{ segments: RouteSegment[] } | null>(null)
@@ -410,7 +420,10 @@ function handleRoleChange(value: string) {
 
 function handleSuggestRoute() {
   if (!props.selectedPlayer) return
-  const route = generateRandomRoute(props.selectedPlayer, props.fieldSettings)
+  const route =
+    props.playType === 'offense' && props.allRoster?.length
+      ? suggestRouteForPlayer(props.selectedPlayer, props.allRoster, props.fieldSettings)
+      : generateRandomRoute(props.selectedPlayer, props.fieldSettings)
   if (route) {
     pendingRoute.value = route
   }

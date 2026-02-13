@@ -1,13 +1,23 @@
 <template>
-  <Card class="w-full max-w-sm">
-    <CardHeader class="text-center">
-      <CardTitle class="text-xl font-display">{{ title }}</CardTitle>
-      <CardDescription>{{ message }}</CardDescription>
-    </CardHeader>
-    <CardFooter class="justify-center">
-      <NuxtLink to="/auth/login" class="text-sm text-primary hover:underline">Go to login</NuxtLink>
-    </CardFooter>
-  </Card>
+  <div class="auth-page">
+    <header class="mb-10">
+      <h1 class="font-display font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
+        {{ title }}
+      </h1>
+      <p class="mt-2 text-muted-foreground text-sm sm:text-base">
+        {{ message }}
+      </p>
+    </header>
+    <div class="pt-4">
+      <NuxtLink
+        to="/auth/login"
+        class="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+      >
+        Go to sign in
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+      </NuxtLink>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -40,7 +50,7 @@ onMounted(async () => {
     setTimeout(() => navigateTo('/'), 1500)
   } catch (e: any) {
     title.value = 'Confirmation failed'
-    message.value = e.message
+    message.value = e.message ?? 'Something went wrong.'
   }
 })
 </script>

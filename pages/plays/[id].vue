@@ -58,9 +58,14 @@
         <CanvasToolbar
           v-if="canvasReady"
           :selected-tool="cSelectedTool"
+          :can-set-primary-target="canSetPrimaryTarget"
+          :selected-player-is-primary="selectedPlayerIsPrimary"
+          :suggest-play-disabled="currentPlay?.play_type === 'defense'"
+          :motion-tool-disabled="motionToolDisabled"
           @select-tool="onSetTool"
           @clear-routes="onClearAllRoutes"
           @ai-action="onAiAction"
+          @set-primary-target="onSetPrimaryTarget"
         />
       </div>
 
@@ -211,6 +216,7 @@
             :ghost-players="ghostPlayers"
             :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
             @save="handleSaveData"
+            @suggest-play-error="onSuggestPlayError"
             class="w-full h-full block"
           />
         </div>
@@ -227,6 +233,7 @@
             @update-designation="onSetPlayerDesignation"
             @update-attribute="onUpdatePlayerAttribute"
             @clear-route="onClearRoute"
+            @delete-segment="onDeleteSegment"
           />
         </div>
       </div>
@@ -307,18 +314,64 @@ const cPlayers = computed(() => canvasRef.value?.canvasData?.players ?? [])
 const cSelectedPlayerId = computed(() => canvasRef.value?.selectedPlayerId ?? null)
 const cSelectedPlayer = computed(() => canvasRef.value?.selectedPlayer ?? null)
 const cSelectedTool = computed<CanvasTool>(() => canvasRef.value?.selectedTool ?? 'select')
-const cIsDirty = computed(() => canvasRef.value?.isDirty ?? false)
+const cIsDirty = computed(() => {
+  const d = canvasRef.value?.isDirty
+  return typeof d === 'object' && d != null && 'value' in d ? (d as { value: boolean }).value : (d === true)
+})
+
+const canSetPrimaryTarget = computed(() => {
+  if (currentPlay.value?.play_type !== 'offense') return false
+  const p = cSelectedPlayer.value
+  if (!p) return false
+  if (p.side !== 'offense') return false
+  if ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q') return false
+  return true
+})
+
+/** Motion tool disabled for C (cannot motion) and QB (rollout only via Suggest Play) */
+const motionToolDisabled = computed(() => {
+  const p = cSelectedPlayer.value
+  if (!p) return false
+  const pos = (p.position || '').toUpperCase()
+  const des = (p.designation || '').toUpperCase()
+  return pos === 'C' || des === 'C' || pos === 'QB' || des === 'Q'
+})
+const selectedPlayerIsPrimary = computed(() => !!cSelectedPlayer.value?.primaryTarget)
 
 // Wrapper functions — safe to call even if ref not ready
 function onSelectPlayer(id: string) { canvasRef.value?.selectPlayer(id) }
 function onRemovePlayer(id: string) { canvasRef.value?.removePlayerFromField(id) }
 function onAddPlayer(player: Player) { canvasRef.value?.addPlayerToField(player) }
 function onSetTool(tool: CanvasTool) { canvasRef.value?.setTool(tool) }
-function onClearAllRoutes() { canvasRef.value?.clearAllRoutes() }
+function onClearAllRoutes() {
+  if (!canvasRef.value || !currentPlay.value) return
+  canvasRef.value.resetFormation(
+    currentPlay.value.play_type,
+    starters.value,
+    {
+      los: fieldSettingsData.value.line_of_scrimmage,
+      length: fieldSettingsData.value.field_length,
+      endzone: fieldSettingsData.value.endzone_size,
+    },
+    starterPositionMap.value
+  )
+  nextTick(() => {
+    canvasRef.value?.seedHistory()
+    canvasRef.value?.requestRender()
+  })
+}
 function onAiAction(action: string) { canvasRef.value?.handleAiAction(action) }
+function onSetPrimaryTarget() {
+  const id = cSelectedPlayerId.value
+  if (id) canvasRef.value?.updatePlayerAttribute(id, { primaryTarget: true })
+}
+function onSuggestPlayError(_message: string) {
+  // Error state is already reflected in the canvas/UI; optional: add toast here later.
+}
 function onSetPlayerDesignation(playerId: string, designation: string) { canvasRef.value?.setPlayerDesignation(playerId, designation) }
 function onUpdatePlayerAttribute(playerId: string, attrs: Partial<CanvasPlayer>) { canvasRef.value?.updatePlayerAttribute(playerId, attrs) }
 function onClearRoute(playerId: string) { canvasRef.value?.clearRoute(playerId) }
+function onDeleteSegment(playerId: string, segmentIndex: number) { canvasRef.value?.deleteRouteSegment(playerId, segmentIndex) }
 
 // Fetch playbook name for breadcrumb
 const playbookName = ref<string | null>(null)
@@ -410,13 +463,11 @@ async function handleSaveData(data: CanvasData) {
   }
   if (playId.value === 'new') {
     currentPlay.value.canvas_data = payload
-    if (canvasRef.value) canvasRef.value.isDirty = false
+    canvasRef.value?.setDirty?.(false)
     return
   }
   await saveCanvasData(currentPlay.value.id, payload)
-  if (canvasRef.value) {
-    canvasRef.value.isDirty = false
-  }
+  canvasRef.value?.setDirty?.(false)
 }
 
 // ─── Draft Logic ───
@@ -457,14 +508,14 @@ async function handleTypeChange(type: 'offense' | 'defense') {
     ghostPlayId.value = null
   }
 
-  // Reset canvas for new type (user chose to switch, so mark dirty so they can save)
+  // Reset canvas for new type. Don't mark dirty here — only user edits set dirty,
+  // so we won't show the switch-confirm modal when toggling offense ↔ defense with no edits.
   nextTick(() => {
     canvasRef.value?.resetFormation(type, starters.value, {
       los: fieldSettingsData.value.line_of_scrimmage,
       length: fieldSettingsData.value.field_length,
       endzone: fieldSettingsData.value.endzone_size,
     }, starterPositionMap.value)
-    if (canvasRef.value?.isDirty != null) (canvasRef.value.isDirty as { value: boolean }).value = true
   })
 
   if (playId.value !== 'new') {

@@ -47,17 +47,38 @@
 
     <div v-else>
       <Tabs default-value="all">
-        <TabsList>
-          <TabsTrigger value="all">All ({{ plays.length }})</TabsTrigger>
-          <TabsTrigger value="offense">Offense ({{ offensePlays.length }})</TabsTrigger>
-          <TabsTrigger value="defense">Defense ({{ defensePlays.length }})</TabsTrigger>
-        </TabsList>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="all">All ({{ plays.length }})</TabsTrigger>
+            <TabsTrigger value="offense">Offense ({{ offensePlays.length }})</TabsTrigger>
+            <TabsTrigger value="defense">Defense ({{ defensePlays.length }})</TabsTrigger>
+          </TabsList>
+          <div class="flex rounded-lg border border-border bg-muted/30 p-0.5">
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+              :class="viewMode === 'grid' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+              @click="viewMode = 'grid'"
+            >
+              Grid
+            </button>
+            <button
+              type="button"
+              class="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+              :class="viewMode === 'list' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+              @click="viewMode = 'list'"
+            >
+              List
+            </button>
+          </div>
+        </div>
         <TabsContent value="all" class="mt-4">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+          <div :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
             <PlayCard
               v-for="play in plays"
               :key="play.id"
               :play="play"
+              :variant="viewMode"
               @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
@@ -65,11 +86,12 @@
           </div>
         </TabsContent>
         <TabsContent value="offense" class="mt-4">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+          <div :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
             <PlayCard
               v-for="play in offensePlays"
               :key="play.id"
               :play="play"
+              :variant="viewMode"
               @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
@@ -77,11 +99,12 @@
           </div>
         </TabsContent>
         <TabsContent value="defense" class="mt-4">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+          <div :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
             <PlayCard
               v-for="play in defensePlays"
               :key="play.id"
               :play="play"
+              :variant="viewMode"
               @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
@@ -119,6 +142,8 @@ const { setTitle } = useBreadcrumbs()
 
 const offensePlays = computed(() => plays.value.filter((p) => p.play_type === 'offense'))
 const defensePlays = computed(() => plays.value.filter((p) => p.play_type === 'defense'))
+
+const viewMode = ref<'grid' | 'list'>('grid')
 
 // Removed openDialog and dialogOpen logic for creating/editing since we navigate now
 // But we still need handleDelete

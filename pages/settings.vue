@@ -171,6 +171,7 @@
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </template>
@@ -350,6 +351,105 @@
         </div>
       </template>
 
+      <!-- Pricing & Billing Tab -->
+      <template v-if="activeTab === 'billing'">
+        <div class="settings-panel billing-panel">
+          <div class="config-header">
+            <h2 class="text-lg font-semibold tracking-tight font-display">Pricing & Billing</h2>
+            <p class="text-muted-foreground text-sm">Your current plan and available upgrades.</p>
+          </div>
+
+          <!-- Current plan -->
+          <div class="billing-current mb-8">
+            <span class="text-sm text-muted-foreground">Current plan</span>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="font-semibold text-foreground">Free</span>
+              <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">Active</span>
+            </div>
+          </div>
+
+          <!-- Tier cards -->
+          <div class="billing-grid">
+            <!-- Free -->
+            <div class="billing-card billing-card--current">
+              <div class="billing-card-header">
+                <h3 class="font-display font-semibold text-foreground">Free</h3>
+                <p class="text-2xl font-bold text-foreground mt-1">$0<span class="text-sm font-normal text-muted-foreground">/month</span></p>
+              </div>
+              <ul class="billing-perks">
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>2 playbooks</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>3 plays per playbook</span>
+                </li>
+                <li class="billing-perk billing-perk--no">
+                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span class="text-muted-foreground">Add your own players to a team</span>
+                </li>
+                <li class="billing-perk billing-perk--no">
+                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span class="text-muted-foreground">Print playbooks in different formats</span>
+                </li>
+                <li class="billing-perk billing-perk--no">
+                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span class="text-muted-foreground">AI assistant coach & AI features</span>
+                </li>
+                <li class="billing-perk billing-perk--no">
+                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span class="text-muted-foreground">Blur.ai</span>
+                </li>
+              </ul>
+              <div class="billing-card-footer">
+                <Button variant="outline" class="w-full" disabled>Current plan</Button>
+              </div>
+            </div>
+
+            <!-- Pro -->
+            <div class="billing-card billing-card--pro">
+              <div class="billing-card-header">
+                <div class="flex items-center gap-1.5">
+                  <Sparkles class="w-4 h-4 text-primary" />
+                  <h3 class="font-display font-semibold text-foreground">Pro</h3>
+                </div>
+                <p class="text-2xl font-bold text-foreground mt-1">Coming soon</p>
+              </div>
+              <ul class="billing-perks">
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Unlimited playbooks</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Unlimited plays</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Add your own players to a team</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Print playbooks in different formats</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>AI assistant coach & all AI features</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Blur.ai included</span>
+                </li>
+              </ul>
+              <div class="billing-card-footer">
+                <Button class="w-full" disabled>Upgrade to Pro — coming soon</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
       <!-- Account Tab -->
       <template v-if="activeTab === 'account'">
         <div class="settings-panel">
@@ -357,6 +457,15 @@
             <h2 class="text-lg font-semibold tracking-tight font-display">Account</h2>
             <p class="text-muted-foreground text-sm">Manage your profile and account settings.</p>
           </div>
+
+          <Button
+            variant="outline"
+            class="w-full justify-start gap-2 mb-6 border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+            @click="activeTab = 'billing'"
+          >
+            <Sparkles class="w-4 h-4 shrink-0" />
+            <span>Upgrade to Pro — unlimited plays, AI coach & more</span>
+          </Button>
 
           <div class="config-fields">
             <div class="config-field">
@@ -397,12 +506,13 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen } from 'lucide-vue-next'
+import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles } from 'lucide-vue-next'
 
 const tabs = [
   { id: 'general', label: 'General', icon: Settings2 },
   { id: 'field', label: 'Field', icon: Ruler },
   { id: 'team', label: 'Team', icon: ShieldIcon },
+  { id: 'billing', label: 'Pricing & Billing', icon: CreditCard },
   { id: 'account', label: 'Account', icon: User },
 ]
 
@@ -791,5 +901,80 @@ onMounted(() => {
   padding: 8px;
   border-radius: 6px;
   background: color-mix(in oklch, var(--color-background) 50%, transparent);
+}
+
+/* Pricing & Billing */
+.billing-panel {
+  max-width: 720px;
+}
+
+.billing-current {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: color-mix(in oklch, var(--color-accent) 40%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.billing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 640px) {
+  .billing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.billing-card {
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.billing-card--current {
+  border-color: var(--color-primary);
+  background: color-mix(in oklch, var(--color-primary) 6%, var(--color-card));
+}
+
+.billing-card--pro {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.billing-card-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.billing-perks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.billing-perk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-foreground);
+}
+
+.billing-perk--no {
+  opacity: 0.85;
+}
+
+.billing-card-footer {
+  margin-top: auto;
+  padding-top: 8px;
 }
 </style>

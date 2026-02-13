@@ -8,23 +8,29 @@
       </main>
     </div>
     <ConfirmDialog />
+    <AppSearchCommand />
   </div>
 </template>
 
 <script setup lang="ts">
 const router = useRouter()
+const { open: openSearch } = useAppSearch()
 
 function handleKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
     e.preventDefault()
     router.push('/plays/new')
   }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    openSearch()
+  }
 }
 function handleOpenQuickPlay() {
   router.push('/plays/new')
 }
 
-// New Play: same behavior as default layout so sidebar "New Play" and ⌘N work in canvas
+// New Play + Search: same behavior as default layout so sidebar "New Play", ⌘N, and ⌘K work in canvas
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('open-quick-play', handleOpenQuickPlay)
