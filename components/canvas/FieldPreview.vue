@@ -1,6 +1,14 @@
 <template>
-  <div ref="containerRef" class="field-preview-container" :style="{ height: height + 'px' }">
-    <canvas ref="canvasRef" class="field-preview-canvas" />
+  <div ref="containerRef" class="field-preview-container" :style="containerStyle">
+    <canvas
+      ref="canvasRef"
+      class="field-preview-canvas"
+      :class="{ 'cursor-ns-resize': hoverLine !== null || draggingLine !== null }"
+      @mousemove="onMouseMove"
+      @mousedown="onMouseDown"
+      @mouseup="onMouseUp"
+      @mouseleave="onMouseLeave"
+    />
   </div>
 </template>
 
@@ -12,6 +20,9 @@ const props = withDefaults(defineProps<{
   fieldWidth?: number
   endzoneSize?: number
   lineOfScrimmage?: number
+  /** First down line (yard line from offense goal, 1–fieldLength-1). If omitted, midfield is used. */
+  firstDown?: number
+  /** Fixed height in px, or omit to fill container (100%). */
   height?: number
   showPlayers?: boolean
 }>(), {
@@ -19,34 +30,61 @@ const props = withDefaults(defineProps<{
   fieldWidth: 40,
   endzoneSize: 10,
   lineOfScrimmage: 25,
-  height: 520,
+  height: undefined,
   showPlayers: true,
 })
+
+const emit = defineEmits<{
+  'update:lineOfScrimmage': [value: number]
+  'update:firstDown': [value: number]
+  /** Emitted when drag ends so parent can save immediately and avoid snap-back. */
+  dragEnd: [payload: { line_of_scrimmage?: number; first_down?: number }]
+}>()
+
+const containerStyle = computed(() =>
+  props.height != null ? { height: `${props.height}px` } : { height: '100%' }
+)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 
-const PADDING = 40
+/** Layout from last render, for hit-test and drag (canvas-relative coords) */
+const layoutRef = ref<{
+  offsetX: number
+  offsetY: number
+  fieldW: number
+  fieldH: number
+  yardHeight: number
+  fieldLength: number
+  endzoneSize: number
+} | null>(null)
 
-// Clean white/grey color palette
-// Clean dark color palette
+const hoverLine = ref<'los' | 'firstDown' | null>(null)
+const draggingLine = ref<'los' | 'firstDown' | null>(null)
+/** Local yard value while dragging for immediate visual feedback (parent may debounce) */
+const dragYard = ref<number | null>(null)
+
+const PADDING = 40
+const HIT_THRESHOLD = 10
+
+// Match play designer field (grass green)
 const COLORS = {
-  background: '#0f172a', // slate-900
-  fieldFill: '#1e293b',   // slate-800
-  fieldBorder: '#334155', // slate-700
-  yardLine: 'rgba(255,255,255,0.1)',
-  yardLineLight: 'rgba(255,255,255,0.05)',
-  yardNumber: '#94a3b8',  // slate-400
-  hashMark: 'rgba(255,255,255,0.1)',
-  endzoneFill: '#0f172a', // slate-900
-  endzoneBorder: '#334155',
-  endzoneText: '#475569', // slate-600
-  los: '#22d3ee',         // cyan-400
-  firstDown: '#fbbf24',   // amber-400
-  nrz: 'rgba(251, 191, 36, 0.05)',
-  nrzBorder: 'rgba(251, 191, 36, 0.2)',
-  dimensionLine: '#475569',
-  dimensionText: '#94a3b8',
+  background: 'transparent',
+  fieldFill: '#2d7a2d',
+  fieldBorder: '#1e6b1e',
+  yardLine: 'rgba(255,255,255,0.6)',
+  yardLineLight: 'rgba(255,255,255,0.25)',
+  yardNumber: 'rgba(255,255,255,0.7)',
+  hashMark: 'rgba(255,255,255,0.3)',
+  endzoneFill: '#245e24',
+  endzoneBorder: 'rgba(255,255,255,0.4)',
+  endzoneText: 'rgba(255,255,255,0.25)',
+  los: '#22d3ee',
+  firstDown: '#fbbf24',
+  nrz: 'rgba(251, 191, 36, 0.08)',
+  nrzBorder: 'rgba(251, 191, 36, 0.3)',
+  dimensionLine: '#000',
+  dimensionText: '#000',
 }
 
 function renderField() {
@@ -96,9 +134,21 @@ function renderField() {
 
   const yardHeight = fieldH / totalLength
 
-  // White background (full canvas)
-  ctx.fillStyle = COLORS.background
-  ctx.fillRect(0, 0, canvasW, canvasH)
+  layoutRef.value = {
+    offsetX,
+    offsetY,
+    fieldW,
+    fieldH,
+    yardHeight,
+    fieldLength,
+    endzoneSize,
+  }
+
+  // Canvas background (transparent so container shows; or fill if needed)
+  if (COLORS.background !== 'transparent') {
+    ctx.fillStyle = COLORS.background
+    ctx.fillRect(0, 0, canvasW, canvasH)
+  }
 
   // Translate so that PADDING-based drawing is centered
   ctx.save()
@@ -181,13 +231,19 @@ function renderField() {
     ctx.stroke()
   }
 
-  // Line of Scrimmage — near bottom (offense side)
-  const losY = PADDING + yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
+  // Line of Scrimmage — near bottom (offense side). LOS cannot pass first down (top to bottom).
+  const rawFirstDown = props.firstDown ?? Math.floor(fieldLength / 2)
+  const losValue = draggingLine.value === 'los' && dragYard.value != null ? dragYard.value : lineOfScrimmage
+  const firstDownValue = draggingLine.value === 'firstDown' && dragYard.value != null ? dragYard.value : rawFirstDown
+  const firstDownCap = Math.max(1, Math.min(fieldLength - 1, firstDownValue))
+  const effectiveLOS = Math.min(losValue, firstDownCap)
+  const losY = PADDING + yardHeight * (endzoneSize + fieldLength - effectiveLOS)
+  const losHover = hoverLine.value === 'los' || draggingLine.value === 'los'
   ctx.save()
   ctx.shadowColor = COLORS.los
-  ctx.shadowBlur = 4
-  ctx.strokeStyle = COLORS.los
-  ctx.lineWidth = 2
+  ctx.shadowBlur = losHover ? 6 : 4
+  ctx.strokeStyle = losHover ? '#2dd4e0' : COLORS.los
+  ctx.lineWidth = losHover ? 3 : 2
   ctx.setLineDash([8, 4])
   ctx.beginPath()
   ctx.moveTo(PADDING, losY)
@@ -199,7 +255,7 @@ function renderField() {
   // LOS pill label
   const labelFontSize = Math.max(9, fieldW * 0.022)
   ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
-  const losText = `LOS · ${lineOfScrimmage}yd`
+  const losText = `LOS · ${effectiveLOS}yd`
   const losTextW = ctx.measureText(losText).width
   const pillPx = 7
   const pillPy = 3
@@ -214,15 +270,17 @@ function renderField() {
   ctx.textBaseline = 'top'
   ctx.fillText(losText, PADDING + 5 + pillPx, losY + 5 + pillPy)
 
-  // First down line at midfield
-  const midfield = Math.floor(fieldLength / 2)
-  if (midfield > 0 && midfield < fieldLength) {
-    const fdY = PADDING + yardHeight * (endzoneSize + midfield)
+  // First down line (yard line from offense goal). First down cannot be less than LOS (top to bottom).
+  const effectiveFirstDown = Math.max(firstDownValue, effectiveLOS)
+  const clampedFirstDown = Math.max(1, Math.min(fieldLength - 1, effectiveFirstDown))
+  if (clampedFirstDown > 0 && clampedFirstDown < fieldLength) {
+    const fdY = PADDING + yardHeight * (endzoneSize + fieldLength - clampedFirstDown)
+    const fdHover = hoverLine.value === 'firstDown' || draggingLine.value === 'firstDown'
     ctx.save()
     ctx.shadowColor = COLORS.firstDown
-    ctx.shadowBlur = 3
-    ctx.strokeStyle = COLORS.firstDown
-    ctx.lineWidth = 1.5
+    ctx.shadowBlur = fdHover ? 5 : 3
+    ctx.strokeStyle = fdHover ? '#f59e0b' : COLORS.firstDown
+    ctx.lineWidth = fdHover ? 2.5 : 1.5
     ctx.setLineDash([6, 3])
     ctx.beginPath()
     ctx.moveTo(PADDING, fdY)
@@ -269,9 +327,9 @@ function renderField() {
     ctx.setLineDash([])
   })
 
-  // Draw players at LOS
+  // Draw players at LOS (use effective LOS so they follow while dragging)
   if (props.showPlayers) {
-    const losYFraction = (endzoneSize + fieldLength - lineOfScrimmage) / totalLength
+    const losYFraction = (endzoneSize + fieldLength - effectiveLOS) / totalLength
     drawPlayersAtLOS(ctx, fieldW, fieldH, losYFraction)
   }
 
@@ -411,11 +469,115 @@ function drawSmallArrow(
   ctx.fill()
 }
 
+/** Canvas Y (event.offsetY) to drawing-space Y (same as losY/fdY) */
+function canvasToDrawY(offsetY: number): number {
+  const layout = layoutRef.value
+  if (!layout) return 0
+  return offsetY - layout.offsetY + PADDING
+}
+
+/** Drawing Y to yard line from offense goal (1..fieldLength-1) */
+function drawYToYardFromOffense(drawY: number): number {
+  const layout = layoutRef.value
+  if (!layout) return props.lineOfScrimmage ?? 25
+  const { yardHeight, fieldLength, endzoneSize } = layout
+  const raw = fieldLength + endzoneSize - (drawY - PADDING) / yardHeight
+  return Math.max(1, Math.min(fieldLength - 1, Math.round(raw)))
+}
+
+/** Which line (if any) is at drawing Y; returns the line id and its draw Y for comparison */
+function hitTestLine(drawY: number): 'los' | 'firstDown' | null {
+  const layout = layoutRef.value
+  if (!layout) return null
+  const { fieldLength, endzoneSize, yardHeight } = layout
+  const losY = PADDING + yardHeight * (endzoneSize + fieldLength - props.lineOfScrimmage)
+  const firstDownYard = props.firstDown ?? Math.floor(fieldLength / 2)
+  const clampedFD = Math.max(1, Math.min(fieldLength - 1, firstDownYard))
+  const fdY = PADDING + yardHeight * (endzoneSize + fieldLength - clampedFD)
+
+  const distLos = Math.abs(drawY - losY)
+  const distFd = Math.abs(drawY - fdY)
+  if (distLos <= HIT_THRESHOLD && distLos <= distFd) return 'los'
+  if (distFd <= HIT_THRESHOLD) return 'firstDown'
+  return null
+}
+
+function onMouseMove(e: MouseEvent) {
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const drawY = canvasToDrawY(e.offsetY)
+  if (draggingLine.value) {
+    const yard = drawYToYardFromOffense(drawY)
+    const fieldLen = layoutRef.value?.fieldLength ?? props.fieldLength
+    const mid = Math.floor(fieldLen / 2)
+    // LOS cannot pass first down; first down cannot be less than LOS (top to bottom)
+    const clamped =
+      draggingLine.value === 'los'
+        ? Math.min(yard, props.firstDown ?? mid)
+        : Math.max(yard, props.lineOfScrimmage ?? mid)
+    dragYard.value = clamped
+    if (draggingLine.value === 'los') emit('update:lineOfScrimmage', clamped)
+    else emit('update:firstDown', clamped)
+    renderField()
+  } else {
+    const hit = hitTestLine(drawY)
+    if (hit !== hoverLine.value) {
+      hoverLine.value = hit
+      renderField()
+    }
+  }
+}
+
+function onMouseDown(e: MouseEvent) {
+  const drawY = canvasToDrawY(e.offsetY)
+  const hit = hitTestLine(drawY)
+  if (hit) {
+    draggingLine.value = hit
+    renderField()
+  }
+}
+
+function onMouseUp() {
+  if (draggingLine.value && dragYard.value != null) {
+    const payload: { line_of_scrimmage?: number; first_down?: number } = {}
+    if (draggingLine.value === 'los') payload.line_of_scrimmage = dragYard.value
+    else payload.first_down = dragYard.value
+    emit('dragEnd', payload)
+    // Clear drag state after parent has applied the update so props are already correct (no snap-back)
+    nextTick(() => {
+      draggingLine.value = null
+      dragYard.value = null
+      renderField()
+    })
+  }
+}
+
+function onMouseLeave() {
+  if (draggingLine.value && dragYard.value != null) {
+    const payload: { line_of_scrimmage?: number; first_down?: number } = {}
+    if (draggingLine.value === 'los') payload.line_of_scrimmage = dragYard.value
+    else payload.first_down = dragYard.value
+    emit('dragEnd', payload)
+    nextTick(() => {
+      hoverLine.value = null
+      draggingLine.value = null
+      dragYard.value = null
+      renderField()
+    })
+    return
+  }
+  hoverLine.value = null
+  draggingLine.value = null
+  dragYard.value = null
+  renderField()
+}
+
 watch(
-  () => [props.fieldLength, props.fieldWidth, props.endzoneSize, props.lineOfScrimmage, props.height],
+  () => [props.fieldLength, props.fieldWidth, props.endzoneSize, props.lineOfScrimmage, props.firstDown, props.height],
   () => { nextTick(() => renderField()) },
   { deep: true }
 )
+watch([hoverLine, draggingLine], () => nextTick(() => renderField()))
 
 let resizeObserver: ResizeObserver | null = null
 
@@ -438,15 +600,17 @@ onUnmounted(() => {
 .field-preview-container {
   position: relative;
   width: 100%;
-  border-radius: 10px;
+  min-height: 0;
   overflow: hidden;
-  background: #ffffff;
-  border: 1px solid hsl(var(--border));
 }
 
 .field-preview-canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.field-preview-canvas.cursor-ns-resize {
+  cursor: ns-resize;
 }
 </style>

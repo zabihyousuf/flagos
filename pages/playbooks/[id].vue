@@ -56,18 +56,20 @@
           <div class="flex rounded-lg border border-border bg-muted/30 p-0.5">
             <button
               type="button"
-              class="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+              class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
               :class="viewMode === 'grid' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
               @click="viewMode = 'grid'"
             >
+              <LayoutGrid class="w-3.5 h-3.5" />
               Grid
             </button>
             <button
               type="button"
-              class="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+              class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
               :class="viewMode === 'list' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
               @click="viewMode = 'list'"
             >
+              <List class="w-3.5 h-3.5" />
               List
             </button>
           </div>
@@ -124,7 +126,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { Plus, Swords } from 'lucide-vue-next'
+import { Plus, Swords, LayoutGrid, List } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()

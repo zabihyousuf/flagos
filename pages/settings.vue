@@ -14,10 +14,10 @@
       </button>
     </nav>
 
-    <!-- Content Area -->
-    <div class="settings-content">
-      <!-- Loading -->
-      <div v-if="loading && activeTab === 'field'" class="settings-placeholder">
+    <!-- Content Area (left-align all tabs except Field; no scroll on Field tab) -->
+    <div class="settings-content" :class="{ 'settings-content--left': activeTab !== 'field', 'settings-content--field': activeTab === 'field' }">
+      <!-- Loading (only on initial fetch when we don't have settings yet) -->
+      <div v-if="loading && activeTab === 'field' && !settings" class="settings-placeholder">
         <div class="flex flex-col items-center gap-2">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <span class="text-muted-foreground">Loading settings...</span>
@@ -178,25 +178,32 @@
 
       <!-- Field Tab -->
       <template v-if="settings && activeTab === 'field'">
-        <div class="settings-split flex flex-col xl:flex-row flex-1 xl:h-full min-h-0">
-          <!-- Field Preview (left on xl, top when stacked) -->
+        <div class="settings-split flex flex-col xl:flex-row flex-1 min-h-0">
+          <!-- Field Preview (left on xl, fills height; no white background) -->
           <div class="settings-preview flex-1 min-w-0 min-h-[280px] xl:min-h-0">
             <FieldPreview
               :field-length="settings.field_length"
               :field-width="settings.field_width"
               :endzone-size="settings.endzone_size"
               :line-of-scrimmage="settings.line_of_scrimmage"
-              :height="580"
+              :first-down="settings.first_down ?? Math.floor(settings.field_length / 2)"
               :show-players="true"
+              @update:line-of-scrimmage="(v: number) => debouncedUpdate({ line_of_scrimmage: v })"
+              @update:first-down="(v: number) => debouncedUpdate({ first_down: v })"
+              @drag-end="onFieldDragEnd"
             />
           </div>
 
-          <!-- Config Panel (right on xl, below preview when stacked) -->
-          <div class="settings-config w-full xl:w-[300px] xl:min-w-[300px] border-t xl:border-t-0 xl:border-l border-border">
+          <!-- Config Panel (right on xl, below preview when stacked) – card with shadow -->
+          <div class="field-config-card w-full xl:w-[300px] xl:min-w-[300px] shrink-0">
             <div class="config-header">
               <h2 class="text-lg font-semibold tracking-tight font-display">Field Dimensions</h2>
               <p class="text-muted-foreground text-sm">Configure the field size in yards.</p>
             </div>
+
+            <p class="text-muted-foreground text-xs mt-2 mb-4 p-3 rounded-lg bg-muted/50 border border-border/50">
+              You can also drag the <strong>line of scrimmage</strong> (cyan) and <strong>first down line</strong> (yellow) on the preview to the left. Hover over a line to highlight it, then drag up or down to change the yard line. Changes are saved automatically.
+            </p>
 
             <div class="config-fields">
               <div class="config-field">
@@ -586,8 +593,18 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function debouncedUpdate(updates: Partial<FieldSettings>) {
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
+    debounceTimer = null
     updateSettings(updates)
   }, 500)
+}
+
+/** When user finishes dragging LOS or first down, save immediately so the line doesn't snap back. */
+function onFieldDragEnd(payload: { line_of_scrimmage?: number; first_down?: number }) {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  if (Object.keys(payload).length) updateSettings(payload)
 }
 
 // Debounced profile update
@@ -687,9 +704,27 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.settings-content--field {
+  overflow: hidden;
+}
+
+.settings-content--left {
+  align-items: flex-start;
+}
+
+.settings-content--left > * {
+  width: 100%;
+}
+
+.settings-content--left .settings-panel {
+  margin-left: 0;
+  margin-right: auto;
 }
 
 .settings-split {
@@ -700,8 +735,9 @@ onMounted(() => {
 .settings-preview {
   padding: 20px;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
+  min-height: 0;
 }
 
 .settings-config {
@@ -711,6 +747,20 @@ onMounted(() => {
   gap: 24px;
   overflow-y: auto;
   flex-shrink: 0;
+}
+
+.field-config-card {
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  min-height: 0;
+  margin: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 .settings-panel {

@@ -349,9 +349,9 @@ export function useCanvasRenderer() {
     }
 
 
-    // First Down Line (from user settings, or midfield)
+    // First Down Line (yards from offense goal, same as settings; Y = endzoneSize + fieldLength - firstDownYard)
     const firstDownYard = firstDownYardLine ?? fieldLength / 2
-    const midY = yardHeight * (endzoneSize + firstDownYard)
+    const midY = yardHeight * (endzoneSize + fieldLength - firstDownYard)
     ctx.save()
     ctx.shadowColor = COLORS.firstDown
     ctx.shadowBlur = isPreview ? 2 : 3

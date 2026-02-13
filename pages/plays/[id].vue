@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full w-full flex flex-col overflow-hidden py-4">
+  <div class="h-full w-full flex flex-col overflow-hidden py-4 px-4">
     <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
     <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-2 lg:gap-4 rounded-lg shadow-md">
       <!-- Left: Play name + play type -->

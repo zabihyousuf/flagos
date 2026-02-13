@@ -32,10 +32,10 @@
   </div>
 
   <div v-else class="space-y-8">
-    <!-- Welcome Header -->
+    <!-- Welcome Header: greeting changes daily; name in cursive -->
     <div>
       <h2 class="text-2xl font-semibold tracking-tight font-display">
-        Welcome back{{ displayName ? `, ${displayName}` : '' }}
+        {{ dailyGreeting }}{{ displayName ? ', ' : '' }}<span v-if="displayName" class="welcome-name">{{ displayName }}</span>
       </h2>
     </div>
 
@@ -126,23 +126,25 @@
         </div>
 
         <div v-else class="team-card glass">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="team-icon">
-              <ShieldIcon class="w-5 h-5" />
-            </div>
-            <div>
-              <p class="font-medium text-sm">{{ primaryTeam.name }}</p>
-              <p v-if="primaryTeam.description" class="text-xs text-muted-foreground">{{ primaryTeam.description }}</p>
-            </div>
+          <!-- Spell out T E A M as letter blocks -->
+          <div class="team-letters">
+            <span class="team-letter" data-letter="T">T</span>
+            <span class="team-letter" data-letter="E">E</span>
+            <span class="team-letter" data-letter="A">A</span>
+            <span class="team-letter" data-letter="M">M</span>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="team-info">
+            <p class="team-name">{{ primaryTeam.name }}</p>
+            <p v-if="primaryTeam.description" class="team-description">{{ primaryTeam.description }}</p>
+          </div>
+          <div class="team-stats">
             <div class="team-stat">
               <p class="team-stat-value">{{ offenseStarters }}</p>
-              <p class="team-stat-label">Off. Starters</p>
+              <p class="team-stat-label">Offense Starters</p>
             </div>
             <div class="team-stat">
               <p class="team-stat-value">{{ defenseStarters }}</p>
-              <p class="team-stat-label">Def. Starters</p>
+              <p class="team-stat-label">Defense Starters</p>
             </div>
           </div>
         </div>
@@ -183,6 +185,32 @@ const ready = ref(false)
 
 const displayName = computed(() => {
   return profile.value?.display_name || ''
+})
+
+// Greetings rotate by day (same greeting all day, new one next day)
+const GREETINGS = [
+  'Welcome back',
+  'Good to see you',
+  'Hey there',
+  'Hello again',
+  'Nice to have you',
+  'Welcome in',
+  'Good day',
+  'Hi there',
+  'Welcome home',
+  'Back at it',
+  'Ready to design',
+  'Let’s go',
+  'Here we go',
+  'Time to create',
+  'Welcome',
+]
+
+const dailyGreeting = computed(() => {
+  const today = new Date()
+  const seed = today.getFullYear() * 10000 + today.getMonth() * 100 + today.getDate()
+  const index = seed % GREETINGS.length
+  return GREETINGS[index]
 })
 
 // Primary team
@@ -312,6 +340,13 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Welcome: user name in cursive (Parisienne – Google Fonts “Hello Paris” style) */
+.welcome-name {
+  font-family: 'Parisienne', cursive;
+  font-weight: 400;
+  font-size: 1.35em;
+}
+
 /* Quick Play CTA */
 .quick-play-cta {
   display: flex;
@@ -456,34 +491,75 @@ onMounted(async () => {
   color: var(--color-destructive);
 }
 
-/* Team Card */
+/* Team Card – spells out T E A M */
 .team-card {
   padding: 20px;
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  border: 1px solid var(--color-border);
 }
 
-.team-icon {
+.team-letters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  justify-content: center;
+}
+
+.team-letter {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
-  background: color-mix(in oklch, var(--color-chart-4) 12%, transparent);
-  color: var(--color-chart-4);
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-family: var(--font-display, ui-sans-serif, system-ui, sans-serif);
+  color: var(--color-foreground);
+  background: color-mix(in oklch, var(--color-chart-4) 14%, transparent);
+  border: 1px solid color-mix(in oklch, var(--color-chart-4) 25%, transparent);
+}
+
+.team-letter[data-letter="T"] { background: color-mix(in oklch, var(--color-primary) 14%, transparent); border-color: color-mix(in oklch, var(--color-primary) 28%, transparent); color: var(--color-primary); }
+.team-letter[data-letter="E"] { background: color-mix(in oklch, var(--color-chart-2) 14%, transparent); border-color: color-mix(in oklch, var(--color-chart-2) 28%, transparent); color: var(--color-chart-2); }
+.team-letter[data-letter="A"] { background: color-mix(in oklch, var(--color-chart-4) 14%, transparent); border-color: color-mix(in oklch, var(--color-chart-4) 28%, transparent); color: var(--color-chart-4); }
+.team-letter[data-letter="M"] { background: color-mix(in oklch, var(--color-chart-1) 14%, transparent); border-color: color-mix(in oklch, var(--color-chart-1) 28%, transparent); color: var(--color-chart-1); }
+
+.team-info {
+  margin-bottom: 14px;
+}
+
+.team-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin: 0;
+}
+
+.team-description {
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+  margin: 4px 0 0;
+}
+
+.team-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 .team-stat {
-  padding: 10px;
-  border-radius: 8px;
+  padding: 12px;
+  border-radius: 10px;
   background: color-mix(in oklch, var(--color-accent) 50%, transparent);
   text-align: center;
+  border: 1px solid var(--color-border);
 }
 
 .team-stat-value {
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--color-foreground);
   margin: 0;
@@ -491,9 +567,11 @@ onMounted(async () => {
 }
 
 .team-stat-label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-muted-foreground);
-  margin: 2px 0 0;
+  margin: 4px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* Empty State */
