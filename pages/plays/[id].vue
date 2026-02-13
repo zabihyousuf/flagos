@@ -1,7 +1,7 @@
 <template>
   <div class="h-full w-full flex flex-col overflow-hidden py-4">
     <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
-    <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-4 rounded-lg shadow-md">
+    <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-2 lg:gap-4 rounded-lg shadow-md">
       <!-- Left: Breadcrumbs + title + play type -->
       <div class="flex-1 min-w-0 flex items-center gap-1.5">
         <button
@@ -25,10 +25,10 @@
 
         <!-- Play type: Offensive / Defensive (disabled for saved plays) -->
         <div class="flex items-center gap-2 ml-2 shrink-0" v-if="currentPlay">
-          <span class="text-[14px] font-semibold text-muted-foreground uppercase tracking-wider">Play type</span>
+          <span class="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Play type</span>
           <div class="flex items-center bg-muted rounded-full p-0.5">
             <button
-              class="px-2 py-0.5 text-[14px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+              class="px-2 py-0.5 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
               :class="currentPlay.play_type === 'offense'
                 ? 'bg-primary/15 text-primary shadow-sm border border-primary/30'
                 : 'text-primary/70 hover:bg-primary/10 hover:text-primary'"
@@ -36,10 +36,10 @@
               @click="handleTypeChange('offense')"
             >
               <Swords class="w-3 h-3" />
-              <span>Offensive</span>
+              <span>Offense</span>
             </button>
             <button
-              class="px-2 py-0.5 text-[14px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+              class="px-2 py-0.5 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
               :class="currentPlay.play_type === 'defense'
                 ? 'bg-destructive/15 text-destructive shadow-sm border border-destructive/30'
                 : 'text-destructive/70 hover:bg-destructive/10 hover:text-destructive'"
@@ -47,7 +47,7 @@
               @click="handleTypeChange('defense')"
             >
               <Shield class="w-3 h-3" />
-              <span>Defensive</span>
+              <span>Defense</span>
             </button>
           </div>
         </div>
@@ -79,7 +79,7 @@
                     :class="ghostPlayers.length ? 'border-primary/50 text-primary bg-primary/5' : ''"
                   >
                     <Shield class="w-3.5 h-3.5" />
-                    <span class="text-[13px] font-medium">{{ ghostLabel }}</span>
+                    <span class="text-[12px] font-medium">{{ ghostLabel }}</span>
                     <ChevronDown class="w-3 h-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -91,26 +91,26 @@
           </TooltipProvider>
           <DropdownMenuContent align="end" class="w-56 max-h-[280px] overflow-y-auto">
             <DropdownMenuItem
-              class="text-[14px]"
+              class="text-[12px]"
               :class="!ghostPlayers.length ? 'bg-accent' : ''"
               @click="setGhostFromPlay(null)"
             >
               <span class="truncate">None</span>
             </DropdownMenuItem>
             <template v-if="defensePlaysForGhost.length === 0 && !ghostPlaysLoading">
-              <DropdownMenuItem disabled class="text-muted-foreground text-[13px]">
+              <DropdownMenuItem disabled class="text-muted-foreground text-[12px]">
                 No defense plays in this playbook
               </DropdownMenuItem>
             </template>
             <template v-else-if="ghostPlaysLoading">
-              <DropdownMenuItem disabled class="text-muted-foreground text-[13px]">
+              <DropdownMenuItem disabled class="text-muted-foreground text-[12px]">
                 Loading…
               </DropdownMenuItem>
             </template>
             <DropdownMenuItem
               v-for="play in defensePlaysForGhost"
               :key="play.id"
-              class="text-[14px]"
+              class="text-[12px]"
               :class="ghostPlayId === play.id ? 'bg-accent' : ''"
               @click="setGhostFromPlay(play)"
             >
@@ -124,7 +124,7 @@
             <Tooltip>
               <TooltipTrigger as-child>
                 <button
-                  class="px-2.5 py-1 text-[13px] font-medium rounded transition-colors"
+                  class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors"
                   :class="viewMode === 'fit' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
                   @click="viewMode = 'fit'"
                 >
@@ -141,7 +141,7 @@
             <Tooltip>
               <TooltipTrigger as-child>
                 <button
-                  class="px-2.5 py-1 text-[13px] font-medium rounded transition-colors"
+                  class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors"
                   :class="viewMode === 'full' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
                   @click="viewMode = 'full'"
                 >
@@ -182,8 +182,8 @@
 
     <!-- Three-column body: spacing below header, rounded shadowed panels -->
     <div v-else-if="currentPlay" class="flex-1 flex overflow-hidden min-h-0 mt-3 gap-3">
-      <!-- Left: Roster Panel -->
-      <div class="w-60 shrink-0 rounded-xl shadow-md overflow-hidden bg-card">
+      <!-- Left: Roster Panel (narrower at 1024px so center canvas fits) -->
+      <div class="min-w-[200px] w-52 lg:w-60 shrink-0 rounded-xl shadow-md overflow-hidden bg-card">
         <CanvasRosterCard
           v-if="canvasReady"
           :players="cPlayers"
@@ -198,7 +198,7 @@
 
       <!-- Center: Canvas (same space always; right column reserves width so this doesn't shift) -->
       <div class="flex-1 min-w-0 flex justify-center items-center">
-        <div class="w-full h-full max-w-4xl max-h-full min-w-0">
+        <div class="w-full h-full max-w-3xl xl:max-w-4xl max-h-full min-w-0">
           <PlayCanvas
             ref="canvasRef"
             :initial-data="currentPlay.canvas_data"
@@ -209,14 +209,15 @@
             :starter-position-map="starterPositionMap"
             :view-mode="viewMode"
             :ghost-players="ghostPlayers"
+            :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
             @save="handleSaveData"
             class="w-full h-full block"
           />
         </div>
       </div>
 
-      <!-- Right: Player Details (always reserve width so canvas stays fixed when panel opens/closes) -->
-      <div class="w-72 shrink-0 flex flex-col min-w-0">
+      <!-- Right: Player Details (narrower at 1024px) -->
+      <div class="w-64 xl:w-72 shrink-0 flex flex-col min-w-0">
         <div v-if="cSelectedPlayer" class="rounded-xl shadow-md overflow-hidden bg-card flex-1 min-h-0">
           <CanvasPlayerCard
             :selected-player="cSelectedPlayer"
@@ -274,12 +275,12 @@ const { teams, fetchTeams } = useTeams()
 
 const viewMode = ref<'fit' | 'full'>('fit')
 
-// Restore saved view mode when play loads
+// Restore saved view mode when play loads; use default from settings for new plays
 watch(
-  () => [playId.value, currentPlay.value?.canvas_data?.view_mode] as const,
-  ([id, saved]) => {
+  () => [playId.value, currentPlay.value?.canvas_data?.view_mode, fieldSettings.value?.default_play_view] as const,
+  ([id, saved, defaultView]) => {
     if (id === 'new') {
-      viewMode.value = 'fit'
+      viewMode.value = defaultView === 'full' ? 'full' : 'fit'
       return
     }
     if (saved === 'fit' || saved === 'full') viewMode.value = saved
@@ -456,13 +457,14 @@ async function handleTypeChange(type: 'offense' | 'defense') {
     ghostPlayId.value = null
   }
 
-  // Reset canvas for new type
+  // Reset canvas for new type (user chose to switch, so mark dirty so they can save)
   nextTick(() => {
     canvasRef.value?.resetFormation(type, starters.value, {
       los: fieldSettingsData.value.line_of_scrimmage,
       length: fieldSettingsData.value.field_length,
       endzone: fieldSettingsData.value.endzone_size,
     }, starterPositionMap.value)
+    if (canvasRef.value?.isDirty != null) (canvasRef.value.isDirty as { value: boolean }).value = true
   })
 
   if (playId.value !== 'new') {
@@ -569,6 +571,12 @@ async function restoreGhostDefense() {
     ghostPlayId.value = null
     return
   }
+  await loadGhostPlayById(gid)
+}
+
+/** Load a defensive play by id and set it as the ghost overlay (used for saved state or default setting) */
+async function loadGhostPlayById(gid: string) {
+  if (!currentPlay.value || currentPlay.value.play_type !== 'offense') return
   const client = useSupabaseDB()
   const { data: play } = await client
     .from('plays')
@@ -595,7 +603,8 @@ watch(ghostDropdownOpen, (open) => {
 // When navigating to /plays/new (e.g. after "New Play" in sidebar), re-init draft and canvas
 watch(playId, async (id) => {
   if (id === 'new') {
-    initDraftPlay()
+    const defaultType = fieldSettings.value?.default_play_type ?? 'offense'
+    initDraftPlay(defaultType)
     ghostPlayers.value = []
     ghostPlayId.value = null
     playbookName.value = null
@@ -617,16 +626,17 @@ watch(playId, async (id) => {
 })
 
 onMounted(async () => {
+  // Load settings first so defaults are available for new plays
+  await fetchSettings()
+  const defaultType = fieldSettings.value?.default_play_type ?? 'offense'
+
   if (playId.value === 'new') {
-    initDraftPlay()
+    initDraftPlay(defaultType)
   } else {
-    // Load existing play
     await fetchPlay(playId.value)
   }
 
-  // Execute fetches concurrently
   await Promise.all([
-    fetchSettings(),
     fetchPlayers(),
     fetchProfile(),
     fetchTeams()
@@ -636,7 +646,6 @@ onMounted(async () => {
     fetchPlaybookName(currentPlay.value.playbook_id)
   }
 
-  // Wait for PlayCanvas to mount and expose its API
   await nextTick()
   canvasReady.value = true
 
@@ -644,9 +653,12 @@ onMounted(async () => {
     await restoreGhostDefense()
   }
 
-  // If draft, ensure formation is reset/loaded WITH correct starters
+  // New play: apply default ghost defense if setting is on (offense only)
+  if (playId.value === 'new' && currentPlay.value?.play_type === 'offense' && fieldSettings.value?.show_ghost_defense_by_default && fieldSettings.value.default_ghost_defense_play_id) {
+    await loadGhostPlayById(fieldSettings.value.default_ghost_defense_play_id)
+  }
+
   if (playId.value === 'new' && currentPlay.value) {
-    // Since we awaited Promise.all above, `starters` (computed) should now have data
     await nextTick()
     canvasRef.value?.resetFormation(
       currentPlay.value.play_type,
@@ -658,7 +670,6 @@ onMounted(async () => {
       },
       starterPositionMap.value
     )
-    // Seed undo history with starters formation so undo doesn't go back to default formation
     await nextTick()
     canvasRef.value?.seedHistory()
   }

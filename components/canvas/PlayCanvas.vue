@@ -41,6 +41,8 @@ const props = defineProps<{
   viewMode?: 'fit' | 'full'
   /** Overlay defense from another play (ghost style) */
   ghostPlayers?: CanvasPlayer[]
+  /** When false, hide player names on the field (default true) */
+  showPlayerNames?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -107,6 +109,7 @@ const {
   removePlayerFromCanvasData,
   updatePlayerAttribute,
   updateCoverageZonePosition,
+  pushHistory,
   pushHistoryBeforeDrag,
   pushHistoryAfterDrag,
   undo,
@@ -117,7 +120,7 @@ const {
 } = useCanvas()
 
 const { render } = useCanvasRenderer()
-const { generateRandomRoute } = useRouteAnalysis()
+const { generateOptimizedRoutes } = useRouteAnalysis()
 
 const fieldSettings = computed(() => props.fieldSettings ?? DEFAULT_FIELD_SETTINGS)
 const allRoster = computed(() => props.allRoster ?? props.starters ?? [])
@@ -154,6 +157,7 @@ function requestRender() {
     viewMode: props.viewMode ?? 'fit',
     playType: props.playType,
     ghostPlayers: props.ghostPlayers,
+    showPlayerNames: props.showPlayerNames !== false,
   })
 }
 
@@ -191,11 +195,32 @@ function handleSave() {
 }
 
 function handleAiAction(action: string) {
-  if (action === 'random-play') {
-    canvasData.value.players.forEach(p => {
-      const route = generateRandomRoute(p, fieldSettings.value)
-      if (route) {
-        p.route = route
+  if (action === 'optimize-routes' && props.playType === 'offense') {
+    pushHistory()
+    const roster = allRoster.value
+    const { routes, primaryTargetPlayerId, readOrderPlayerIds } = generateOptimizedRoutes(
+      canvasData.value.players,
+      roster,
+      {
+        field_length: fieldSettings.value.field_length,
+        field_width: fieldSettings.value.field_width,
+        endzone_size: fieldSettings.value.endzone_size,
+        line_of_scrimmage: fieldSettings.value.line_of_scrimmage,
+      }
+    )
+    routes.forEach(({ playerId, route }) => {
+      const p = canvasData.value.players.find((x) => x.id === playerId)
+      if (p) p.route = route
+    })
+    canvasData.value.players.forEach((p) => {
+      p.primaryTarget = p.id === primaryTargetPlayerId
+    })
+    readOrderPlayerIds.forEach((playerId, index) => {
+      const p = canvasData.value.players.find((x) => x.id === playerId)
+      const segs = p?.route?.segments
+      if (p && segs?.length) {
+        const last = segs[segs.length - 1]
+        if (last) last.readOrder = index + 1
       }
     })
     isDirty.value = true
@@ -248,7 +273,7 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames], () => {
   requestRender()
 }, { deep: true })
 

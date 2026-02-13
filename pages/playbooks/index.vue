@@ -11,7 +11,7 @@
       </Button>
     </div>
 
-    <div v-if="loading && playbooks.length === 0" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="loading && playbooks.length === 0" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
       <Card v-for="i in 6" :key="i" class="glass">
         <CardHeader class="pb-3">
           <div class="flex items-center justify-between">
@@ -42,7 +42,7 @@
       </Button>
     </div>
 
-    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
       <PlaybookCard
         v-for="pb in playbooks"
         :key="pb.id"

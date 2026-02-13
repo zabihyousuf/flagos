@@ -52,7 +52,7 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="loading" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
       <div v-for="i in 6" :key="i" class="play-card glass">
         <div class="flex items-start justify-between mb-3">
           <Skeleton class="h-5 w-16 rounded-md" />
@@ -79,11 +79,11 @@
       <p class="text-muted-foreground text-sm">No plays match your search.</p>
     </div>
 
-    <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
       <div
         v-for="play in filteredPlays"
         :key="play.id"
-        class="play-card relative group cursor-pointer"
+        class="play-card relative group cursor-pointer min-w-0"
         @click="navigateToPlay(play.id)"
       >
         <div class="flex items-start justify-between mb-3">
@@ -250,7 +250,7 @@ onMounted(() => {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: capitalize;
 }

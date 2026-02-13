@@ -342,7 +342,7 @@ function drawDimensionAnnotations(
   fieldH: number,
   yardHeight: number,
 ) {
-  const fontSize = Math.max(11, fieldW * 0.02)
+  const fontSize = Math.max(10, fieldW * 0.02)
 
   // Width annotation (horizontal at bottom)
   const annoY = PADDING + fieldH + 16

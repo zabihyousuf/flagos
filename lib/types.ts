@@ -13,7 +13,19 @@ export interface FieldSettings {
   field_width: number
   endzone_size: number
   line_of_scrimmage: number
-  first_down?: number // yard line; defaults to midfield if missing (e.g. before migration)
+  first_down?: number
+  /** Default canvas view for plays: fit or full */
+  default_play_view?: 'fit' | 'full'
+  /** Default play type for new plays */
+  default_play_type?: 'offense' | 'defense'
+  /** New offensive plays open with ghost defense overlay when true */
+  show_ghost_defense_by_default?: boolean
+  /** Default defensive play to show as ghost (required when show_ghost_defense_by_default is true) */
+  default_ghost_defense_play_id?: string | null
+  /** Sidebar starts collapsed on load */
+  sidebar_start_collapsed?: boolean
+  /** Show player names below icons on the canvas */
+  show_player_names_on_canvas?: boolean
   created_at: string
   updated_at: string
 }

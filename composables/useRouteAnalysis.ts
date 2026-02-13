@@ -1,4 +1,5 @@
 import type { CanvasPlayer, CanvasPoint, RouteSegment } from '~/lib/types'
+import type { Player } from '~/lib/types'
 import { OFFENSE_POSITIONS, DEFENSE_POSITIONS } from '~/lib/constants'
 
 export interface SegmentAnalysis {
@@ -75,56 +76,56 @@ export function useRouteAnalysis() {
     const startPt = { x: player.x, y: player.y }
     let lastPt = startPt
 
-    player.route.segments.forEach((seg, index) => {
-      let segmentDist = 0
-      
+    player.route.segments.forEach((seg, segIndex) => {
+      if (seg.points.length === 0) return
+
       if (seg.type === 'curve') {
-        // Curve distance: from last point through all segment points
+        // Curve: one analysis row for the whole segment
         const allPoints = [lastPt, ...seg.points]
-        segmentDist = calculateCurveDistance(allPoints, field_width, totalLength)
-      } else {
-        // Straight/Option: straight lines
-        const allPoints = [lastPt, ...seg.points]
-        segmentDist = calculateCurveDistance(allPoints, field_width, totalLength)
-      }
-
-      // Time calculation
-      // Simplified: distance / maxSpeed
-      // Apply acceleration penalty to first 5 yards of TOTAL route
-      let time = segmentDist / maxSpeed
-
-      // If it's the start, add acceleration penalty
-      if (totalDistance < ACCEL_DISTANCE) {
-        // Assume avg speed during accel is 70% of max
-        // Distance remaining in accel phase
-        const accelDistRemaining = ACCEL_DISTANCE - totalDistance
-        const distInAccel = Math.min(segmentDist, accelDistRemaining)
-        
-        // Time adjustment: time = dist / (0.7 * speed) - dist / speed
-        // Delta = dist/speed * (1/0.7 - 1) = dist/speed * 0.428
-        time += (distInAccel / maxSpeed) * 0.43
-      }
-
-      // Cut penalty if not the first segment and not a curve following a curve (smooth)
-      if (index > 0 && seg.type !== 'curve') {
-        // Hard cut
-        time += CUT_PENALTY_BASE * cutEfficiency
-      }
-
-      cumulativeTime += time
-      totalDistance += segmentDist
-      
-      segments.push({
-        distance: segmentDist,
-        duration: time,
-        cumulativeTime: cumulativeTime,
-        type: seg.type,
-        isCut: index > 0 && seg.type !== 'curve'
-      })
-
-      if (seg.points.length > 0) {
+        const segmentDist = calculateCurveDistance(allPoints, field_width, totalLength)
+        let time = segmentDist / maxSpeed
+        if (totalDistance < ACCEL_DISTANCE) {
+          const accelDistRemaining = ACCEL_DISTANCE - totalDistance
+          const distInAccel = Math.min(segmentDist, accelDistRemaining)
+          time += (distInAccel / maxSpeed) * 0.43
+        }
+        if (segIndex > 0) time += CUT_PENALTY_BASE * cutEfficiency
+        cumulativeTime += time
+        totalDistance += segmentDist
+        segments.push({
+          distance: segmentDist,
+          duration: time,
+          cumulativeTime: cumulativeTime,
+          type: seg.type,
+          isCut: segIndex > 0
+        })
         lastPt = seg.points[seg.points.length - 1]
+        return
       }
+
+      // Straight/Option: one analysis row per leg (so slant shows Start + Cut)
+      const pts = [lastPt, ...seg.points]
+      for (let i = 1; i < pts.length; i++) {
+        const legDist = calculateDistance(pts[i - 1], pts[i], field_width, totalLength)
+        let time = legDist / maxSpeed
+        if (totalDistance < ACCEL_DISTANCE) {
+          const accelDistRemaining = ACCEL_DISTANCE - totalDistance
+          const distInAccel = Math.min(legDist, accelDistRemaining)
+          time += (distInAccel / maxSpeed) * 0.43
+        }
+        const isFirstLegOfRoute = segments.length === 0
+        if (!isFirstLegOfRoute) time += CUT_PENALTY_BASE * cutEfficiency
+        cumulativeTime += time
+        totalDistance += legDist
+        segments.push({
+          distance: legDist,
+          duration: time,
+          cumulativeTime: cumulativeTime,
+          type: seg.type,
+          isCut: !isFirstLegOfRoute
+        })
+      }
+      lastPt = seg.points[seg.points.length - 1]
     })
 
     return {
@@ -225,8 +226,188 @@ export function useRouteAnalysis() {
     return { segments }
   }
 
+  /** Max route depth in yards from LOS (routes don't have to reach endzone) */
+  const MAX_ROUTE_DEPTH_YDS = 16
+
+  /**
+   * Build a single route for one player with a given type, capping depth so we don't require endzone.
+   */
+  function buildRouteForType(
+    player: CanvasPlayer,
+    fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number },
+    type: 'fly' | 'post' | 'corner' | 'in' | 'out' | 'curl' | 'slant' | 'center'
+  ): { segments: RouteSegment[] } {
+    const { field_width, field_length, endzone_size, line_of_scrimmage } = fieldSettings
+    const totalLength = field_length + endzone_size * 2
+    const playerY = player.y * totalLength
+    const isLeft = player.x < 0.5
+
+    // Deepest allowed Y (most upfield): LOS - MAX_ROUTE_DEPTH_YDS
+    const minY = Math.max(endzone_size / totalLength + 0.02, (playerY - MAX_ROUTE_DEPTH_YDS) / totalLength)
+
+    const segments: RouteSegment[] = []
+
+    if (type === 'center') {
+      // Center: short release (depth and direction randomized each time)
+      const releaseDepthYds = 2 + Math.random() * 2.5  // 2–4.5 yd
+      const releaseY = (playerY - releaseDepthYds) / totalLength
+      const releaseRight = Math.random() < 0.5  // random left or right flat
+      const flatX = releaseRight ? 0.3 + Math.random() * 0.15 : 0.55 + Math.random() * 0.15  // 0.3–0.45 or 0.55–0.7
+      segments.push({
+        type: 'straight',
+        points: [
+          { x: player.x, y: releaseY },
+          { x: flatX, y: releaseY }
+        ]
+      })
+      return { segments }
+    }
+
+    if (type === 'slant') {
+      segments.push({
+        type: 'straight',
+        points: [{ x: 0.5, y: Math.max(minY, (playerY - 5) / totalLength) }]
+      })
+      return { segments }
+    }
+
+    const stemDist = type === 'fly' ? 8 : 4 + Math.random() * 4
+    const stemEndY = Math.max(minY, (playerY - stemDist) / totalLength)
+    segments.push({
+      type: 'straight',
+      points: [{ x: player.x, y: stemEndY }]
+    })
+    const lastPt = segments[0].points[0]
+
+    switch (type) {
+      case 'fly':
+        segments.push({ type: 'straight', points: [{ x: lastPt.x, y: minY }] })
+        break
+      case 'post':
+        segments.push({ type: 'straight', points: [{ x: 0.5, y: minY }] })
+        break
+      case 'corner':
+        segments.push({ type: 'straight', points: [{ x: isLeft ? 0.12 : 0.88, y: minY }] })
+        break
+      case 'in':
+        segments.push({
+          type: 'straight',
+          points: [{ x: isLeft ? Math.min(0.5, lastPt.x + 0.22) : Math.max(0.5, lastPt.x - 0.22), y: lastPt.y }]
+        })
+        break
+      case 'out':
+        segments.push({
+          type: 'straight',
+          points: [{ x: isLeft ? 0.06 : 0.94, y: lastPt.y }]
+        })
+        break
+      case 'curl':
+        segments.push({
+          type: 'straight',
+          points: [{ x: isLeft ? lastPt.x + 0.06 : lastPt.x - 0.06, y: Math.min(lastPt.y + 4 / totalLength, 1) }]
+        })
+        break
+      default:
+        break
+    }
+    return { segments }
+  }
+
+  function shuffleArray<T>(arr: T[]): T[] {
+    const out = [...arr]
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]]
+    }
+    return out
+  }
+
+  function pick<T>(arr: T[]): T {
+    return arr[Math.floor(Math.random() * arr.length)]
+  }
+
+  /**
+   * Analyze players on the field and roster attributes, then generate routes that fit each player's skills
+   * and give the team a balanced concept (mix of deep, intermediate, short). Routes stay within MAX_ROUTE_DEPTH_YDS of LOS.
+   * Each call randomizes route types and read order so no two plays are the same.
+   */
+  function generateOptimizedRoutes(
+    players: CanvasPlayer[],
+    roster: Player[],
+    fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }
+  ): {
+    routes: { playerId: string; route: { segments: RouteSegment[] } }[]
+    primaryTargetPlayerId: string | null
+    readOrderPlayerIds: string[]
+  } {
+    const offense = players.filter(
+      (p) => p.side === 'offense' && p.position !== 'QB' && p.designation !== 'Q'
+    )
+    if (offense.length === 0) return { routes: [], primaryTargetPlayerId: null, readOrderPlayerIds: [] }
+
+    function getAttrs(canvasPlayer: CanvasPlayer): { speed: number; route_running: number; position: string } {
+      const rosterPlayer = roster.find(
+        (r) => r.id === canvasPlayer.id || (r.name === canvasPlayer.name && r.number === canvasPlayer.number)
+      )
+      const u = rosterPlayer?.universal_attributes
+      const o = rosterPlayer?.offense_attributes
+      return {
+        speed: u?.speed ?? 5,
+        route_running: o?.route_running ?? 5,
+        position: canvasPlayer.position || 'WR'
+      }
+    }
+
+    const deepTypes: Array<'fly' | 'post' | 'corner'> = ['fly', 'post', 'corner']
+    const sharpTypes: Array<'slant' | 'in' | 'out'> = ['slant', 'in', 'out']
+    const mediumTypes: Array<'in' | 'out' | 'curl'> = ['in', 'out', 'curl']
+    type RouteType = 'fly' | 'post' | 'corner' | 'in' | 'out' | 'curl' | 'slant' | 'center'
+
+    const withAttrs = offense.map((p) => ({ player: p, attrs: getAttrs(p) }))
+    const nonCenters = withAttrs.filter(
+      (e) => (e.player.position || '').toUpperCase() !== 'C' && (e.player.designation || '').toUpperCase() !== 'C'
+    )
+    const centers = withAttrs.filter(
+      (e) => (e.player.position || '').toUpperCase() === 'C' || (e.player.designation || '').toUpperCase() === 'C'
+    )
+
+    const result: { playerId: string; route: { segments: RouteSegment[] } }[] = []
+
+    centers.forEach((e) => {
+      result.push({ playerId: e.player.id, route: buildRouteForType(e.player, fieldSettings, 'center') })
+    })
+
+    const shuffledNonCenters = shuffleArray(nonCenters)
+    shuffledNonCenters.forEach((e, i) => {
+      let type: RouteType
+      if (i === 0) type = pick(deepTypes)
+      else if (i === 1) type = pick(sharpTypes)
+      else type = pick(mediumTypes)
+      result.push({ playerId: e.player.id, route: buildRouteForType(e.player, fieldSettings, type) })
+    })
+
+    // Smart read progression: order by route depth (shortest route = read 1, then 2, 3...)
+    // In our coords, smaller y = further upfield, so min Y = route depth; short routes have larger min Y.
+    function routeDepth(route: { segments: RouteSegment[] }): number {
+      let minY = 1
+      for (const seg of route.segments) {
+        for (const pt of seg.points || []) {
+          if (pt.y < minY) minY = pt.y
+        }
+      }
+      return minY
+    }
+    const withDepth = result.map((r) => ({ playerId: r.playerId, depth: routeDepth(r.route) }))
+    withDepth.sort((a, b) => a.depth - b.depth) // ascending = short (high Y) first, then deeper (lower Y)
+    const readOrderPlayerIds = withDepth.map((w) => w.playerId)
+    const primaryTargetPlayerId = readOrderPlayerIds[0] ?? null
+
+    return { routes: result, primaryTargetPlayerId, readOrderPlayerIds }
+  }
+
   return {
     analyzeRoute,
-    generateRandomRoute
+    generateRandomRoute,
+    generateOptimizedRoutes
   }
 }

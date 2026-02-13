@@ -181,17 +181,20 @@ export function useCanvas() {
     if (!player) return
     const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
     if (isRusher) return // Rusher's path to QB cannot be deleted
+    activeSegmentIndex.value = null
     player.route = null
     isDirty.value = true
     pushHistory()
   }
 
   function clearAllRoutes() {
+    activeSegmentIndex.value = null
     canvasData.value.players.forEach((p) => {
       const isRusher = p.side === 'defense' && (p.designation === 'R' || p.position === 'RSH')
       if (isRusher) return
       p.route = null
       p.motionPath = null
+      p.primaryTarget = false
     })
     nextReadOrder.value = 1
     isDirty.value = true
@@ -342,7 +345,7 @@ export function useCanvas() {
     }
 
     nextReadOrder.value = 1
-    isDirty.value = true
+    // Caller sets isDirty if needed (e.g. after user-initiated type switch); don't mark dirty on initial load
   }
 
   function setZoom(val: number) {
@@ -426,6 +429,7 @@ export function useCanvas() {
     setTool,
     selectPlayer,
     updatePlayerPosition,
+    pushHistory,
     pushHistoryBeforeDrag,
     pushHistoryAfterDrag,
     undo,

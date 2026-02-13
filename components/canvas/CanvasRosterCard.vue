@@ -3,13 +3,13 @@
     <!-- Panel Header -->
     <div class="h-10 flex items-center justify-between px-3 shrink-0">
       <span class="text-xs font-semibold text-foreground">Roster</span>
-      <span class="text-[12px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/5</span>
+      <span class="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/5</span>
     </div>
 
     <div class="p-2 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-0 flex-1">
       <!-- On Field -->
       <div v-if="players.length > 0" class="space-y-1">
-        <p class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-1">On the Field</p>
+        <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">On the Field</p>
         <div class="space-y-1">
           <div
             v-for="player in players"
@@ -19,7 +19,7 @@
             @click="$emit('select-player', player.id)"
           >
             <div
-              class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-sm"
+              class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm"
               :style="{ background: posColor(player.position) }"
             >
               {{ player.designation }}
@@ -35,12 +35,12 @@
         </div>
       </div>
       <div v-else class="text-center py-4 bg-muted/10 rounded border border-dashed border-border/50">
-        <p class="text-[12px] text-muted-foreground">Field is empty</p>
+        <p class="text-[10px] text-muted-foreground">Field is empty</p>
       </div>
 
       <!-- Bench -->
       <div class="space-y-1 flex-1">
-        <p class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider px-1">Bench</p>
+        <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">Bench</p>
         <div class="space-y-1">
           <div
             v-for="player in benchPlayers"
@@ -50,11 +50,11 @@
             @dragstart="(e: DragEvent) => handleDragStart(e, player)"
             @click="handleBenchClick(player)"
           >
-            <span class="text-[11px] text-muted-foreground font-mono w-5 text-center">{{ player.number }}</span>
+            <span class="text-[10px] text-muted-foreground font-mono w-5 text-center">{{ player.number }}</span>
             <span class="text-xs flex-1 truncate font-medium">{{ player.name }}</span>
             <Plus class="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          <p v-if="benchPlayers.length === 0" class="text-[12px] text-muted-foreground text-center py-2 italic font-medium">
+          <p v-if="benchPlayers.length === 0" class="text-[10px] text-muted-foreground text-center py-2 italic font-medium">
             {{ players.length >= 5 ? 'Field full' : 'No bench players' }}
           </p>
         </div>

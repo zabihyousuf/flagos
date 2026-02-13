@@ -1,6 +1,6 @@
 <template>
-  <NuxtLink :to="`/playbooks/${playbook.id}`">
-    <Card class="glass glass-hover transition-all duration-200 cursor-pointer group h-full">
+  <NuxtLink :to="`/playbooks/${playbook.id}`" class="min-w-0">
+    <Card class="glass glass-hover transition-all duration-200 cursor-pointer group h-full min-w-0">
       <CardHeader class="pb-3">
         <div class="flex items-center justify-between">
           <CardTitle class="text-base">{{ playbook.name }}</CardTitle>

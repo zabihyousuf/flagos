@@ -13,7 +13,7 @@
       </Button>
     </div>
 
-    <div v-if="loading && plays.length === 0" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="loading && plays.length === 0" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
       <Card v-for="i in 6" :key="i" class="glass">
         <CardContent class="p-4">
           <div class="flex items-center justify-between">
@@ -53,7 +53,7 @@
           <TabsTrigger value="defense">Defense ({{ defensePlays.length }})</TabsTrigger>
         </TabsList>
         <TabsContent value="all" class="mt-4">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
             <PlayCard
               v-for="play in plays"
               :key="play.id"
@@ -65,7 +65,7 @@
           </div>
         </TabsContent>
         <TabsContent value="offense" class="mt-4">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
             <PlayCard
               v-for="play in offensePlays"
               :key="play.id"
@@ -77,7 +77,7 @@
           </div>
         </TabsContent>
         <TabsContent value="defense" class="mt-4">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
             <PlayCard
               v-for="play in defensePlays"
               :key="play.id"

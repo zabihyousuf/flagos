@@ -1,7 +1,7 @@
 <template>
-  <div class="settings-layout">
-    <!-- Vertical Tab Navigation -->
-    <nav class="settings-nav">
+  <div class="settings-layout flex flex-col xl:flex-row overflow-hidden min-h-0">
+    <!-- Vertical Tab Navigation (narrower at 1024px) -->
+    <nav class="settings-nav w-44 shrink-0 xl:w-[180px] xl:min-w-[180px]">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -24,11 +24,162 @@
         </div>
       </div>
 
+      <!-- General Tab -->
+      <template v-if="settings && activeTab === 'general'">
+        <div class="settings-panel general-panel">
+          <div class="config-header">
+            <h2 class="text-lg font-semibold tracking-tight font-display">General</h2>
+            <p class="text-muted-foreground text-sm">Defaults for the play designer and app behavior.</p>
+          </div>
+
+          <div class="general-rows">
+            <!-- Default play view -->
+            <div class="general-row">
+              <Label class="general-label">Default play view</Label>
+              <div class="general-control">
+                <div class="flex items-center bg-muted rounded-md p-0.5 w-fit">
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors flex items-center"
+                    :class="(settings.default_play_view ?? 'fit') === 'fit' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                    @click="updateSettings({ default_play_view: 'fit' })"
+                  >
+                    <Maximize2 class="w-3 h-3 shrink-0 mr-1" />
+                    Fit
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors flex items-center"
+                    :class="(settings.default_play_view ?? 'fit') === 'full' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                    @click="updateSettings({ default_play_view: 'full' })"
+                  >
+                    <Fullscreen class="w-3 h-3 shrink-0 mr-1" />
+                    Full
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Default starting play type -->
+            <div class="general-row">
+              <Label class="general-label">Default starting play type</Label>
+              <div class="general-control">
+                <div class="flex items-center bg-muted rounded-full p-0.5 w-fit">
+                  <button
+                    type="button"
+                    class="px-2 py-0.5 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1"
+                    :class="(settings.default_play_type ?? 'offense') === 'offense'
+                      ? 'bg-primary/15 text-primary shadow-sm border border-primary/30'
+                      : 'text-primary/70 hover:bg-primary/10 hover:text-primary'"
+                    @click="setDefaultPlayType('offense')"
+                  >
+                    <Swords class="w-3 h-3 shrink-0" />
+                    Offensive
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2 py-0.5 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1"
+                    :class="(settings.default_play_type ?? 'offense') === 'defense'
+                      ? 'bg-destructive/15 text-destructive shadow-sm border border-destructive/30'
+                      : 'text-destructive/70 hover:bg-destructive/10 hover:text-destructive'"
+                    @click="setDefaultPlayType('defense')"
+                  >
+                    <ShieldIcon class="w-3 h-3 shrink-0" />
+                    Defensive
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ghost defense: radio None | Show with default play (disabled when default type is defense) -->
+            <div class="general-row" :class="{ 'general-row--disabled': (settings.default_play_type ?? 'offense') === 'defense' }">
+              <Label class="general-label">Offensive plays with ghost defense</Label>
+              <div class="general-control">
+                <div class="general-radio-group" role="radiogroup" :aria-disabled="(settings.default_play_type ?? 'offense') === 'defense'">
+                  <label class="general-radio-option" :class="{ 'opacity-50 pointer-events-none': (settings.default_play_type ?? 'offense') === 'defense' }">
+                    <input
+                      type="radio"
+                      name="ghost-default"
+                      :checked="(settings.default_play_type ?? 'offense') === 'defense' ? true : !showGhostDefense"
+                      :disabled="(settings.default_play_type ?? 'offense') === 'defense'"
+                      class="general-radio-input"
+                      @change="setGhostDefense(false)"
+                    />
+                    <span class="general-radio-dot" />
+                    <span class="general-radio-label">None</span>
+                  </label>
+                  <label class="general-radio-option" :class="{ 'opacity-50 pointer-events-none': (settings.default_play_type ?? 'offense') === 'defense' }">
+                    <input
+                      type="radio"
+                      name="ghost-default"
+                      :checked="(settings.default_play_type ?? 'offense') !== 'defense' && showGhostDefense"
+                      :disabled="(settings.default_play_type ?? 'offense') === 'defense'"
+                      class="general-radio-input"
+                      @change="setGhostDefense(true)"
+                    />
+                    <span class="general-radio-dot" />
+                    <span class="general-radio-label">Show with default play</span>
+                  </label>
+                </div>
+                <p v-if="(settings.default_play_type ?? 'offense') === 'defense'" class="text-xs text-muted-foreground mt-1.5">Only applies when default play type is Offensive.</p>
+                <template v-else-if="showGhostDefense">
+                  <p class="text-xs text-muted-foreground mt-2 mb-1.5">Choose the default play below.</p>
+                  <Select
+                    :model-value="settings.default_ghost_defense_play_id ?? '__none__'"
+                    @update:model-value="(v: string) => updateSettings({ default_ghost_defense_play_id: v === '__none__' ? null : v })"
+                  >
+                    <SelectTrigger class="w-full max-w-[240px]">
+                      <SelectValue placeholder="Select a defensive play" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      <SelectItem v-for="p in defensePlaysForDefault" :key="p.id" :value="p.id">{{ p.name }}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p v-if="defensePlaysForDefault.length === 0 && !defensePlaysLoading" class="text-xs text-muted-foreground mt-1">No defensive plays yet. Create one first.</p>
+                </template>
+              </div>
+            </div>
+
+            <!-- Show player names on field: radio Show | Hide -->
+            <div class="general-row">
+              <Label class="general-label">Player names on field</Label>
+              <div class="general-control">
+                <div class="general-radio-group" role="radiogroup">
+                  <label class="general-radio-option">
+                    <input
+                      type="radio"
+                      name="player-names"
+                      :checked="settings.show_player_names_on_canvas !== false"
+                      class="general-radio-input"
+                      @change="updateSettings({ show_player_names_on_canvas: true })"
+                    />
+                    <span class="general-radio-dot" />
+                    <span class="general-radio-label">Show</span>
+                  </label>
+                  <label class="general-radio-option">
+                    <input
+                      type="radio"
+                      name="player-names"
+                      :checked="settings.show_player_names_on_canvas === false"
+                      class="general-radio-input"
+                      @change="updateSettings({ show_player_names_on_canvas: false })"
+                    />
+                    <span class="general-radio-dot" />
+                    <span class="general-radio-label">Hide</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
       <!-- Field Tab -->
       <template v-if="settings && activeTab === 'field'">
-        <div class="settings-split">
-          <!-- Field Preview (left) -->
-          <div class="settings-preview">
+        <div class="settings-split flex flex-col xl:flex-row flex-1 xl:h-full min-h-0">
+          <!-- Field Preview (left on xl, top when stacked) -->
+          <div class="settings-preview flex-1 min-w-0 min-h-[280px] xl:min-h-0">
             <FieldPreview
               :field-length="settings.field_length"
               :field-width="settings.field_width"
@@ -39,8 +190,8 @@
             />
           </div>
 
-          <!-- Config Panel (right) -->
-          <div class="settings-config">
+          <!-- Config Panel (right on xl, below preview when stacked) -->
+          <div class="settings-config w-full xl:w-[300px] xl:min-w-[300px] border-t xl:border-t-0 xl:border-l border-border">
             <div class="config-header">
               <h2 class="text-lg font-semibold tracking-tight font-display">Field Dimensions</h2>
               <p class="text-muted-foreground text-sm">Configure the field size in yards.</p>
@@ -183,15 +334,15 @@
               <div class="grid grid-cols-3 gap-2">
                 <div class="team-mini-stat">
                   <p class="text-lg font-bold">{{ teamPlayerCount }}</p>
-                  <p class="text-[12px] text-muted-foreground">Players</p>
+                  <p class="text-[11px] text-muted-foreground">Players</p>
                 </div>
                 <div class="team-mini-stat">
                   <p class="text-lg font-bold">{{ offStarterCount }}</p>
-                  <p class="text-[12px] text-muted-foreground">Off Starters</p>
+                  <p class="text-[11px] text-muted-foreground">Off Starters</p>
                 </div>
                 <div class="team-mini-stat">
                   <p class="text-lg font-bold">{{ defStarterCount }}</p>
-                  <p class="text-[12px] text-muted-foreground">Def Starters</p>
+                  <p class="text-[11px] text-muted-foreground">Def Starters</p>
                 </div>
               </div>
             </div>
@@ -246,21 +397,79 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Ruler, Shield as ShieldIcon, User, LogOut } from 'lucide-vue-next'
+import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen } from 'lucide-vue-next'
 
 const tabs = [
+  { id: 'general', label: 'General', icon: Settings2 },
   { id: 'field', label: 'Field', icon: Ruler },
   { id: 'team', label: 'Team', icon: ShieldIcon },
   { id: 'account', label: 'Account', icon: User },
 ]
 
-const activeTab = ref('field')
+const activeTab = ref('general')
 
 const user = useSupabaseUser()
-const supaClient = useSupabaseClient()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
+const supaClient = useSupabaseClient()
+
+const defensePlaysForDefault = ref<{ id: string; name: string }[]>([])
+const defensePlaysLoading = ref(false)
+const ghostDefenseOptimistic = ref<boolean | null>(null)
+
+const showGhostDefense = computed(() => {
+  if (ghostDefenseOptimistic.value !== null) return ghostDefenseOptimistic.value
+  return !!settings.value?.show_ghost_defense_by_default
+})
+
+function setGhostDefense(on: boolean) {
+  ghostDefenseOptimistic.value = on
+  updateSettings({
+    show_ghost_defense_by_default: on,
+    ...(on ? {} : { default_ghost_defense_play_id: null }),
+  }).finally(() => {
+    ghostDefenseOptimistic.value = null
+  })
+}
+
+function setDefaultPlayType(type: 'offense' | 'defense') {
+  if (type === 'defense') {
+    updateSettings({
+      default_play_type: 'defense',
+      show_ghost_defense_by_default: false,
+      default_ghost_defense_play_id: null,
+    })
+    ghostDefenseOptimistic.value = false
+  } else {
+    updateSettings({ default_play_type: 'offense' })
+  }
+}
+
+watch(
+  () => settings.value?.show_ghost_defense_by_default,
+  () => { ghostDefenseOptimistic.value = null }
+)
+
+watch(
+  () => [user.value?.id, activeTab.value] as const,
+  async ([uid, tab]) => {
+    if (!uid || tab !== 'general') return
+    defensePlaysLoading.value = true
+    try {
+      const { data } = await supaClient
+        .from('plays')
+        .select('id, name')
+        .eq('user_id', uid)
+        .eq('play_type', 'defense')
+        .order('updated_at', { ascending: false })
+      defensePlaysForDefault.value = (data ?? []) as { id: string; name: string }[]
+    } finally {
+      defensePlaysLoading.value = false
+    }
+  },
+  { immediate: true }
+)
 
 // Debounced field settings update
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -319,12 +528,10 @@ onMounted(() => {
 .settings-layout {
   display: flex;
   height: calc(100vh - 64px);
-  overflow: hidden;
+  min-height: 0;
 }
 
 .settings-nav {
-  width: 180px;
-  min-width: 180px;
   padding: 16px 8px;
   display: flex;
   flex-direction: column;
@@ -340,7 +547,7 @@ onMounted(() => {
   border: none;
   background: transparent;
   color: var(--color-muted-foreground);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -373,12 +580,9 @@ onMounted(() => {
 
 .settings-split {
   display: flex;
-  height: 100%;
 }
 
 .settings-preview {
-  flex: 1;
-  min-width: 0;
   padding: 20px;
   display: flex;
   align-items: flex-start;
@@ -386,19 +590,104 @@ onMounted(() => {
 }
 
 .settings-config {
-  width: 300px;
-  min-width: 300px;
-  border-left: 1px solid var(--color-border);
   padding: 24px 20px;
   display: flex;
   flex-direction: column;
   gap: 24px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .settings-panel {
   padding: 32px;
   max-width: 480px;
+}
+
+/* General tab: setting label left, control right */
+.general-panel {
+  max-width: 560px;
+}
+
+.general-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.general-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  align-items: start;
+}
+
+@media (max-width: 540px) {
+  .general-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.general-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  padding-top: 2px;
+}
+
+.general-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.general-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.general-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.general-radio-input {
+  position: absolute;
+  opacity: 0;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.general-radio-dot {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-background);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.general-radio-input:checked + .general-radio-dot {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  box-shadow: inset 0 0 0 3px var(--color-background);
+}
+
+.general-radio-option:hover .general-radio-dot {
+  border-color: var(--color-primary);
+}
+
+.general-radio-label {
+  user-select: none;
 }
 
 .config-header {
@@ -421,7 +710,7 @@ onMounted(() => {
 }
 
 .config-label {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--color-foreground);
 }
@@ -437,7 +726,7 @@ onMounted(() => {
 }
 
 .config-unit {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--color-muted-foreground);
   white-space: nowrap;
 }
@@ -459,12 +748,12 @@ onMounted(() => {
 }
 
 .config-stat-label {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--color-muted-foreground);
 }
 
 .config-stat-value {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-foreground);
   font-variant-numeric: tabular-nums;

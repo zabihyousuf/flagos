@@ -6,8 +6,8 @@
       <Skeleton class="h-4 w-48" />
     </div>
     <Skeleton class="h-[76px] w-full rounded-xl" />
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div v-for="i in 4" :key="i" class="stat-card glass">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+      <div v-for="i in 4" :key="i" class="stat-card glass min-w-0">
         <div class="flex items-center justify-between">
           <div>
             <Skeleton class="h-3 w-16 mb-2" />
@@ -17,8 +17,8 @@
         </div>
       </div>
     </div>
-    <div class="grid gap-6 lg:grid-cols-3">
-      <div class="lg:col-span-2">
+    <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+      <div class="xl:col-span-2 min-w-0">
         <Skeleton class="h-6 w-32 mb-4" />
         <div class="space-y-2">
           <Skeleton v-for="i in 5" :key="i" class="h-[52px] w-full rounded-[10px]" />
@@ -55,8 +55,8 @@
     </button>
 
     <!-- Stats Grid -->
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div v-for="stat in stats" :key="stat.label" class="stat-card bg-white">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+      <div v-for="stat in stats" :key="stat.label" class="stat-card bg-white min-w-0">
         <div class="flex items-center justify-between">
           <div>
             <p class="stat-label">{{ stat.label }}</p>
@@ -71,9 +71,9 @@
     </div>
 
     <!-- Two-column Grid: Recent Plays + Team Overview -->
-    <div class="grid gap-6 lg:grid-cols-3">
-      <!-- Recent Plays (2/3 width) -->
-      <div class="lg:col-span-2">
+    <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+      <!-- Recent Plays (2/3 width on xl) -->
+      <div class="xl:col-span-2 min-w-0">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold font-display">Recent Plays</h3>
           <NuxtLink to="/plays" class="text-sm text-primary hover:underline">View all</NuxtLink>
@@ -112,8 +112,8 @@
         </div>
       </div>
 
-      <!-- Team Overview (1/3 width) -->
-      <div>
+      <!-- Team Overview (1/3 width on xl) -->
+      <div class="min-w-0">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold font-display">Team</h3>
           <NuxtLink v-if="primaryTeam" to="/teams" class="text-sm text-primary hover:underline">Manage</NuxtLink>
@@ -155,7 +155,7 @@
         <h3 class="text-lg font-semibold font-display">Playbooks</h3>
         <NuxtLink to="/playbooks" class="text-sm text-primary hover:underline">View all</NuxtLink>
       </div>
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
         <PlaybookCard
           v-for="pb in playbooks.slice(0, 3)"
           :key="pb.id"
@@ -355,14 +355,14 @@ onMounted(async () => {
 }
 
 .cta-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-foreground);
   margin: 0;
 }
 
 .cta-sub {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--color-muted-foreground);
   margin: 2px 0 0;
 }
@@ -375,7 +375,7 @@ onMounted(async () => {
   background: var(--color-accent);
   border: 1px solid var(--color-border);
   font-family: ui-monospace, monospace;
-  font-size: 12px;
+  font-size: 11px;
   margin-left: 4px;
 }
 
@@ -392,13 +392,13 @@ onMounted(async () => {
 }
 
 .stat-label {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--color-muted-foreground);
   margin: 0;
 }
 
 .stat-value {
-  font-size: 30px;
+  font-size: 29px;
   font-weight: 700;
   line-height: 1.2;
   margin: 4px 0 0;
@@ -407,7 +407,7 @@ onMounted(async () => {
 }
 
 .stat-sub {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-muted-foreground);
   margin: 2px 0 0;
 }
@@ -483,7 +483,7 @@ onMounted(async () => {
 }
 
 .team-stat-value {
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 700;
   color: var(--color-foreground);
   margin: 0;
@@ -491,7 +491,7 @@ onMounted(async () => {
 }
 
 .team-stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-muted-foreground);
   margin: 2px 0 0;
 }

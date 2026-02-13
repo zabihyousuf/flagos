@@ -15,6 +15,8 @@ export interface RenderOptions {
   playType?: 'offense' | 'defense'
   /** Overlay defense from another play (drawn as ghost, not interactive) */
   ghostPlayers?: CanvasPlayer[]
+  /** When false, do not draw player names below icons on the field (default true) */
+  showPlayerNames?: boolean
 }
 
 const PADDING = 12
@@ -134,6 +136,10 @@ export function useCanvasRenderer() {
       drawPlayerRoute(ctx, player, fieldW, fieldH)
       drawMotionPath(ctx, player, fieldW, fieldH)
     })
+
+    if (options.playType === 'offense') {
+      drawPrimaryTargetThrowLine(ctx, data.players, fieldW, fieldH)
+    }
     
     if (options.playType === 'defense') {
       drawGhostQB(ctx, fieldW, fieldH, options)
@@ -184,7 +190,7 @@ export function useCanvasRenderer() {
 
     // Endzone text
     ctx.fillStyle = COLORS.endzoneText
-    const ezFontSize = Math.max(14, fieldW * 0.05)
+    const ezFontSize = Math.max(13, fieldW * 0.05)
     ctx.font = `700 ${ezFontSize}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -224,7 +230,7 @@ export function useCanvasRenderer() {
       const displayYard = yard <= fieldLength / 2 ? yard : fieldLength - yard
       if (displayYard > 0 && isMajor) {
         ctx.fillStyle = COLORS.yardNumber
-        const numFontSize = Math.max(12, fieldW * 0.035)
+        const numFontSize = Math.max(11, fieldW * 0.035)
         ctx.font = `600 ${numFontSize}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -265,7 +271,7 @@ export function useCanvasRenderer() {
     ctx.restore()
 
      // LOS pill label
-    const labelFontSize = Math.max(11, fieldW * 0.022)
+    const labelFontSize = Math.max(10, fieldW * 0.022)
     ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
     const losText = `LOS · ${lineOfScrimmage}yd`
     const losTextW = ctx.measureText(losText).width
@@ -353,6 +359,7 @@ export function useCanvasRenderer() {
 
     let lastEndPoint = { x: startX, y: startY }
 
+    // Draw full path (all segments) with no arrows at intermediate points
     player.route.segments.forEach((segment) => {
       if (segment.points.length === 0) return
 
@@ -377,21 +384,13 @@ export function useCanvasRenderer() {
       if (segment.type === 'curve') {
         drawCurveSegment(ctx, lastEndPoint, points)
       } else {
-        // Straight or option — straight lines between points
         points.forEach((p) => ctx.lineTo(p.x, p.y))
       }
 
       ctx.stroke()
       ctx.setLineDash([])
 
-      // Arrowhead at the end
-      if (points.length > 0) {
-        const lastPt = points[points.length - 1]
-        const prevPt = points.length > 1 ? points[points.length - 2] : lastEndPoint
-        drawArrowHead(ctx, prevPt, lastPt, color, segment.type === 'option' ? 8 : 10)
-      }
-
-      // Read order badge
+      // Read order badge at segment end (no arrow here)
       if (segment.readOrder != null && points.length > 0) {
         const endPt = points[points.length - 1]
         drawReadOrderBadge(ctx, endPt, segment.readOrder)
@@ -399,11 +398,73 @@ export function useCanvasRenderer() {
 
       ctx.restore()
 
-      // Chain: next segment starts from the last point of this one
       if (segment.type !== 'option' && points.length > 0) {
         lastEndPoint = points[points.length - 1]
       }
     })
+
+    // Single arrow only at the very end of the entire route
+    let arrowEnd: { x: number; y: number } | null = null
+    let arrowPrev: { x: number; y: number } = { x: startX, y: startY }
+    let px = startX
+    let py = startY
+    for (const segment of player.route.segments) {
+      if (segment.points.length === 0) continue
+      for (const p of segment.points) {
+        const nx = p.x * fieldW
+        const ny = p.y * fieldH
+        arrowPrev = { x: px, y: py }
+        arrowEnd = { x: nx, y: ny }
+        px = nx
+        py = ny
+      }
+    }
+    if (arrowEnd) {
+      drawArrowHead(ctx, arrowPrev, arrowEnd, color, 10)
+    }
+  }
+
+  /**
+   * Draw dashed line from QB to the end of the primary target's route, with a dot at the throw point.
+   */
+  function drawPrimaryTargetThrowLine(
+    ctx: CanvasRenderingContext2D,
+    players: CanvasPlayer[],
+    fieldW: number,
+    fieldH: number,
+  ) {
+    const qb = players.find((p) => p.side === 'offense' && (p.position === 'QB' || p.designation === 'Q'))
+    const primary = players.find((p) => p.side === 'offense' && p.primaryTarget && p.route?.segments?.length)
+    if (!qb || !primary?.route?.segments?.length) return
+
+    const lastSeg = primary.route.segments[primary.route.segments.length - 1]
+    if (!lastSeg.points.length) return
+
+    const throwPoint = lastSeg.points[lastSeg.points.length - 1]
+    const qbX = qb.x * fieldW
+    const qbY = qb.y * fieldH
+    const endX = throwPoint.x * fieldW
+    const endY = throwPoint.y * fieldH
+
+    ctx.save()
+    ctx.strokeStyle = '#f59e0b'
+    ctx.lineWidth = 2
+    ctx.setLineDash([8, 6])
+    ctx.beginPath()
+    ctx.moveTo(qbX, qbY)
+    ctx.lineTo(endX, endY)
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    const dotRadius = Math.max(6, fieldW * 0.018)
+    ctx.fillStyle = '#f59e0b'
+    ctx.beginPath()
+    ctx.arc(endX, endY, dotRadius, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.restore()
   }
 
   /**
@@ -590,6 +651,7 @@ export function useCanvasRenderer() {
     ctx.lineJoin = 'round'
     ctx.setLineDash([6, 4])
 
+    // Draw full path, no arrows at intermediate points
     player.route.segments.forEach((segment) => {
       if (segment.points.length === 0) return
 
@@ -609,16 +671,30 @@ export function useCanvasRenderer() {
 
       ctx.stroke()
 
-      if (points.length > 0) {
-        const lastPt = points[points.length - 1]
-        const prevPt = points.length > 1 ? points[points.length - 2] : lastEndPoint
-        drawArrowHead(ctx, prevPt, lastPt, color, 8)
-      }
-
       if (segment.type !== 'option' && points.length > 0) {
         lastEndPoint = points[points.length - 1]
       }
     })
+
+    // Single arrow only at the very end of the ghost route
+    let gArrowEnd: { x: number; y: number } | null = null
+    let gArrowPrev = { x: startX, y: startY }
+    let gx = startX
+    let gy = startY
+    for (const segment of player.route.segments) {
+      if (segment.points.length === 0) continue
+      for (const p of segment.points) {
+        const nx = p.x * fieldW
+        const ny = p.y * fieldH
+        gArrowPrev = { x: gx, y: gy }
+        gArrowEnd = { x: nx, y: ny }
+        gx = nx
+        gy = ny
+      }
+    }
+    if (gArrowEnd) {
+      drawArrowHead(ctx, gArrowPrev, gArrowEnd, color, 8)
+    }
 
     ctx.setLineDash([])
     ctx.globalAlpha = 1
@@ -680,7 +756,7 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.globalAlpha = 0.85
       ctx.fillStyle = '#ffffff'
-      ctx.font = `bold ${Math.max(11, radius * 0.65)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(10, radius * 0.65)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
@@ -795,18 +871,18 @@ export function useCanvasRenderer() {
 
       // Number/Designation text inside circle
       const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
-      ctx.font = `bold ${Math.max(12, radius * 0.7)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(11, radius * 0.7)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
 
-      // Name text
-      if (player.name) {
+      // Name text (respects options.showPlayerNames, default true)
+      if (player.name && options.showPlayerNames !== false) {
         ctx.save()
         ctx.fillStyle = '#ffffff' // White text
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)' // Strong shadow for contrast against grass
         ctx.shadowBlur = 3
-        ctx.font = `600 ${Math.max(11, radius * 0.45)}px Oracle Sans, sans-serif`
+        ctx.font = `600 ${Math.max(10, radius * 0.45)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillText(player.name, px, py + radius + 5)
@@ -834,7 +910,7 @@ export function useCanvasRenderer() {
         ctx.lineWidth = 1.5
         ctx.stroke()
         ctx.fillStyle = '#fff'
-        ctx.font = `bold ${Math.max(12, radius * 0.5)}px Oracle Sans, sans-serif`
+        ctx.font = `bold ${Math.max(11, radius * 0.5)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText('1', px, badgeY)
@@ -877,7 +953,7 @@ export function useCanvasRenderer() {
 
     // Label
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-    ctx.font = `bold ${Math.max(12, radius * 0.7)}px Oracle Sans, sans-serif`
+    ctx.font = `bold ${Math.max(11, radius * 0.7)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('QB', qbX, qbY)
@@ -932,7 +1008,7 @@ export function useCanvasRenderer() {
       ctx.stroke()
       if (radiusPx > 20) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-        ctx.font = `600 12px Oracle Sans, sans-serif`
+        ctx.font = `600 11px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
         ctx.fillText(`${player.coverageRadius}y`, zx, zy - radiusPx + 12)

@@ -8,15 +8,15 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  function initDraftPlay() {
+  function initDraftPlay(playType: 'offense' | 'defense' = 'offense') {
     currentPlay.value = {
       id: 'new',
       playbook_id: '',
       user_id: '',
       name: 'Untitled Play',
-      play_type: 'offense',
+      play_type: playType,
       formation: '',
-      canvas_data: getDefaultFormation('offense') as any, // Cast to avoid Json vs CanvasData mismatch
+      canvas_data: getDefaultFormation(playType) as any,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }

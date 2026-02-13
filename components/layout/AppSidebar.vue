@@ -24,7 +24,7 @@
       </NuxtLink>
 
       <div v-if="!collapsed" class="sidebar-utility">
-        <button class="utility-btn" title="Search">
+        <button class="utility-btn" title="Search (⌘K)" @click="openSearch">
           <Search class="w-4 h-4" />
         </button>
         <button class="utility-btn" title="Notifications">
@@ -64,7 +64,7 @@
       <template v-for="(group, index) in navGroups" :key="index">
         <div v-if="!collapsed && (group.label || group.badge)" class="sidebar-group-label flex items-center gap-2">
           <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
-          <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[13px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
+          <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
         </div>
@@ -81,7 +81,7 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
-                <span v-if="item.devOnly" class="ml-auto text-[13px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
+                <span v-if="item.devOnly" class="ml-auto text-[11px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </NuxtLink>
             </TooltipTrigger>
             <TooltipContent side="right" :side-offset="10" v-if="collapsed">
@@ -107,7 +107,7 @@
           
           <div class="sidebar-user-info flex-1 min-w-0 flex flex-col items-start justify-center">
             <p class="sidebar-user-name truncate w-full">{{ displayName }}</p>
-            <p class="sidebar-user-email truncate w-full text-muted-foreground text-[13px]">{{ emailAddress }}</p>
+            <p class="sidebar-user-email truncate w-full text-muted-foreground text-[11px]">{{ emailAddress }}</p>
           </div>
           
           <ChevronDown class="sidebar-user-chevron ml-auto w-4 h-4 text-muted-foreground shrink-0" />
@@ -118,11 +118,15 @@
           <div v-if="userMenuOpen" class="user-menu" :class="{ 'menu-collapsed': collapsed }">
             <div class="px-3 py-2 border-b border-border mb-1" v-if="collapsed">
                <p class="text-xs font-semibold truncate">{{ displayName }}</p>
-               <p class="text-[12px] text-muted-foreground truncate">{{ emailAddress }}</p>
+               <p class="text-[11px] text-muted-foreground truncate">{{ emailAddress }}</p>
             </div>
             <NuxtLink to="/settings" class="user-menu-item" @click="userMenuOpen = false">
               <SettingsIcon class="w-4 h-4" />
               <span>Settings</span>
+            </NuxtLink>
+            <NuxtLink to="/whats-new" class="user-menu-item" @click="userMenuOpen = false">
+              <Sparkles class="w-4 h-4" />
+              <span>What's New</span>
             </NuxtLink>
             <div class="user-menu-divider" />
             <button class="user-menu-item text-destructive" @click="handleLogout">
@@ -155,6 +159,7 @@ import {
   Flag,
   Search,
   Bell,
+  Sparkles,
 } from 'lucide-vue-next'
 import {
   Tooltip,
@@ -175,7 +180,12 @@ const userMenuRef = ref<HTMLElement | null>(null)
 
 onMounted(() => {
   const saved = localStorage.getItem('flagos-sidebar-collapsed')
-  if (saved !== null) collapsed.value = saved === 'true'
+  if (saved !== null) {
+    collapsed.value = saved === 'true'
+  } else if (typeof window !== 'undefined' && window.innerWidth < 1280) {
+    collapsed.value = true
+    localStorage.setItem('flagos-sidebar-collapsed', 'true')
+  }
   document.addEventListener('click', handleClickOutside)
   fetchProfile()
 })
@@ -264,6 +274,8 @@ function isActive(path: string) {
   if (path === '/') return route.path === '/'
   return route.path.startsWith(path)
 }
+
+const { open: openSearch } = useAppSearch()
 
 function openQuickPlay() {
   window.dispatchEvent(new CustomEvent('open-quick-play'))
@@ -373,7 +385,7 @@ async function handleLogout() {
 }
 
 .sidebar-logo-text {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--color-foreground);
@@ -446,7 +458,7 @@ async function handleLogout() {
   border: none; /* Removed border */
   background: var(--color-primary); /* Updated to solid primary */
   color: var(--color-primary-foreground); /* Consistent text color */
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   overflow: hidden;
@@ -481,7 +493,7 @@ async function handleLogout() {
 
 .sidebar-group-label {
   padding: 16px 10px 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--color-muted-foreground);
@@ -496,7 +508,7 @@ async function handleLogout() {
   border-radius: 6px;
   text-decoration: none;
   color: var(--color-muted-foreground);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   margin: 1px 0;
   white-space: nowrap;
@@ -585,7 +597,7 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   flex-shrink: 0;
   border: 1px solid rgba(255,255,255,0.1);
@@ -594,14 +606,14 @@ async function handleLogout() {
 
 
 .sidebar-user-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.2;
 }
 
 .sidebar-user-email {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-muted-foreground);
   line-height: 1.2;
 }
@@ -648,7 +660,7 @@ async function handleLogout() {
   border: none;
   background: transparent;
   color: var(--color-foreground);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.1s;

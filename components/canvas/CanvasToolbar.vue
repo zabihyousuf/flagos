@@ -104,12 +104,9 @@
         </Tooltip>
       </TooltipProvider>
 
-      <div v-if="showAiMenu" class="absolute top-10 left-0 w-48 bg-popover rounded-md border shadow-md p-1 flex flex-col gap-0.5 z-50">
-        <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" @click="$emit('ai-action', 'random-play'); showAiMenu = false">
-          <Shuffle class="w-3 h-3 mr-2" /> Random Play
-        </Button>
-        <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" disabled>
-          <Wand2 class="w-3 h-3 mr-2" /> Suggest Concept
+      <div v-if="showAiMenu" class="absolute top-10 left-0 w-52 bg-popover rounded-md border shadow-md p-1 flex flex-col gap-0.5 z-50">
+        <Button variant="ghost" size="sm" class="justify-start h-7 text-xs" @click="$emit('ai-action', 'optimize-routes'); showAiMenu = false">
+          <Sparkles class="w-3 h-3 mr-2" /> Optimize routes for squad
         </Button>
       </div>
     </div>
@@ -144,8 +141,6 @@ import {
   Eraser,
   Trash2,
   Sparkles,
-  Shuffle,
-  Wand2,
 } from 'lucide-vue-next'
 
 const props = defineProps<{

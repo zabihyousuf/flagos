@@ -144,10 +144,16 @@ export const DEFENSE_ATTRIBUTE_GROUPS = [
 
 export const DEFAULT_FIELD_SETTINGS = {
   field_length: 50,
-  field_width: 25, // Standard 5v5 width
+  field_width: 25,
   endzone_size: 7,
   line_of_scrimmage: 5,
-  first_down: 25, // yard line for first down (e.g. midfield on 50yd field)
+  first_down: 25,
+  default_play_view: 'fit' as const,
+  default_play_type: 'offense' as const,
+  show_ghost_defense_by_default: false,
+  default_ghost_defense_play_id: null as string | null,
+  sidebar_start_collapsed: false,
+  show_player_names_on_canvas: true,
 }
 
 export const FIELD_COLORS = {
