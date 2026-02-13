@@ -212,8 +212,8 @@
                   <Input
                     type="number"
                     :model-value="settings.field_length"
-                    @update:model-value="(v: string | number) => debouncedUpdate({ field_length: Number(v) })"
-                    :min="40"
+                    @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ field_length: Number(v) }))"
+                    :min="50"
                     :max="100"
                     class="config-input"
                   />
@@ -227,9 +227,9 @@
                   <Input
                     type="number"
                     :model-value="settings.field_width"
-                    @update:model-value="(v: string | number) => debouncedUpdate({ field_width: Number(v) })"
-                    :min="20"
-                    :max="53"
+                    @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ field_width: Number(v) }))"
+                    :min="25"
+                    :max="50"
                     class="config-input"
                   />
                   <span class="config-unit">yards</span>
@@ -242,9 +242,9 @@
                   <Input
                     type="number"
                     :model-value="settings.endzone_size"
-                    @update:model-value="(v: string | number) => debouncedUpdate({ endzone_size: Number(v) })"
+                    @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ endzone_size: Number(v) }))"
                     :min="5"
-                    :max="20"
+                    :max="10"
                     class="config-input"
                   />
                   <span class="config-unit">yards</span>
@@ -253,13 +253,14 @@
 
               <div class="config-field">
                 <Label class="config-label">Line of Scrimmage</Label>
+                <p class="text-muted-foreground text-xs mt-0.5 mb-1">Yard line (not in endzone)</p>
                 <div class="config-input-row">
                   <Input
                     type="number"
                     :model-value="settings.line_of_scrimmage"
-                    @update:model-value="(v: string | number) => debouncedUpdate({ line_of_scrimmage: Number(v) })"
+                    @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ line_of_scrimmage: Number(v) }))"
                     :min="1"
-                    :max="69"
+                    :max="Math.max(1, (settings.field_length ?? 70) - 1)"
                     class="config-input"
                   />
                   <span class="config-unit">yard line</span>
@@ -268,13 +269,14 @@
 
               <div class="config-field">
                 <Label class="config-label">First Down Line</Label>
+                <p class="text-muted-foreground text-xs mt-0.5 mb-1">Yard line (between LOS and endzone)</p>
                 <div class="config-input-row">
                   <Input
                     type="number"
                     :model-value="settings.first_down ?? Math.floor(settings.field_length / 2)"
-                    @update:model-value="(v: string | number) => debouncedUpdate({ first_down: Number(v) })"
-                    :min="1"
-                    :max="69"
+                    @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ first_down: Number(v) }))"
+                    :min="settings.line_of_scrimmage ?? 1"
+                    :max="Math.max(1, (settings.field_length ?? 70) - 1)"
                     class="config-input"
                   />
                   <span class="config-unit">yard line</span>
@@ -588,6 +590,25 @@ watch(
   { immediate: true }
 )
 
+// Clamp dimension inputs to valid ranges before sending (50–100 length, 25–50 width, 5–10 endzone, LOS/first down in bounds)
+function clampFieldUpdate(updates: Partial<FieldSettings>): Partial<FieldSettings> {
+  const s = settings.value
+  if (!s) return updates
+  const merged = { ...s, ...updates }
+  const out: Partial<FieldSettings> = {}
+  if (updates.field_length != null) out.field_length = Math.max(50, Math.min(100, Number(updates.field_length)))
+  if (updates.field_width != null) out.field_width = Math.max(25, Math.min(50, Number(updates.field_width)))
+  if (updates.endzone_size != null) out.endzone_size = Math.max(5, Math.min(10, Number(updates.endzone_size)))
+  const fieldLength = out.field_length ?? merged.field_length ?? 70
+  const losMax = Math.max(1, fieldLength - 1)
+  if (updates.line_of_scrimmage != null) out.line_of_scrimmage = Math.max(1, Math.min(losMax, Number(updates.line_of_scrimmage)))
+  if (updates.first_down != null) {
+    const los = out.line_of_scrimmage ?? merged.line_of_scrimmage ?? 25
+    out.first_down = Math.max(los, Math.min(losMax, Number(updates.first_down)))
+  }
+  return Object.keys(out).length ? out : updates
+}
+
 // Debounced field settings update
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function debouncedUpdate(updates: Partial<FieldSettings>) {
@@ -754,13 +775,13 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: auto;
-  min-height: 0;
-  margin: 16px;
+  margin: -24px 16px 16px 16px;
   border-radius: 12px;
   border: 1px solid var(--color-border);
   background: var(--color-card);
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  flex-shrink: 0;
+  min-height: min-content;
 }
 
 .settings-panel {

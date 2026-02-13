@@ -5,6 +5,8 @@ interface ConfirmState {
   actionLabel: string
   variant: 'destructive' | 'default'
   resolve: ((value: boolean) => void) | null
+  /** Set by handleAction so onOpenChange doesn't resolve false when dialog closes after confirm */
+  actionClicked: boolean
 }
 
 const state = reactive<ConfirmState>({
@@ -14,6 +16,7 @@ const state = reactive<ConfirmState>({
   actionLabel: 'Confirm',
   variant: 'destructive',
   resolve: null,
+  actionClicked: false,
 })
 
 export function useConfirm() {
@@ -24,6 +27,7 @@ export function useConfirm() {
     variant?: 'destructive' | 'default'
   }): Promise<boolean> {
     return new Promise((resolve) => {
+      state.actionClicked = false
       state.title = options.title
       state.description = options.description
       state.actionLabel = options.actionLabel ?? 'Confirm'
@@ -34,6 +38,7 @@ export function useConfirm() {
   }
 
   function handleAction() {
+    state.actionClicked = true
     state.open = false
     state.resolve?.(true)
     state.resolve = null

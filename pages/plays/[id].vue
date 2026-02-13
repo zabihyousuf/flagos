@@ -104,7 +104,7 @@
                 No defense plays in this playbook
               </DropdownMenuItem>
             </template>
-            <template v-else-if="ghostPlaysLoading">
+            <template v-else-if="ghostPlaysLoading && defensePlaysForGhost.length === 0">
               <DropdownMenuItem disabled class="text-muted-foreground text-[12px]">
                 Loading…
               </DropdownMenuItem>
@@ -135,7 +135,7 @@
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>Zoom to the line of scrimmage</p>
+                <p>Fill the canvas with the field (top to bottom)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -152,7 +152,7 @@
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>Show the full field</p>
+                <p>Center the field and show all of it</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -198,9 +198,15 @@
         />
       </div>
 
-      <!-- Center: Canvas (same space always; right column reserves width so this doesn't shift) -->
-      <div class="flex-1 min-w-0 flex justify-center items-center">
-        <div class="w-full h-full max-w-3xl xl:max-w-4xl max-h-full min-w-0">
+      <!-- Center: Fit = canvas at bottom filling space; Full = centered so whole field is centered -->
+      <div
+        class="flex-1 min-w-0 flex flex-col items-center play-canvas-column"
+        :class="viewMode === 'full' ? 'justify-center' : 'justify-end'"
+      >
+        <div
+          class="w-full max-w-3xl xl:max-w-4xl min-w-0 play-canvas-wrapper"
+          :class="viewMode === 'fit' ? 'play-canvas-wrapper-fit' : ''"
+        >
           <PlayCanvas
             ref="canvasRef"
             :initial-data="currentPlay.canvas_data"
@@ -565,6 +571,7 @@ async function handleTypeChange(type: 'offense' | 'defense') {
   // Reset canvas for new type. Don't mark dirty here — only user edits set dirty,
   // so we won't show the switch-confirm modal when toggling offense ↔ defense with no edits.
   nextTick(() => {
+    canvasRef.value?.selectPlayer(null)
     canvasRef.value?.resetFormation(type, starters.value, {
       los: fieldSettingsData.value.line_of_scrimmage,
       length: fieldSettingsData.value.field_length,
@@ -780,3 +787,21 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.play-canvas-wrapper {
+  height: 82%;
+  min-height: 55vh;
+  max-height: 100%;
+}
+/* Fit mode: use full column height so the field fills the entire middle area */
+.play-canvas-wrapper-fit {
+  height: 100%;
+  min-height: 0;
+}
+.play-canvas-wrapper :deep(canvas) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+</style>

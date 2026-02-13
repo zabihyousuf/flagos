@@ -1,4 +1,5 @@
 import type { CanvasData, CanvasPlayer, CanvasTool } from '~/lib/types'
+import type { ContentBounds, ViewTransform } from '~/composables/useCanvasRenderer'
 import { computeFieldRect, computeViewTransform } from '~/composables/useCanvasRenderer'
 
 interface InteractionOptions {
@@ -10,6 +11,10 @@ interface InteractionOptions {
   panOffset: Ref<{ x: number; y: number }>
   fieldSettings: Ref<{ field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }>
   viewMode?: Ref<'fit' | 'full'>
+  /** When set (e.g. ghost defense in fit view), use same transform as renderer so hit-test matches */
+  contentBounds?: Ref<ContentBounds | undefined>
+  /** When set, use this transform (from last render) so hit-test exactly matches drawn frame; overrides contentBounds */
+  lastViewTransform?: Ref<ViewTransform | null>
   onSelectPlayer: (id: string | null) => void
   onMovePlayer: (id: string, x: number, y: number) => void
   onStartSegment: (playerId: string, x: number, y: number) => void
@@ -52,6 +57,7 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
       fieldWidth: fs.field_width,
       endzoneSize: fs.endzone_size,
       zoom: options.zoom.value,
+      viewMode: options.viewMode?.value,
     })
   }
 
@@ -67,19 +73,26 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     const logicalH = canvas.height / dpr
     const fs = options.fieldSettings.value
 
-    const view = computeViewTransform(logicalW, logicalH, fieldRect, {
-      fieldLength: fs.field_length,
-      endzoneSize: fs.endzone_size,
-      lineOfScrimmage: fs.line_of_scrimmage,
-      viewMode: options.viewMode?.value,
-    })
+    const view =
+      options.lastViewTransform?.value != null
+        ? options.lastViewTransform.value
+        : computeViewTransform(logicalW, logicalH, fieldRect, {
+            fieldLength: fs.field_length,
+            endzoneSize: fs.endzone_size,
+            lineOfScrimmage: fs.line_of_scrimmage,
+            viewMode: options.viewMode?.value,
+            contentBounds: options.contentBounds?.value,
+          })
 
     const effectiveZoom = view.zoom * options.zoom.value
     const effectivePanX = view.panX + options.panOffset.value.x
     const effectivePanY = view.panY + options.panOffset.value.y
 
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
+    // Map from display (bounding rect) to logical canvas size so hit-test matches render in all view modes
+    const scaleX = logicalW / (rect.width || 1)
+    const scaleY = logicalH / (rect.height || 1)
+    const mx = (e.clientX - rect.left) * scaleX
+    const my = (e.clientY - rect.top) * scaleY
 
     const cx = (mx - effectivePanX) / effectiveZoom
     const cy = (my - effectivePanY) / effectiveZoom

@@ -6,10 +6,10 @@
         <AlertDialogDescription>{{ state.description }}</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel @click="handleCancel">Cancel</AlertDialogCancel>
+        <AlertDialogCancel @click.prevent="handleCancel">Cancel</AlertDialogCancel>
         <AlertDialogAction
           :class="state.variant === 'destructive' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''"
-          @click="handleAction"
+          @click.capture.prevent="handleAction"
         >
           {{ state.actionLabel }}
         </AlertDialogAction>
@@ -34,9 +34,10 @@ const { state, handleAction, handleCancel } = useConfirm()
 
 function onOpenChange(open: boolean) {
   state.open = open
-  if (!open && state.resolve) {
+  if (!open && state.resolve && !state.actionClicked) {
     state.resolve(false)
     state.resolve = null
   }
+  if (!open) state.actionClicked = false
 }
 </script>

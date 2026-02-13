@@ -26,7 +26,6 @@ export interface RenderOptions {
 }
 
 const PADDING = 12
-const FIT_VISIBLE_YARDS = 24
 
 const COLORS = {
   background: 'transparent',
@@ -48,17 +47,19 @@ const COLORS = {
 /**
  * Compute the aspect-ratio-correct field rectangle that fits within the canvas.
  * Always computed at zoom=1 (base coordinates). View transforms handle zoom.
+ * In fit mode, padding is 0 so the field can fill the canvas edge-to-edge.
  */
 export function computeFieldRect(
   logicalW: number,
   logicalH: number,
-  options: { fieldLength: number; fieldWidth: number; endzoneSize: number; zoom?: number },
+  options: { fieldLength: number; fieldWidth: number; endzoneSize: number; zoom?: number; viewMode?: 'fit' | 'full' },
 ) {
   const totalLength = options.fieldLength + options.endzoneSize * 2
   const aspectRatio = options.fieldWidth / totalLength
 
-  const availW = logicalW - PADDING * 2
-  const availH = logicalH - PADDING * 2
+  const padding = options.viewMode === 'fit' ? 0 : PADDING
+  const availW = logicalW - padding * 2
+  const availH = logicalH - padding * 2
 
   let fieldW: number
   let fieldH: number
@@ -77,40 +78,127 @@ export function computeFieldRect(
   return { offsetX, offsetY, fieldW, fieldH, totalLength }
 }
 
+/** Normalized 0–1 content bounds (e.g. players + LOS + ghost defense) for fit-view. */
+export type ContentBounds = { minX: number; minY: number; maxX: number; maxY: number }
+
 /**
  * Compute the effective zoom and pan for a given view mode.
- * - 'full': Shows the entire field (zoom=1, no pan)
- * - 'fit': Zooms into ~24 yards. Offense: centered on LOS. Defense: bottom of viewport is 1 yard below LOS.
+ * - 'full': Center the field and show all of it (zoom=1, no pan).
+ * - 'fit' (no contentBounds): Cover zoom; vertical pan biased so LOS/players stay in view.
+ * - 'fit' (with contentBounds, e.g. ghost defense): Zoom out so offense + last defender + LOS
+ *   all fit, then fill viewport (same aspect window so no letterboxing).
  */
 export function computeViewTransform(
   logicalW: number,
   logicalH: number,
   fieldRect: { offsetX: number; offsetY: number; fieldW: number; fieldH: number; totalLength: number },
-  options: { fieldLength: number; endzoneSize: number; lineOfScrimmage: number; viewMode?: 'fit' | 'full'; playType?: 'offense' | 'defense' },
+  options: {
+    fieldLength: number
+    endzoneSize: number
+    lineOfScrimmage: number
+    viewMode?: 'fit' | 'full'
+    playType?: 'offense' | 'defense'
+    /** When set (e.g. ghost defense), fit this content in view and fill viewport */
+    contentBounds?: ContentBounds
+  },
 ): { zoom: number; panX: number; panY: number } {
   if (options.viewMode === 'fit') {
-    const yardHeight = fieldRect.fieldH / fieldRect.totalLength
-    const fitZoom = logicalH / (FIT_VISIBLE_YARDS * yardHeight)
+    const { offsetX, offsetY, fieldW, fieldH, totalLength } = fieldRect
+    const yardHeight = fieldH / totalLength
+    const viewAspect = logicalW / logicalH
 
-    const fieldCenterX = fieldRect.offsetX + fieldRect.fieldW / 2
+    // When we have content bounds (ghost defense), zoom out so everyone fits, then fill viewport
+    if (options.contentBounds) {
+      const b = options.contentBounds
+      const contentWidthWorld = (b.maxX - b.minX) * fieldW
+      const contentHeightWorld = (b.maxY - b.minY) * fieldH
+      // Window (world) with viewport aspect that contains the content
+      const windowWWorld = Math.max(contentWidthWorld, contentHeightWorld * viewAspect)
+      const windowHWorld = windowWWorld / viewAspect
+      const fitZoom = logicalW / windowWWorld
+
+      const contentCenterXWorld = offsetX + (b.minX + b.maxX) / 2 * fieldW
+      const contentCenterYWorld = offsetY + (b.minY + b.maxY) / 2 * fieldH
+      let windowMinXWorld = contentCenterXWorld - windowWWorld / 2
+      let windowMinYWorld = contentCenterYWorld - windowHWorld / 2
+      windowMinXWorld = Math.max(offsetX, Math.min(offsetX + fieldW - windowWWorld, windowMinXWorld))
+      windowMinYWorld = Math.max(offsetY, Math.min(offsetY + fieldH - windowHWorld, windowMinYWorld))
+
+      const panX = -windowMinXWorld * fitZoom
+      const panY = -windowMinYWorld * fitZoom
+      return { zoom: fitZoom, panX, panY }
+    }
+
+    // No content bounds: cover zoom, LOS-biased pan
+    const zoomW = logicalW / fieldW
+    const zoomH = logicalH / fieldH
+    const fitZoom = Math.max(zoomW, zoomH)
+
+    const panX = logicalW / 2 - (offsetX + fieldW / 2) * fitZoom
+
     const losYardIndex = options.endzoneSize + options.fieldLength - options.lineOfScrimmage
-    const losY = fieldRect.offsetY + yardHeight * losYardIndex
+    const losY = offsetY + yardHeight * losYardIndex
+    const nearOffenseEndzone = options.lineOfScrimmage <= 15
+    const nearDefenseEndzone = options.lineOfScrimmage >= options.fieldLength - 15
+    const losScreenFraction = nearOffenseEndzone ? 0.4 : nearDefenseEndzone ? 0.28 : 0.35
+    let panY = logicalH * losScreenFraction - losY * fitZoom
 
-    // Defense: bottom of viewport = 1 yard below LOS → center view so bottom is at LOS+1
-    const isDefense = options.playType === 'defense'
-    const centerYard = isDefense
-      ? losYardIndex + 1 - FIT_VISIBLE_YARDS / 2
-      : losYardIndex
-    const centerY = fieldRect.offsetY + yardHeight * centerYard
-
-    const panX = logicalW / 2 - fieldCenterX * fitZoom
-    const panY = logicalH / 2 - centerY * fitZoom
+    const panYMin = logicalH - (offsetY + fieldH) * fitZoom
+    const panYMax = -offsetY * fitZoom
+    panY = Math.max(panYMin, Math.min(panYMax, panY))
 
     return { zoom: fitZoom, panX, panY }
   }
 
-  // Full mode — no extra transform
   return { zoom: 1, panX: 0, panY: 0 }
+}
+
+/** Content bounds in normalized 0–1 from offense + ghost defense + LOS (and routes so last defender is in view). */
+export function computeFitContentBounds(
+  players: CanvasPlayer[],
+  ghostPlayers: CanvasPlayer[],
+  totalLength: number,
+  options: { endzoneSize: number; fieldLength: number; lineOfScrimmage: number },
+): ContentBounds {
+  let minX = 1
+  let minY = 1
+  let maxX = 0
+  let maxY = 0
+
+  function add(x: number, y: number) {
+    const px = Math.max(0, Math.min(1, x))
+    const py = Math.max(0, Math.min(1, y))
+    minX = Math.min(minX, px)
+    minY = Math.min(minY, py)
+    maxX = Math.max(maxX, px)
+    maxY = Math.max(maxY, py)
+  }
+
+  const losYNorm = (options.endzoneSize + options.fieldLength - options.lineOfScrimmage) / totalLength
+  add(0.5, losYNorm)
+
+  for (const p of players) {
+    add(p.x, p.y)
+    for (const seg of p.route?.segments ?? []) {
+      for (const pt of seg.points) add(pt.x, pt.y)
+    }
+    for (const pt of p.motionPath ?? []) add(pt.x, pt.y)
+  }
+  for (const p of ghostPlayers) {
+    add(p.x, p.y)
+    for (const seg of p.route?.segments ?? []) {
+      for (const pt of seg.points) add(pt.x, pt.y)
+    }
+  }
+
+  if (minX > maxX) return { minX: 0.3, minY: Math.max(0, losYNorm - 0.1), maxX: 0.7, maxY: Math.min(1, losYNorm + 0.1) }
+  const pad = 0.04
+  return {
+    minX: Math.max(0, minX - pad),
+    minY: Math.max(0, minY - pad),
+    maxX: Math.min(1, maxX + pad),
+    maxY: Math.min(1, maxY + pad),
+  }
 }
 
 /** Bounding box in normalized 0–1 coords from all players, route points, and motion. */
@@ -143,26 +231,40 @@ function computePlayBbox(data: CanvasData): { minX: number; minY: number; maxX: 
   return { minX, minY, maxX, maxY }
 }
 
+export type ViewTransform = { zoom: number; panX: number; panY: number }
+
 export function useCanvasRenderer() {
   function render(
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,
     data: CanvasData,
     options: RenderOptions,
-  ) {
+  ): ViewTransform | undefined {
     const dpr = window.devicePixelRatio || 1
     const logicalW = canvas.width / dpr
     const logicalH = canvas.height / dpr
 
     if (options.thumbnailMode) {
       renderThumbnail(ctx, logicalW, logicalH, data)
-      return
+      return undefined
     }
 
-    const fieldRect = computeFieldRect(logicalW, logicalH, options)
+    const fieldRect = computeFieldRect(logicalW, logicalH, { ...options, viewMode: options.viewMode })
     const { offsetX, offsetY, fieldW, fieldH } = fieldRect
 
-    const view = computeViewTransform(logicalW, logicalH, fieldRect, options)
+    const contentBounds =
+      options.viewMode === 'fit' && options.ghostPlayers?.length
+        ? computeFitContentBounds(data.players, options.ghostPlayers, fieldRect.totalLength, {
+            endzoneSize: options.endzoneSize,
+            fieldLength: options.fieldLength,
+            lineOfScrimmage: options.lineOfScrimmage,
+          })
+        : undefined
+
+    const view = computeViewTransform(logicalW, logicalH, fieldRect, {
+      ...options,
+      contentBounds,
+    })
 
     // Combine view transform with user zoom/pan
     const effectiveZoom = view.zoom * options.zoom
@@ -219,6 +321,7 @@ export function useCanvasRenderer() {
 
     ctx.restore()
     ctx.restore()
+    return view
   }
 
   function drawField(
@@ -969,11 +1072,11 @@ export function useCanvasRenderer() {
       ctx.globalAlpha = 1
       ctx.restore()
 
-      const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
+      const label = player.designation ?? player.position ?? '?'
       ctx.save()
       ctx.globalAlpha = 0.85
       ctx.fillStyle = '#ffffff'
-      ctx.font = `bold ${Math.max(6, radius * 0.65)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(6, radius * 0.325)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
@@ -1088,9 +1191,9 @@ export function useCanvasRenderer() {
         ctx.fillStyle = '#ffffff'
       }
 
-      // Number/Designation text inside circle
+      // Number/Designation text inside circle (50% smaller than circle-proportional size)
       const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
-      ctx.font = `bold ${Math.max(11, radius * 0.7)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(6, radius * 0.35)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)

@@ -33,7 +33,18 @@ export function useFieldSettings() {
       if (err) throw err
 
       if (data) {
-        settings.value = data as FieldSettings
+        const raw = data as FieldSettings
+        const clamped = clampFieldSettings(raw)
+        const needsFix =
+          clamped.field_length !== raw.field_length ||
+          clamped.field_width !== raw.field_width ||
+          clamped.endzone_size !== raw.endzone_size ||
+          clamped.line_of_scrimmage !== raw.line_of_scrimmage ||
+          (raw.first_down != null && clamped.first_down !== raw.first_down)
+        settings.value = needsFix ? { ...raw, ...clamped } : raw
+        if (needsFix) {
+          updateSettings(clamped)
+        }
       } else {
         // Create default settings for this user
         // @ts-ignore
@@ -56,29 +67,40 @@ export function useFieldSettings() {
     }
   }
 
+  /** Clamp field settings to valid ranges (field length/width, endzone, LOS not in endzone, first down between LOS and endzone). */
+  function clampFieldSettings(merged: FieldSettings): Partial<FieldSettings> {
+    const fieldLength = Math.max(50, Math.min(100, merged.field_length ?? 70))
+    const fieldWidth = Math.max(25, Math.min(50, merged.field_width ?? 40))
+    const endzoneSize = Math.max(5, Math.min(10, merged.endzone_size ?? 10))
+    const losMax = Math.max(1, fieldLength - 1)
+    const lineOfScrimmage = Math.max(1, Math.min(losMax, merged.line_of_scrimmage ?? 25))
+    const firstDown = Math.max(lineOfScrimmage, Math.min(losMax, merged.first_down ?? Math.floor(fieldLength / 2)))
+    return {
+      field_length: fieldLength,
+      field_width: fieldWidth,
+      endzone_size: endzoneSize,
+      line_of_scrimmage: lineOfScrimmage,
+      first_down: firstDown,
+    }
+  }
+
+  const DIMENSION_KEYS = ['field_length', 'field_width', 'endzone_size', 'line_of_scrimmage', 'first_down'] as const
+
   /** Apply updates in the background without blocking the UI (no loading spinner). */
   async function updateSettings(updates: Partial<FieldSettings>) {
     if (!settings.value) return
-    // Enforce LOS cannot pass first down (top to bottom) when either is updated
-    const normalized = { ...updates }
-    if (updates.line_of_scrimmage != null || updates.first_down != null) {
-      const cur = settings.value
-      const los = updates.line_of_scrimmage ?? cur.line_of_scrimmage ?? 0
-      const fd = updates.first_down ?? cur.first_down ?? 0
-      if (updates.line_of_scrimmage != null) normalized.line_of_scrimmage = Math.min(los, fd)
-      if (updates.first_down != null) normalized.first_down = Math.max(fd, los)
-    }
+    const hasDimensionUpdate = DIMENSION_KEYS.some((k) => updates[k] != null)
+    const merged = { ...settings.value, ...updates }
+    const applied = hasDimensionUpdate ? { ...merged, ...clampFieldSettings(merged) } : merged
     const previous = { ...settings.value }
-    settings.value = { ...settings.value, ...normalized, updated_at: new Date().toISOString() }
+    settings.value = { ...applied, updated_at: new Date().toISOString() }
     error.value = null
     try {
-      // @ts-ignore
+      const payload: Partial<FieldSettings> = { ...updates, updated_at: new Date().toISOString() as any }
+      if (hasDimensionUpdate) Object.assign(payload, clampFieldSettings(applied))
       const { data, error: err } = await client
         .from('field_settings')
-        .update({
-          ...normalized,
-          updated_at: new Date().toISOString(),
-        })
+        .update(payload)
         .eq('id', previous.id)
         .select()
         .single()

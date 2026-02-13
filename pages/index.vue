@@ -35,7 +35,7 @@
     <!-- Welcome Header: greeting changes daily; name in cursive -->
     <div>
       <h2 class="text-2xl font-semibold tracking-tight font-display">
-        {{ dailyGreeting }}{{ displayName ? ', ' : '' }}<span v-if="displayName" class="welcome-name">{{ displayName }}</span>
+        <span class="welcome-greeting">{{ dailyGreeting }}{{ displayName ? ', ' : '' }}</span><span v-if="displayName" class="welcome-name">{{ displayName }}</span>
       </h2>
     </div>
 
@@ -75,7 +75,7 @@
       <!-- Recent Plays (2/3 width on xl) -->
       <div class="xl:col-span-2 min-w-0">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold font-display">Recent Plays</h3>
+          <h3 class="text-lg font-semibold font-display">Recent Plays ({{ recentPlays.length }})</h3>
           <NuxtLink to="/plays" class="text-sm text-primary hover:underline">View all</NuxtLink>
         </div>
         
@@ -125,14 +125,8 @@
           <NuxtLink to="/settings" class="text-xs text-primary hover:underline mt-1">Set in Settings</NuxtLink>
         </div>
 
-        <div v-else class="team-card glass">
-          <!-- Spell out T E A M as letter blocks -->
-          <div class="team-letters">
-            <span class="team-letter" data-letter="T">T</span>
-            <span class="team-letter" data-letter="E">E</span>
-            <span class="team-letter" data-letter="A">A</span>
-            <span class="team-letter" data-letter="M">M</span>
-          </div>
+        <!-- white background with border -->
+        <div v-else class="team-card bg-white rounded-lg p-4">
           <div class="team-info">
             <p class="team-name">{{ primaryTeam.name }}</p>
             <p v-if="primaryTeam.description" class="team-description">{{ primaryTeam.description }}</p>
@@ -341,10 +335,15 @@ onMounted(async () => {
 
 <style scoped>
 /* Welcome: user name in cursive (Parisienne – Google Fonts “Hello Paris” style) */
+.welcome-greeting {
+  color: var(--color-muted-foreground);
+  font-weight: 500;
+}
 .welcome-name {
   font-family: 'Parisienne', cursive;
   font-weight: 400;
   font-size: 1.35em;
+  color: var(--color-foreground);
 }
 
 /* Quick Play CTA */

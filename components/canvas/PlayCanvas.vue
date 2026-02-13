@@ -32,6 +32,8 @@
 <script setup lang="ts">
 import type { CanvasData, CanvasPlayer, Player } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
+import type { ViewTransform } from '~/composables/useCanvasRenderer'
+import { computeFitContentBounds, useCanvasRenderer } from '~/composables/useCanvasRenderer'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
 import { Trash2 } from 'lucide-vue-next'
 
@@ -141,6 +143,17 @@ const chipPlayerHasRoute = computed(() => {
 })
 
 const { render } = useCanvasRenderer()
+
+const contentBoundsRef = computed(() => {
+  if (props.viewMode !== 'fit' || !props.ghostPlayers?.length) return undefined
+  const fs = fieldSettings.value
+  const totalLength = fs.field_length + fs.endzone_size * 2
+  return computeFitContentBounds(canvasData.value.players, props.ghostPlayers, totalLength, {
+    endzoneSize: fs.endzone_size,
+    fieldLength: fs.field_length,
+    lineOfScrimmage: fs.line_of_scrimmage,
+  })
+})
 const { buildRouteForType } = useRouteAnalysis()
 const { suggestPlay } = useSuggestPlay()
 
@@ -165,12 +178,14 @@ function onSelectPlayerForMove(playerId: string) {
   selectPlayer(playerId)
 }
 
+const lastViewTransform = ref<ViewTransform | null>(null)
+
 function requestRender() {
   if (!canvasRef.value) return
   const ctx = canvasRef.value.getContext('2d')
   if (!ctx) return
 
-  render(ctx, canvasRef.value, canvasData.value, {
+  const view = render(ctx, canvasRef.value, canvasData.value, {
     fieldLength: fieldSettings.value.field_length,
     fieldWidth: fieldSettings.value.field_width,
     endzoneSize: fieldSettings.value.endzone_size,
@@ -185,6 +200,7 @@ function requestRender() {
     showPlayerNames: props.showPlayerNames !== false,
     suggestedRoutePreview: props.suggestedRoutePreview ?? null,
   })
+  lastViewTransform.value = view ?? null
 }
 
 const viewModeRef = computed(() => props.viewMode ?? 'fit')
@@ -198,6 +214,8 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   panOffset,
   fieldSettings,
   viewMode: viewModeRef,
+  contentBounds: contentBoundsRef,
+  lastViewTransform,
   onSelectPlayer: selectPlayer,
   onMovePlayer: updatePlayerPosition,
   onStartSegment: startRouteSegment,
