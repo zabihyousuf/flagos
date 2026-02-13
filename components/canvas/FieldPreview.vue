@@ -14,6 +14,9 @@
 
 <script setup lang="ts">
 import { POSITION_COLORS } from '~/lib/constants'
+import { useTheme } from '~/composables/useTheme'
+
+const theme = useTheme()
 
 const props = withDefaults(defineProps<{
   fieldLength?: number
@@ -25,6 +28,8 @@ const props = withDefaults(defineProps<{
   /** Fixed height in px, or omit to fill container (100%). */
   height?: number
   showPlayers?: boolean
+  /** Use smaller padding so the field draws larger (e.g. on settings page). */
+  compactPadding?: boolean
 }>(), {
   fieldLength: 70,
   fieldWidth: 40,
@@ -32,6 +37,7 @@ const props = withDefaults(defineProps<{
   lineOfScrimmage: 25,
   height: undefined,
   showPlayers: true,
+  compactPadding: false,
 })
 
 const emit = defineEmits<{
@@ -57,6 +63,7 @@ const layoutRef = ref<{
   yardHeight: number
   fieldLength: number
   endzoneSize: number
+  padding: number
 } | null>(null)
 
 const hoverLine = ref<'los' | 'firstDown' | null>(null)
@@ -64,7 +71,6 @@ const draggingLine = ref<'los' | 'firstDown' | null>(null)
 /** Local yard value while dragging for immediate visual feedback (parent may debounce) */
 const dragYard = ref<number | null>(null)
 
-const PADDING = 40
 const HIT_THRESHOLD = 10
 
 // Match play designer field (grass green)
@@ -87,6 +93,14 @@ const COLORS = {
   dimensionText: '#000',
 }
 
+/** Theme-aware dimension colors (X/Y markers) for use in drawDimensionAnnotations */
+function getDimensionColors(isDark: boolean) {
+  return {
+    dimensionLine: isDark ? 'rgb(250, 250, 249)' : '#000',
+    dimensionText: isDark ? 'rgb(250, 250, 249)' : '#000',
+  }
+}
+
 function renderField() {
   const canvas = canvasRef.value
   const container = containerRef.value
@@ -107,14 +121,19 @@ function renderField() {
   const canvasW = rect.width
   const canvasH = rect.height
 
+  const padding = props.compactPadding ? 16 : 40
+  // Reserve space for dimension labels so "X yards" / "Y yards" are not cut off
+  const dimMarginRight = 64
+  const dimMarginBottom = 32
+
   const { fieldLength, fieldWidth, endzoneSize, lineOfScrimmage } = props
   const totalLength = fieldLength + endzoneSize * 2
 
   // Calculate aspect-ratio-correct field dimensions
   // The field is taller than wide (length > width), oriented vertically
   const aspectRatio = fieldWidth / totalLength // e.g. 25/79 ≈ 0.316
-  const availW = canvasW - PADDING * 2
-  const availH = canvasH - PADDING * 2
+  const availW = canvasW - padding * 2 - dimMarginRight
+  const availH = canvasH - padding * 2 - dimMarginBottom
 
   let fieldW: number, fieldH: number
   // Fit within available space while preserving aspect ratio
@@ -142,6 +161,7 @@ function renderField() {
     yardHeight,
     fieldLength,
     endzoneSize,
+    padding,
   }
 
   // Canvas background (transparent so container shows; or fill if needed)
@@ -150,18 +170,18 @@ function renderField() {
     ctx.fillRect(0, 0, canvasW, canvasH)
   }
 
-  // Translate so that PADDING-based drawing is centered
+  // Translate so that padding-based drawing is centered
   ctx.save()
-  ctx.translate(offsetX - PADDING, offsetY - PADDING)
+  ctx.translate(offsetX - padding, offsetY - padding)
 
   // Field fill (very light grey)
   ctx.fillStyle = COLORS.fieldFill
-  ctx.fillRect(PADDING, PADDING + yardHeight * endzoneSize, fieldW, yardHeight * fieldLength)
+  ctx.fillRect(padding, padding + yardHeight * endzoneSize, fieldW, yardHeight * fieldLength)
 
   // Endzones (slightly different grey)
   ctx.fillStyle = COLORS.endzoneFill
-  ctx.fillRect(PADDING, PADDING, fieldW, yardHeight * endzoneSize)
-  ctx.fillRect(PADDING, PADDING + fieldH - yardHeight * endzoneSize, fieldW, yardHeight * endzoneSize)
+  ctx.fillRect(padding, padding, fieldW, yardHeight * endzoneSize)
+  ctx.fillRect(padding, padding + fieldH - yardHeight * endzoneSize, fieldW, yardHeight * endzoneSize)
 
   // Endzone text
   ctx.fillStyle = COLORS.endzoneText
@@ -170,36 +190,36 @@ function renderField() {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.letterSpacing = `${ezFontSize * 0.35}px`
-  ctx.fillText('END ZONE', PADDING + fieldW / 2, PADDING + (yardHeight * endzoneSize) / 2)
-  ctx.fillText('END ZONE', PADDING + fieldW / 2, PADDING + fieldH - (yardHeight * endzoneSize) / 2)
+  ctx.fillText('END ZONE', padding + fieldW / 2, padding + (yardHeight * endzoneSize) / 2)
+  ctx.fillText('END ZONE', padding + fieldW / 2, padding + fieldH - (yardHeight * endzoneSize) / 2)
   ctx.letterSpacing = '0px'
 
   // Field border
   ctx.strokeStyle = COLORS.fieldBorder
   ctx.lineWidth = 1.5
-  ctx.strokeRect(PADDING, PADDING, fieldW, fieldH)
+  ctx.strokeRect(padding, padding, fieldW, fieldH)
 
   // Endzone lines
   ctx.strokeStyle = COLORS.endzoneBorder
   ctx.lineWidth = 1.5
   ctx.beginPath()
-  ctx.moveTo(PADDING, PADDING + yardHeight * endzoneSize)
-  ctx.lineTo(PADDING + fieldW, PADDING + yardHeight * endzoneSize)
-  ctx.moveTo(PADDING, PADDING + fieldH - yardHeight * endzoneSize)
-  ctx.lineTo(PADDING + fieldW, PADDING + fieldH - yardHeight * endzoneSize)
+  ctx.moveTo(padding, padding + yardHeight * endzoneSize)
+  ctx.lineTo(padding + fieldW, padding + yardHeight * endzoneSize)
+  ctx.moveTo(padding, padding + fieldH - yardHeight * endzoneSize)
+  ctx.lineTo(padding + fieldW, padding + fieldH - yardHeight * endzoneSize)
   ctx.stroke()
 
   // Yard lines every 5 yards
   ctx.setLineDash([])
   for (let yard = 5; yard < fieldLength; yard += 5) {
-    const y = PADDING + yardHeight * (endzoneSize + yard)
+    const y = padding + yardHeight * (endzoneSize + yard)
     const isMajor = yard % 10 === 0
 
     ctx.strokeStyle = isMajor ? COLORS.yardLine : COLORS.yardLineLight
     ctx.lineWidth = isMajor ? 1 : 0.7
     ctx.beginPath()
-    ctx.moveTo(PADDING, y)
-    ctx.lineTo(PADDING + fieldW, y)
+    ctx.moveTo(padding, y)
+    ctx.lineTo(padding + fieldW, y)
     ctx.stroke()
 
     // Yard numbers — mirrored from each end
@@ -210,8 +230,8 @@ function renderField() {
       ctx.font = `600 ${numFontSize}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(`${displayYard}`, PADDING + 20, y)
-      ctx.fillText(`${displayYard}`, PADDING + fieldW - 20, y)
+      ctx.fillText(`${displayYard}`, padding + 20, y)
+      ctx.fillText(`${displayYard}`, padding + fieldW - 20, y)
     }
   }
 
@@ -220,14 +240,14 @@ function renderField() {
   ctx.lineWidth = 0.7
   for (let yard = 1; yard < fieldLength; yard++) {
     if (yard % 5 === 0) continue
-    const y = PADDING + yardHeight * (endzoneSize + yard)
+    const y = padding + yardHeight * (endzoneSize + yard)
     ctx.beginPath()
-    ctx.moveTo(PADDING + fieldW * 0.33, y)
-    ctx.lineTo(PADDING + fieldW * 0.33 + 6, y)
+    ctx.moveTo(padding + fieldW * 0.33, y)
+    ctx.lineTo(padding + fieldW * 0.33 + 6, y)
     ctx.stroke()
     ctx.beginPath()
-    ctx.moveTo(PADDING + fieldW * 0.67 - 6, y)
-    ctx.lineTo(PADDING + fieldW * 0.67, y)
+    ctx.moveTo(padding + fieldW * 0.67 - 6, y)
+    ctx.lineTo(padding + fieldW * 0.67, y)
     ctx.stroke()
   }
 
@@ -237,7 +257,7 @@ function renderField() {
   const firstDownValue = draggingLine.value === 'firstDown' && dragYard.value != null ? dragYard.value : rawFirstDown
   const firstDownCap = Math.max(1, Math.min(fieldLength - 1, firstDownValue))
   const effectiveLOS = Math.min(losValue, firstDownCap)
-  const losY = PADDING + yardHeight * (endzoneSize + fieldLength - effectiveLOS)
+  const losY = padding + yardHeight * (endzoneSize + fieldLength - effectiveLOS)
   const losHover = hoverLine.value === 'los' || draggingLine.value === 'los'
   ctx.save()
   ctx.shadowColor = COLORS.los
@@ -246,8 +266,8 @@ function renderField() {
   ctx.lineWidth = losHover ? 3 : 2
   ctx.setLineDash([8, 4])
   ctx.beginPath()
-  ctx.moveTo(PADDING, losY)
-  ctx.lineTo(PADDING + fieldW, losY)
+  ctx.moveTo(padding, losY)
+  ctx.lineTo(padding + fieldW, losY)
   ctx.stroke()
   ctx.setLineDash([])
   ctx.restore()
@@ -263,18 +283,18 @@ function renderField() {
 
   ctx.fillStyle = 'rgba(6, 182, 212, 0.12)'
   ctx.beginPath()
-  ctx.roundRect(PADDING + 5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
+  ctx.roundRect(padding + 5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
   ctx.fill()
   ctx.fillStyle = COLORS.los
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
-  ctx.fillText(losText, PADDING + 5 + pillPx, losY + 5 + pillPy)
+  ctx.fillText(losText, padding + 5 + pillPx, losY + 5 + pillPy)
 
   // First down line (yard line from offense goal). First down cannot be less than LOS (top to bottom).
   const effectiveFirstDown = Math.max(firstDownValue, effectiveLOS)
   const clampedFirstDown = Math.max(1, Math.min(fieldLength - 1, effectiveFirstDown))
   if (clampedFirstDown > 0 && clampedFirstDown < fieldLength) {
-    const fdY = PADDING + yardHeight * (endzoneSize + fieldLength - clampedFirstDown)
+    const fdY = padding + yardHeight * (endzoneSize + fieldLength - clampedFirstDown)
     const fdHover = hoverLine.value === 'firstDown' || draggingLine.value === 'firstDown'
     ctx.save()
     ctx.shadowColor = COLORS.firstDown
@@ -283,8 +303,8 @@ function renderField() {
     ctx.lineWidth = fdHover ? 2.5 : 1.5
     ctx.setLineDash([6, 3])
     ctx.beginPath()
-    ctx.moveTo(PADDING, fdY)
-    ctx.lineTo(PADDING + fieldW, fdY)
+    ctx.moveTo(padding, fdY)
+    ctx.lineTo(padding + fieldW, fdY)
     ctx.stroke()
     ctx.setLineDash([])
     ctx.restore()
@@ -294,13 +314,13 @@ function renderField() {
     const fdTextW = ctx.measureText(fdText).width
     ctx.fillStyle = 'rgba(245, 158, 11, 0.1)'
     ctx.beginPath()
-    ctx.roundRect(PADDING + fieldW - fdTextW - pillPx * 2 - 5, fdY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
+    ctx.roundRect(padding + fieldW - fdTextW - pillPx * 2 - 5, fdY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
     ctx.fill()
     ctx.fillStyle = COLORS.firstDown
     ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-    ctx.fillText(fdText, PADDING + fieldW - fdTextW - pillPx - 5, fdY + 5 + pillPy)
+    ctx.fillText(fdText, padding + fieldW - fdTextW - pillPx - 5, fdY + 5 + pillPy)
   }
 
   // No-Run Zones (5 yards from each endzone)
@@ -309,20 +329,20 @@ function renderField() {
     { start: fieldLength - 5, end: fieldLength },
   ]
   nrzZones.forEach(zone => {
-    const zoneStartY = PADDING + yardHeight * (endzoneSize + zone.start)
-    const zoneEndY = PADDING + yardHeight * (endzoneSize + zone.end)
+    const zoneStartY = padding + yardHeight * (endzoneSize + zone.start)
+    const zoneEndY = padding + yardHeight * (endzoneSize + zone.end)
     ctx.fillStyle = COLORS.nrz
-    ctx.fillRect(PADDING, zoneStartY, fieldW, zoneEndY - zoneStartY)
+    ctx.fillRect(padding, zoneStartY, fieldW, zoneEndY - zoneStartY)
     ctx.strokeStyle = COLORS.nrzBorder
     ctx.lineWidth = 1
     ctx.setLineDash([3, 3])
     ctx.beginPath()
     if (zone.start > 0) {
-      ctx.moveTo(PADDING, zoneStartY)
-      ctx.lineTo(PADDING + fieldW, zoneStartY)
+      ctx.moveTo(padding, zoneStartY)
+      ctx.lineTo(padding + fieldW, zoneStartY)
     }
-    ctx.moveTo(PADDING, zoneEndY)
-    ctx.lineTo(PADDING + fieldW, zoneEndY)
+    ctx.moveTo(padding, zoneEndY)
+    ctx.lineTo(padding + fieldW, zoneEndY)
     ctx.stroke()
     ctx.setLineDash([])
   })
@@ -330,11 +350,13 @@ function renderField() {
   // Draw players at LOS (use effective LOS so they follow while dragging)
   if (props.showPlayers) {
     const losYFraction = (endzoneSize + fieldLength - effectiveLOS) / totalLength
-    drawPlayersAtLOS(ctx, fieldW, fieldH, losYFraction)
+    drawPlayersAtLOS(ctx, fieldW, fieldH, losYFraction, padding)
   }
 
-  // Dimension annotations
-  drawDimensionAnnotations(ctx, fieldW, fieldH, yardHeight)
+  // Dimension annotations (theme-aware so X/Y markers respect dark mode)
+  const isDark = document.documentElement.classList.contains('dark')
+  const dimColors = getDimensionColors(isDark)
+  drawDimensionAnnotations(ctx, fieldW, fieldH, yardHeight, dimColors, padding)
 
   // Restore from translate
   ctx.restore()
@@ -345,6 +367,7 @@ function drawPlayersAtLOS(
   fieldW: number,
   fieldH: number,
   losYFraction: number,
+  padding: number,
 ) {
   const radius = Math.max(13, fieldW * 0.032)
   const yardToFraction = 1 / (props.fieldLength + props.endzoneSize * 2)
@@ -358,8 +381,8 @@ function drawPlayersAtLOS(
   ]
 
   offensePlayers.forEach((player) => {
-    const px = PADDING + player.x * fieldW
-    const py = PADDING + (losYFraction + player.yOffset * yardToFraction) * fieldH
+    const px = padding + player.x * fieldW
+    const py = padding + (losYFraction + player.yOffset * yardToFraction) * fieldH
     const color = POSITION_COLORS[player.position] ?? '#888888'
 
     // Drop shadow
@@ -399,45 +422,47 @@ function drawDimensionAnnotations(
   fieldW: number,
   fieldH: number,
   yardHeight: number,
+  dimColors: { dimensionLine: string; dimensionText: string },
+  padding: number,
 ) {
   const fontSize = Math.max(10, fieldW * 0.02)
 
   // Width annotation (horizontal at bottom)
-  const annoY = PADDING + fieldH + 16
-  ctx.strokeStyle = COLORS.dimensionLine
+  const annoY = padding + fieldH + 16
+  ctx.strokeStyle = dimColors.dimensionLine
   ctx.lineWidth = 0.8
   ctx.beginPath()
-  ctx.moveTo(PADDING, annoY)
-  ctx.lineTo(PADDING + fieldW, annoY)
+  ctx.moveTo(padding, annoY)
+  ctx.lineTo(padding + fieldW, annoY)
   ctx.stroke()
 
-  ctx.fillStyle = COLORS.dimensionLine
-  drawSmallArrow(ctx, PADDING, annoY, 'right')
-  drawSmallArrow(ctx, PADDING + fieldW, annoY, 'left')
+  ctx.fillStyle = dimColors.dimensionLine
+  drawSmallArrow(ctx, padding, annoY, 'right')
+  drawSmallArrow(ctx, padding + fieldW, annoY, 'left')
 
-  ctx.fillStyle = COLORS.dimensionText
+  ctx.fillStyle = dimColors.dimensionText
   ctx.font = `500 ${fontSize}px Inter, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillText(`${props.fieldWidth} yards`, PADDING + fieldW / 2, annoY + 4)
+  ctx.fillText(`${props.fieldWidth} yards`, padding + fieldW / 2, annoY + 4)
 
   // Length annotation (vertical on right)
-  const annoX = PADDING + fieldW + 16
-  const fieldStartY = PADDING + yardHeight * props.endzoneSize
-  const fieldEndY = PADDING + fieldH - yardHeight * props.endzoneSize
-  ctx.strokeStyle = COLORS.dimensionLine
+  const annoX = padding + fieldW + 16
+  const fieldStartY = padding + yardHeight * props.endzoneSize
+  const fieldEndY = padding + fieldH - yardHeight * props.endzoneSize
+  ctx.strokeStyle = dimColors.dimensionLine
   ctx.lineWidth = 0.8
   ctx.beginPath()
   ctx.moveTo(annoX, fieldStartY)
   ctx.lineTo(annoX, fieldEndY)
   ctx.stroke()
 
-  ctx.fillStyle = COLORS.dimensionLine
+  ctx.fillStyle = dimColors.dimensionLine
   drawSmallArrow(ctx, annoX, fieldStartY, 'down')
   drawSmallArrow(ctx, annoX, fieldEndY, 'up')
 
   ctx.save()
-  ctx.fillStyle = COLORS.dimensionText
+  ctx.fillStyle = dimColors.dimensionText
   ctx.font = `500 ${fontSize}px Inter, sans-serif`
   ctx.translate(annoX + 10, (fieldStartY + fieldEndY) / 2)
   ctx.rotate(-Math.PI / 2)
@@ -473,7 +498,7 @@ function drawSmallArrow(
 function canvasToDrawY(offsetY: number): number {
   const layout = layoutRef.value
   if (!layout) return 0
-  return offsetY - layout.offsetY + PADDING
+  return offsetY - layout.offsetY + layout.padding
 }
 
 /** Drawing Y to yard line from offense goal (1..fieldLength-1) */
@@ -481,7 +506,7 @@ function drawYToYardFromOffense(drawY: number): number {
   const layout = layoutRef.value
   if (!layout) return props.lineOfScrimmage ?? 25
   const { yardHeight, fieldLength, endzoneSize } = layout
-  const raw = fieldLength + endzoneSize - (drawY - PADDING) / yardHeight
+  const raw = fieldLength + endzoneSize - (drawY - layout.padding) / yardHeight
   return Math.max(1, Math.min(fieldLength - 1, Math.round(raw)))
 }
 
@@ -490,10 +515,10 @@ function hitTestLine(drawY: number): 'los' | 'firstDown' | null {
   const layout = layoutRef.value
   if (!layout) return null
   const { fieldLength, endzoneSize, yardHeight } = layout
-  const losY = PADDING + yardHeight * (endzoneSize + fieldLength - props.lineOfScrimmage)
+  const losY = layout.padding + yardHeight * (endzoneSize + fieldLength - props.lineOfScrimmage)
   const firstDownYard = props.firstDown ?? Math.floor(fieldLength / 2)
   const clampedFD = Math.max(1, Math.min(fieldLength - 1, firstDownYard))
-  const fdY = PADDING + yardHeight * (endzoneSize + fieldLength - clampedFD)
+  const fdY = layout.padding + yardHeight * (endzoneSize + fieldLength - clampedFD)
 
   const distLos = Math.abs(drawY - losY)
   const distFd = Math.abs(drawY - fdY)
@@ -578,6 +603,7 @@ watch(
   { deep: true }
 )
 watch([hoverLine, draggingLine], () => nextTick(() => renderField()))
+watch(() => theme.resolvedDark.value, () => nextTick(() => renderField()))
 
 let resizeObserver: ResizeObserver | null = null
 

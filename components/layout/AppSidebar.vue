@@ -14,21 +14,16 @@
         @click="toggleCollapse"
         title="Expand sidebar"
       >
-        <PanelLeftOpen v-if="hovering" class="w-5 h-5" />
-        <Flag v-else class="w-5 h-5 text-primary" />
+        <PanelLeftOpen class="w-5 h-5" />
       </button>
 
       <NuxtLink v-if="!collapsed" to="/" class="sidebar-logo">
-        <Flag class="w-5 h-5 text-primary shrink-0" />
-        <span class="sidebar-logo-text">FlagOS</span>
+        <span class="sidebar-logo-text font-copernicus">FlagOS</span>
       </NuxtLink>
 
       <div v-if="!collapsed" class="sidebar-utility">
         <button class="utility-btn" title="Search (⌘K)" @click="openSearch">
           <Search class="w-4 h-4" />
-        </button>
-        <button class="utility-btn" title="Notifications">
-          <Bell class="w-4 h-4" />
         </button>
         <NuxtLink to="/settings" class="utility-btn" title="Settings">
           <SettingsIcon class="w-4 h-4" />
@@ -64,7 +59,7 @@
       <template v-for="(group, index) in navGroups" :key="index">
         <div v-if="!collapsed && (group.label || group.badge)" class="sidebar-group-label flex items-center gap-2">
           <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
-          <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
+          <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[12px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
         </div>
@@ -81,7 +76,7 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
-                <span v-if="item.devOnly" class="ml-auto text-[11px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
+                <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </NuxtLink>
             </TooltipTrigger>
             <TooltipContent side="right" :side-offset="10" v-if="collapsed">
@@ -107,7 +102,7 @@
           
           <div class="sidebar-user-info flex-1 min-w-0 flex flex-col items-start justify-center">
             <p class="sidebar-user-name truncate w-full">{{ displayName }}</p>
-            <p class="sidebar-user-email truncate w-full text-muted-foreground text-[11px]">{{ emailAddress }}</p>
+            <p class="sidebar-user-email truncate w-full text-muted-foreground text-[12px]">{{ emailAddress }}</p>
           </div>
           
           <ChevronDown class="sidebar-user-chevron ml-auto w-4 h-4 text-muted-foreground shrink-0" />
@@ -118,7 +113,7 @@
           <div v-if="userMenuOpen" class="user-menu" :class="{ 'menu-collapsed': collapsed }">
             <div class="px-3 py-2 border-b border-border mb-1" v-if="collapsed">
                <p class="text-xs font-semibold truncate">{{ displayName }}</p>
-               <p class="text-[11px] text-muted-foreground truncate">{{ emailAddress }}</p>
+               <p class="text-[12px] text-muted-foreground truncate">{{ emailAddress }}</p>
             </div>
             <NuxtLink to="/settings" class="user-menu-item" @click="userMenuOpen = false">
               <SettingsIcon class="w-4 h-4" />
@@ -156,9 +151,7 @@ import {
   Gamepad2,
   Play,
   FlaskConical,
-  Flag,
   Search,
-  Bell,
   Sparkles,
 } from 'lucide-vue-next'
 import {
@@ -264,8 +257,7 @@ const navGroups: NavGroup[] = [
     badge: 'Coming Soon',
     items: [
       { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true },
-      { to: '/simulation/test', label: 'Test Your Play', icon: Play, disabled: true },
-      { to: '/simulation/scenario', label: 'Scenarios', icon: FlaskConical, disabled: true },
+      { to: '/simulation/scenario', label: 'Test A Scenario', icon: FlaskConical, disabled: true },
     ]
   }
 ]
@@ -299,6 +291,7 @@ async function handleLogout() {
   width: 260px;
   position: relative;
   z-index: 40;
+  cursor: default;
 }
 
 /* Hover background only when collapsed (hover anywhere on the narrow strip) */
@@ -308,6 +301,16 @@ async function handleLogout() {
 
 .sidebar.collapsed {
   width: 64px;
+  cursor: col-resize;
+}
+
+/* Buttons and links keep pointer when collapsed */
+.sidebar.collapsed .sidebar-logo-btn,
+.sidebar.collapsed .utility-btn,
+.sidebar.collapsed .quick-play-btn,
+.sidebar.collapsed .sidebar-nav-item,
+.sidebar.collapsed .sidebar-user-btn {
+  cursor: pointer;
 }
 
 /* ── Collapsible text handling ─────────────────────────────────── */
@@ -382,10 +385,11 @@ async function handleLogout() {
   gap: 8px;
   text-decoration: none;
   min-width: 0;
+  cursor: default;
 }
 
 .sidebar-logo-text {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--color-foreground);
@@ -458,7 +462,7 @@ async function handleLogout() {
   border: none; /* Removed border */
   background: var(--color-primary); /* Updated to solid primary */
   color: var(--color-primary-foreground); /* Consistent text color */
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   overflow: hidden;
@@ -493,7 +497,7 @@ async function handleLogout() {
 
 .sidebar-group-label {
   padding: 16px 10px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--color-muted-foreground);
@@ -508,13 +512,14 @@ async function handleLogout() {
   border-radius: 6px;
   text-decoration: none;
   color: var(--color-muted-foreground);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   margin: 1px 0;
   white-space: nowrap;
   overflow: visible;
   transition: color 0.15s, background 0.15s;
   position: relative;
+  cursor: default;
 }
 
 /* Tooltip styles removed - using Shadcn Tooltip component */
@@ -597,7 +602,7 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   flex-shrink: 0;
   border: 1px solid rgba(255,255,255,0.1);
@@ -606,14 +611,14 @@ async function handleLogout() {
 
 
 .sidebar-user-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-foreground);
   line-height: 1.2;
 }
 
 .sidebar-user-email {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-muted-foreground);
   line-height: 1.2;
 }
@@ -660,7 +665,7 @@ async function handleLogout() {
   border: none;
   background: transparent;
   color: var(--color-foreground);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.1s;

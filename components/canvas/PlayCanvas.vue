@@ -55,6 +55,8 @@ const props = defineProps<{
   ghostPlayers?: CanvasPlayer[]
   /** When false, hide player names on the field (default true) */
   showPlayerNames?: boolean
+  /** Default for marker label when player has no showLabel set (from settings: number / position / both / none) */
+  defaultPlayerLabelOnCanvas?: 'number' | 'position' | 'both' | 'none'
   /** Suggested route preview for one player (from Player Details Suggest) — drawn on canvas until Accept/Deny */
   suggestedRoutePreview?: { playerId: string; route: { segments: { type: string; points: { x: number; y: number }[] }[] } } | null
 }>()
@@ -145,13 +147,15 @@ const chipPlayerHasRoute = computed(() => {
 const { render } = useCanvasRenderer()
 
 const contentBoundsRef = computed(() => {
-  if (props.viewMode !== 'fit' || !props.ghostPlayers?.length) return undefined
+  if (props.viewMode !== 'fit') return undefined
+  if (!props.ghostPlayers?.length && props.playType !== 'defense') return undefined
   const fs = fieldSettings.value
   const totalLength = fs.field_length + fs.endzone_size * 2
-  return computeFitContentBounds(canvasData.value.players, props.ghostPlayers, totalLength, {
+  return computeFitContentBounds(canvasData.value.players, props.ghostPlayers ?? [], totalLength, {
     endzoneSize: fs.endzone_size,
     fieldLength: fs.field_length,
     lineOfScrimmage: fs.line_of_scrimmage,
+    playType: props.playType,
   })
 })
 const { buildRouteForType } = useRouteAnalysis()
@@ -198,6 +202,7 @@ function requestRender() {
     playType: props.playType,
     ghostPlayers: props.ghostPlayers,
     showPlayerNames: props.showPlayerNames !== false,
+    defaultPlayerLabelOnCanvas: props.defaultPlayerLabelOnCanvas ?? 'position',
     suggestedRoutePreview: props.suggestedRoutePreview ?? null,
   })
   lastViewTransform.value = view ?? null

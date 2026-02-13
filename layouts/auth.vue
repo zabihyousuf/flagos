@@ -6,7 +6,7 @@
       <div class="relative z-10 shrink-0">
         <NuxtLink to="/" class="inline-flex items-center gap-3 group">
           <img src="/logo.svg" alt="" class="w-10 h-10 rounded-lg opacity-95 group-hover:opacity-100 transition-opacity" />
-          <span class="font-display font-bold text-xl tracking-tight">FlagOS</span>
+          <span class="font-copernicus font-bold text-xl tracking-tight">FlagOS</span>
         </NuxtLink>
       </div>
       <div class="relative z-10 flex-1 flex items-center justify-center text-center lg:text-left">

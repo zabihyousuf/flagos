@@ -154,6 +154,8 @@ export const DEFAULT_FIELD_SETTINGS = {
   default_ghost_defense_play_id: null as string | null,
   sidebar_start_collapsed: false,
   show_player_names_on_canvas: true,
+  default_player_label_on_canvas: 'position' as const,
+  theme: 'system' as const,
 }
 
 export const FIELD_COLORS = {

@@ -112,6 +112,36 @@
   font-display: swap;
 }
 
+/* ── Copernicus (dashboard welcome) ────────────────────────────────── */
+@font-face {
+  font-family: 'Copernicus';
+  src: url('../fonts/copernicus/CopernicusTrial-Book-BF66160450c2e92.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Copernicus';
+  src: url('../fonts/copernicus/CopernicusTrial-BookItalic-BF661604511b981.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Copernicus';
+  src: url('../fonts/copernicus/CopernicusTrial-Semibold-BF66160451692c7.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Copernicus';
+  src: url('../fonts/copernicus/CopernicusTrial-Bold-BF6616045097aac.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ── Light theme ─────────────────────────────────────────────────── */
 :root {
   --radius: 0.625rem;
@@ -146,6 +176,42 @@
   --sidebar-accent-foreground: oklch(0.145 0.01 260);
   --sidebar-border: oklch(0.90 0.005 260);
   --sidebar-ring: oklch(0.55 0.22 260);
+}
+
+/* ── Dark theme ─────────────────────────────────────────────────── */
+.dark,
+:root.dark {
+  --background: rgb(25, 25, 24);
+  --foreground: rgb(250, 250, 249);
+  --card: rgb(73, 72, 70);
+  --card-foreground: rgb(250, 250, 249);
+  --popover: rgb(73, 72, 70);
+  --popover-foreground: rgb(250, 250, 249);
+  --primary: oklch(0.65 0.22 260);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: rgb(55, 54, 52);
+  --secondary-foreground: rgb(250, 250, 249);
+  --muted: rgb(55, 54, 52);
+  --muted-foreground: rgb(168, 166, 163);
+  --accent: rgb(55, 54, 52);
+  --accent-foreground: rgb(250, 250, 249);
+  --destructive: oklch(0.55 0.22 25);
+  --border: rgb(63, 63, 58);
+  --input: rgb(63, 63, 58);
+  --ring: oklch(0.65 0.22 260);
+  --chart-1: oklch(0.65 0.22 260);
+  --chart-2: oklch(0.7 0.16 160);
+  --chart-3: oklch(0.72 0.19 50);
+  --chart-4: oklch(0.65 0.18 300);
+  --chart-5: oklch(0.55 0.22 25);
+  --sidebar: rgb(30, 30, 29);
+  --sidebar-foreground: rgb(250, 250, 249);
+  --sidebar-primary: oklch(0.65 0.22 260);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: rgb(55, 54, 52);
+  --sidebar-accent-foreground: rgb(250, 250, 249);
+  --sidebar-border: rgb(63, 63, 58);
+  --sidebar-ring: oklch(0.65 0.22 260);
 }
 
 @theme inline {
@@ -185,7 +251,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: 'Oracle Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Oracle Sans', system-ui, sans-serif;
+  --font-display: 'Copernicus', 'Oracle Sans', system-ui, sans-serif;
   /* Font sizes: +1px from defaults */
   --text-xs: 0.8125rem;     /* 13px */
   --text-sm: 0.9375rem;     /* 15px */
@@ -212,9 +278,13 @@
   }
 }
 
-/* Display font utility */
+/* Display font utility (Copernicus for branding / headings) */
 .font-display {
   font-family: var(--font-display);
+}
+
+.font-copernicus {
+  font-family: 'Copernicus', sans-serif;
 }
 
 /* Glassmorphism utilities */

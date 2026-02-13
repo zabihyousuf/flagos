@@ -1,14 +1,14 @@
 <template>
   <div class="w-full h-full bg-card  flex flex-col overflow-hidden">
     <!-- Panel Header -->
-    <div class="h-10 flex items-center justify-between px-3 shrink-0">
+    <div class="h-10 flex items-center justify-between px-3 shrink-0 border-b border-border">
       <span class="text-sm font-semibold text-foreground">Roster</span>
       <span class="text-[13px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/5</span>
     </div>
 
     <div class="p-2 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-0 flex-1">
       <!-- On Field -->
-      <div v-if="players.length > 0" class="space-y-1">
+      <div v-if="players.length > 0" class="space-y-1 pb-3 border-b border-border">
         <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider px-1">On the Field</p>
         <div class="space-y-1">
           <div
@@ -19,12 +19,16 @@
             @click="$emit('select-player', player.id)"
           >
             <div
-              class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-sm"
+              class="w-5 h-5 rounded-full flex items-center justify-center text-white font-bold shrink-0 shadow-sm"
+              :class="isCompactPosition(player.position) ? 'text-[8px]' : 'text-[10px]'"
               :style="{ background: posColor(player.position) }"
             >
               {{ player.designation }}
             </div>
-            <span class="text-sm flex-1 truncate font-medium">{{ player.name ?? player.position }}</span>
+            <span
+              class="flex-1 truncate font-medium"
+              :class="isCompactPosition(player.position) ? 'text-xs' : 'text-sm'"
+            >{{ player.name ?? player.position }}</span>
             <button
               class="text-muted-foreground hover:text-destructive text-sm opacity-60 hover:opacity-100 transition-opacity p-1"
               @click.stop="$emit('remove-player', player.id)"
@@ -34,12 +38,12 @@
           </div>
         </div>
       </div>
-      <div v-else class="text-center py-4 bg-muted/10 rounded border border-dashed border-border/50">
+      <div v-else class="text-center py-4 bg-muted/10 rounded border border-dashed border-border/50 pb-3 border-b border-border">
         <p class="text-[13px] text-muted-foreground">Field is empty</p>
       </div>
 
       <!-- Bench -->
-      <div class="space-y-1 flex-1">
+      <div class="space-y-1 flex-1 pt-1">
         <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider px-1">Bench</p>
         <div class="space-y-1">
           <div
@@ -83,6 +87,10 @@ const emit = defineEmits<{
 
 function posColor(pos: string) {
   return POSITION_COLORS[pos] ?? '#888888'
+}
+
+function isCompactPosition(pos: string): boolean {
+  return pos === 'RSH' || pos === 'MLB'
 }
 
 const benchPlayers = computed(() => {

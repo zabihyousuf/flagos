@@ -218,6 +218,7 @@
             :view-mode="viewMode"
             :ghost-players="ghostPlayers"
             :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
+            :default-player-label-on-canvas="fieldSettings?.default_player_label_on_canvas ?? 'position'"
             :suggested-route-preview="suggestedRoutePreview"
             @save="handleSaveData"
             @suggest-play-error="onSuggestPlayError"

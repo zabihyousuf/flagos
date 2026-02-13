@@ -1,6 +1,6 @@
 <template>
-  <div class="settings-layout flex flex-col xl:flex-row min-h-0">
-    <!-- Vertical Tab Navigation (narrower at 1024px) -->
+  <div class="settings-layout flex flex-col xl:flex-row min-h-0 h-full overflow-hidden">
+    <!-- Vertical Tab Navigation (fixed; does not scroll) -->
     <nav class="settings-nav w-44 shrink-0 xl:w-[180px] xl:min-w-[180px]">
       <button
         v-for="tab in tabs"
@@ -33,6 +33,43 @@
           </div>
 
           <div class="general-rows">
+            <!-- Theme: Light / Dark / System -->
+            <div class="general-row">
+              <Label class="general-label">Appearance</Label>
+              <div class="general-control">
+                <div class="flex items-center bg-muted rounded-md p-0.5 w-fit gap-0.5">
+                  <button
+                    type="button"
+                    class="px-2.5 py-1.5 text-[12px] font-medium rounded transition-colors flex items-center gap-1.5"
+                    :class="(effectiveTheme === 'light' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')"
+                    @click="setTheme('light')"
+                  >
+                    <Sun class="w-3.5 h-3.5 shrink-0" />
+                    Light
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2.5 py-1.5 text-[12px] font-medium rounded transition-colors flex items-center gap-1.5"
+                    :class="(effectiveTheme === 'dark' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')"
+                    @click="setTheme('dark')"
+                  >
+                    <Moon class="w-3.5 h-3.5 shrink-0" />
+                    Dark
+                  </button>
+                  <button
+                    type="button"
+                    class="px-2.5 py-1.5 text-[12px] font-medium rounded transition-colors flex items-center gap-1.5"
+                    :class="(effectiveTheme === 'system' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')"
+                    @click="setTheme('system')"
+                  >
+                    <Monitor class="w-3.5 h-3.5 shrink-0" />
+                    System
+                  </button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-1.5">System follows your device light/dark setting.</p>
+              </div>
+            </div>
+
             <!-- Default play view -->
             <div class="general-row">
               <Label class="general-label">Default play view</Label>
@@ -172,6 +209,26 @@
               </div>
             </div>
 
+            <!-- Default player label inside marker (for new players / when not set per play) -->
+            <div class="general-row">
+              <Label class="general-label">Default label in player marker</Label>
+              <div class="general-control">
+                <div class="flex items-center bg-muted rounded-md p-0.5 w-fit gap-0.5 flex-wrap">
+                  <button
+                    v-for="opt in (['number', 'position', 'both', 'none'] as const)"
+                    :key="opt"
+                    type="button"
+                    class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors capitalize"
+                    :class="(settings.default_player_label_on_canvas ?? 'position') === opt ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                    @click="updateSettings({ default_player_label_on_canvas: opt })"
+                  >
+                    {{ opt === 'number' ? 'Number' : opt === 'position' ? 'Position' : opt === 'both' ? 'Both' : 'None' }}
+                  </button>
+                </div>
+                <p class="text-xs text-muted-foreground mt-1.5">What to show inside the circle by default (number, position, both, or none). You can override per player in Player Details.</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </template>
@@ -179,8 +236,8 @@
       <!-- Field Tab -->
       <template v-if="settings && activeTab === 'field'">
         <div class="settings-split flex flex-col xl:flex-row flex-1 min-h-0">
-          <!-- Field Preview (left on xl, fills height; no white background) -->
-          <div class="settings-preview flex-1 min-w-0 min-h-[280px] xl:min-h-0">
+          <!-- Field Preview (left on xl; fills available space so field is as large as possible) -->
+          <div class="settings-preview flex-1 min-w-0 min-h-[200px] xl:min-h-0">
             <FieldPreview
               :field-length="settings.field_length"
               :field-width="settings.field_width"
@@ -188,26 +245,27 @@
               :line-of-scrimmage="settings.line_of_scrimmage"
               :first-down="settings.first_down ?? Math.floor(settings.field_length / 2)"
               :show-players="true"
+              :compact-padding="true"
               @update:line-of-scrimmage="(v: number) => debouncedUpdate({ line_of_scrimmage: v })"
               @update:first-down="(v: number) => debouncedUpdate({ first_down: v })"
               @drag-end="onFieldDragEnd"
             />
           </div>
 
-          <!-- Config Panel (right on xl, below preview when stacked) – card with shadow -->
-          <div class="field-config-card w-full xl:w-[300px] xl:min-w-[300px] shrink-0">
-            <div class="config-header">
-              <h2 class="text-lg font-semibold tracking-tight font-display">Field Dimensions</h2>
-              <p class="text-muted-foreground text-sm">Configure the field size in yards.</p>
+          <!-- Config Panel (right on xl, below preview when stacked) – rounded card, compact -->
+          <div class="field-config-card w-full xl:w-[280px] xl:min-w-[280px] shrink-0">
+            <div class="field-config-header">
+              <h2 class="text-base font-semibold tracking-tight font-display">Field Dimensions</h2>
+              <p class="text-muted-foreground text-xs">Configure the field size in yards.</p>
             </div>
 
-            <p class="text-muted-foreground text-xs mt-2 mb-4 p-3 rounded-lg bg-muted/50 border border-border/50">
-              You can also drag the <strong>line of scrimmage</strong> (cyan) and <strong>first down line</strong> (yellow) on the preview to the left. Hover over a line to highlight it, then drag up or down to change the yard line. Changes are saved automatically.
+            <p class="field-config-hint text-muted-foreground text-[11px] mt-1 mb-2 px-2.5 py-2 rounded-md bg-muted/50 border border-border/50">
+              Drag the <strong>LOS</strong> (cyan) and <strong>1st down</strong> (yellow) lines on the preview to change yard lines. Saved automatically.
             </p>
 
-            <div class="config-fields">
-              <div class="config-field">
-                <Label class="config-label">Field Length</Label>
+            <div class="field-config-fields">
+              <div class="field-config-field">
+                <Label class="field-config-label">Field Length</Label>
                 <div class="config-input-row">
                   <Input
                     type="number"
@@ -215,14 +273,14 @@
                     @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ field_length: Number(v) }))"
                     :min="50"
                     :max="100"
-                    class="config-input"
+                    class="config-input h-8 text-sm"
                   />
-                  <span class="config-unit">yards</span>
+                  <span class="config-unit text-xs">yd</span>
                 </div>
               </div>
 
-              <div class="config-field">
-                <Label class="config-label">Field Width</Label>
+              <div class="field-config-field">
+                <Label class="field-config-label">Field Width</Label>
                 <div class="config-input-row">
                   <Input
                     type="number"
@@ -230,14 +288,14 @@
                     @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ field_width: Number(v) }))"
                     :min="25"
                     :max="50"
-                    class="config-input"
+                    class="config-input h-8 text-sm"
                   />
-                  <span class="config-unit">yards</span>
+                  <span class="config-unit text-xs">yd</span>
                 </div>
               </div>
 
-              <div class="config-field">
-                <Label class="config-label">Endzone Size</Label>
+              <div class="field-config-field">
+                <Label class="field-config-label">Endzone Size</Label>
                 <div class="config-input-row">
                   <Input
                     type="number"
@@ -245,15 +303,14 @@
                     @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ endzone_size: Number(v) }))"
                     :min="5"
                     :max="10"
-                    class="config-input"
+                    class="config-input h-8 text-sm"
                   />
-                  <span class="config-unit">yards</span>
+                  <span class="config-unit text-xs">yd</span>
                 </div>
               </div>
 
-              <div class="config-field">
-                <Label class="config-label">Line of Scrimmage</Label>
-                <p class="text-muted-foreground text-xs mt-0.5 mb-1">Yard line (not in endzone)</p>
+              <div class="field-config-field">
+                <Label class="field-config-label">Line of Scrimmage</Label>
                 <div class="config-input-row">
                   <Input
                     type="number"
@@ -261,15 +318,14 @@
                     @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ line_of_scrimmage: Number(v) }))"
                     :min="1"
                     :max="Math.max(1, (settings.field_length ?? 70) - 1)"
-                    class="config-input"
+                    class="config-input h-8 text-sm"
                   />
-                  <span class="config-unit">yard line</span>
+                  <span class="config-unit text-xs">yd line</span>
                 </div>
               </div>
 
-              <div class="config-field">
-                <Label class="config-label">First Down Line</Label>
-                <p class="text-muted-foreground text-xs mt-0.5 mb-1">Yard line (between LOS and endzone)</p>
+              <div class="field-config-field">
+                <Label class="field-config-label">First Down Line</Label>
                 <div class="config-input-row">
                   <Input
                     type="number"
@@ -277,15 +333,15 @@
                     @update:model-value="(v: string | number) => debouncedUpdate(clampFieldUpdate({ first_down: Number(v) }))"
                     :min="settings.line_of_scrimmage ?? 1"
                     :max="Math.max(1, (settings.field_length ?? 70) - 1)"
-                    class="config-input"
+                    class="config-input h-8 text-sm"
                   />
-                  <span class="config-unit">yard line</span>
+                  <span class="config-unit text-xs">yd line</span>
                 </div>
               </div>
             </div>
 
             <!-- Quick Stats -->
-            <div class="config-stats">
+            <div class="field-config-stats">
               <div class="config-stat">
                 <span class="config-stat-label">Total with endzones</span>
                 <span class="config-stat-value">{{ settings.field_length + settings.endzone_size * 2 }}yd</span>
@@ -515,7 +571,8 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles } from 'lucide-vue-next'
+import type { ThemePreference } from '~/composables/useTheme'
+import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor } from 'lucide-vue-next'
 
 const tabs = [
   { id: 'general', label: 'General', icon: Settings2 },
@@ -530,6 +587,14 @@ const activeTab = ref('general')
 const user = useSupabaseUser()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
+const theme = useTheme()
+
+const effectiveTheme = computed<ThemePreference>(() => settings.value?.theme ?? theme.preference.value ?? 'system')
+
+function setTheme(value: ThemePreference) {
+  theme.setPreference(value)
+  updateSettings({ theme: value })
+}
 const { teams, fetchTeams } = useTeams()
 const supaClient = useSupabaseClient()
 
@@ -568,6 +633,18 @@ function setDefaultPlayType(type: 'offense' | 'defense') {
 watch(
   () => settings.value?.show_ghost_defense_by_default,
   () => { ghostDefenseOptimistic.value = null }
+)
+
+watch(
+  () => settings.value?.theme,
+  (themeFromSettings) => {
+    // Only sync when settings have loaded (theme is defined). Otherwise we'd overwrite
+    // localStorage with 'system' and cause a brief dark flash when returning to settings.
+    if (themeFromSettings !== undefined) {
+      theme.syncFromSettings(themeFromSettings)
+    }
+  },
+  { immediate: true }
 )
 
 watch(
@@ -675,9 +752,9 @@ onMounted(() => {
 <style scoped>
 .settings-layout {
   display: flex;
-  height: calc(100vh - 64px);
+  height: 100%;
   min-height: 0;
-  overflow-y: hidden;
+  overflow: hidden;
 }
 
 .settings-nav {
@@ -733,6 +810,15 @@ onMounted(() => {
 
 .settings-content--field {
   overflow: hidden;
+  align-items: flex-start;
+  padding-top: 20px;
+}
+
+.settings-content--field .settings-split {
+  margin-top: 16px;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 120px);
 }
 
 .settings-content--left {
@@ -754,11 +840,12 @@ onMounted(() => {
 }
 
 .settings-preview {
-  padding: 20px;
+  padding: 8px 12px;
   display: flex;
   align-items: stretch;
   justify-content: center;
   min-height: 0;
+  overflow: hidden;
 }
 
 .settings-config {
@@ -771,17 +858,57 @@ onMounted(() => {
 }
 
 .field-config-card {
-  padding: 24px 20px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 10px;
   margin: -24px 16px 16px 16px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--color-border);
   background: var(--color-card);
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   flex-shrink: 0;
   min-height: min-content;
+}
+
+.field-config-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 0;
+}
+
+.field-config-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.field-config-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.field-config-stats {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--color-accent) 50%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-config-stats .config-stat-label,
+.field-config-stats .config-stat-value {
+  font-size: 11px;
 }
 
 .settings-panel {

@@ -79,6 +79,63 @@
       </div>
 
       <!-- Defense: Coverage controls at top so they’re the main focus -->
+      <!-- Appearance: shape, color, label (saved with play) -->
+      <div class="space-y-3 pb-3 border-b border-border/50">
+        <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Appearance on field</p>
+
+        <div class="space-y-1.5">
+          <label class="text-[13px] text-muted-foreground">Shape</label>
+          <div class="flex gap-1">
+            <button
+              v-for="shape in (['circle', 'square', 'triangle'] as const)"
+              :key="shape"
+              class="flex-1 px-2 py-1.5 text-[12px] rounded border transition-colors capitalize"
+              :class="(selectedPlayer.markerShape ?? 'circle') === shape ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
+              @click="$emit('update-attribute', selectedPlayer.id, { markerShape: shape })"
+            >
+              {{ shape }}
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-[13px] text-muted-foreground">Color</label>
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <button
+              v-for="c in markerColorPresets"
+              :key="c"
+              class="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 shrink-0"
+              :class="(selectedPlayer.markerColor ?? posColor(selectedPlayer.position)) === c ? 'border-foreground ring-2 ring-offset-2 ring-offset-card ring-primary' : 'border-transparent'"
+              :style="{ background: c }"
+              :title="c"
+              @click="$emit('update-attribute', selectedPlayer.id, { markerColor: c })"
+            />
+            <input
+              type="color"
+              class="w-6 h-6 rounded-full cursor-pointer border-0 p-0 bg-transparent shrink-0"
+              :value="selectedPlayer.markerColor ?? posColor(selectedPlayer.position)"
+              @input="(e: any) => $emit('update-attribute', selectedPlayer.id, { markerColor: e.target.value })"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-[13px] text-muted-foreground">Show in marker</label>
+          <div class="grid grid-cols-2 gap-1">
+            <button
+              v-for="opt in (['number', 'position', 'both', 'none'] as const)"
+              :key="opt"
+              class="px-2 py-1 text-[12px] rounded border transition-colors capitalize"
+              :class="(selectedPlayer.showLabel ?? 'position') === opt ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
+              @click="$emit('update-attribute', selectedPlayer.id, { showLabel: opt })"
+            >
+              {{ opt === 'position' ? 'Position' : opt === 'number' ? 'Number' : opt === 'both' ? 'Both' : 'None' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Defense: Coverage controls -->
       <div v-if="playType === 'defense' && !isRusher(selectedPlayer)" class="space-y-3 pb-3 border-b border-border/50">
         <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Coverage</p>
 
@@ -310,6 +367,8 @@ watch(() => props.selectedPlayer?.id, () => {
 function posColor(pos: string) {
   return POSITION_COLORS[pos] ?? '#888888'
 }
+
+const markerColorPresets = Object.values(POSITION_COLORS)
 
 function isRusher(player: CanvasPlayer | null): boolean {
   if (!player) return false

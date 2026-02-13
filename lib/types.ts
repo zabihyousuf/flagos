@@ -26,6 +26,10 @@ export interface FieldSettings {
   sidebar_start_collapsed?: boolean
   /** Show player names below icons on the canvas */
   show_player_names_on_canvas?: boolean
+  /** Default for new players: what to show inside marker (number / position / both / none) */
+  default_player_label_on_canvas?: 'number' | 'position' | 'both' | 'none'
+  /** Appearance: light, dark, or system (follow OS) */
+  theme?: 'light' | 'dark' | 'system'
   created_at: string
   updated_at: string
 }
@@ -179,6 +183,12 @@ export interface CanvasPlayer {
   primaryTarget?: boolean
   /** @deprecated Use designation instead */
   label?: string
+  /** Marker shape on the field (saved with play) */
+  markerShape?: 'circle' | 'square' | 'triangle'
+  /** Override color for this player's marker (hex; saved with play) */
+  markerColor?: string
+  /** What to show inside the marker: number, position (designation), both, or none (saved with play) */
+  showLabel?: 'number' | 'position' | 'both' | 'none'
 }
 
 export interface CanvasRoute {

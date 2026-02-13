@@ -13,6 +13,7 @@
 </template>
 
 <script setup lang="ts">
+useTheme()
 const router = useRouter()
 const { open: openSearch } = useAppSearch()
 

@@ -17,6 +17,8 @@ export interface RenderOptions {
   ghostPlayers?: CanvasPlayer[]
   /** When false, do not draw player names below icons on the field (default true) */
   showPlayerNames?: boolean
+  /** Default for player marker label when player.showLabel is not set (from settings). */
+  defaultPlayerLabelOnCanvas?: 'number' | 'position' | 'both' | 'none'
   /** Scale for preview thumbnails: multiplies player size, route width, fonts (default 1). Use ~0.35–0.5 for small previews. */
   previewScale?: number
   /** Minimal B&W thumbnail: no field, zoomed to fit play, small circles and numbers only. */
@@ -85,8 +87,8 @@ export type ContentBounds = { minX: number; minY: number; maxX: number; maxY: nu
  * Compute the effective zoom and pan for a given view mode.
  * - 'full': Center the field and show all of it (zoom=1, no pan).
  * - 'fit' (no contentBounds): Cover zoom; vertical pan biased so LOS/players stay in view.
- * - 'fit' (with contentBounds, e.g. ghost defense): Zoom out so offense + last defender + LOS
- *   all fit, then fill viewport (same aspect window so no letterboxing).
+ * - 'fit' (with contentBounds, e.g. ghost defense): Zoom out so offense + defense + LOS all fit;
+ *   field stays centered and locked (no pan to follow content).
  */
 export function computeViewTransform(
   logicalW: number,
@@ -107,25 +109,21 @@ export function computeViewTransform(
     const yardHeight = fieldH / totalLength
     const viewAspect = logicalW / logicalH
 
-    // When we have content bounds (ghost defense), zoom out so everyone fits, then fill viewport
+    // When we have content bounds (defense fit or ghost defense): fit exactly the content
+    // window (7 yd back / 15 yd past LOS + players) and center the view on that window so
+    // the visible range is exactly the bounds, not a field-centered symmetric window.
     if (options.contentBounds) {
       const b = options.contentBounds
-      const contentWidthWorld = (b.maxX - b.minX) * fieldW
-      const contentHeightWorld = (b.maxY - b.minY) * fieldH
-      // Window (world) with viewport aspect that contains the content
-      const windowWWorld = Math.max(contentWidthWorld, contentHeightWorld * viewAspect)
-      const windowHWorld = windowWWorld / viewAspect
-      const fitZoom = logicalW / windowWWorld
+      const contentHalfSpanX = fieldW * Math.max((b.maxX - b.minX) / 2, 0.01)
+      const contentHalfSpanY = fieldH * Math.max((b.maxY - b.minY) / 2, 0.01)
+      const zoomFromX = logicalW / (2 * contentHalfSpanX)
+      const zoomFromY = logicalH / (2 * contentHalfSpanY)
+      const fitZoom = Math.min(zoomFromX, zoomFromY)
 
-      const contentCenterXWorld = offsetX + (b.minX + b.maxX) / 2 * fieldW
-      const contentCenterYWorld = offsetY + (b.minY + b.maxY) / 2 * fieldH
-      let windowMinXWorld = contentCenterXWorld - windowWWorld / 2
-      let windowMinYWorld = contentCenterYWorld - windowHWorld / 2
-      windowMinXWorld = Math.max(offsetX, Math.min(offsetX + fieldW - windowWWorld, windowMinXWorld))
-      windowMinYWorld = Math.max(offsetY, Math.min(offsetY + fieldH - windowHWorld, windowMinYWorld))
-
-      const panX = -windowMinXWorld * fitZoom
-      const panY = -windowMinYWorld * fitZoom
+      const contentCenterX = (b.minX + b.maxX) / 2
+      const contentCenterY = (b.minY + b.maxY) / 2
+      const panX = logicalW / 2 - (offsetX + fieldW * contentCenterX) * fitZoom
+      const panY = logicalH / 2 - (offsetY + fieldH * contentCenterY) * fitZoom
       return { zoom: fitZoom, panX, panY }
     }
 
@@ -153,12 +151,12 @@ export function computeViewTransform(
   return { zoom: 1, panX: 0, panY: 0 }
 }
 
-/** Content bounds in normalized 0–1 from offense + ghost defense + LOS (and routes so last defender is in view). */
+/** Content bounds for fit view: at least 7 yd back / 20 yd downfield from LOS. In defense mode the view is locked to this fixed strip (no resize when players move). */
 export function computeFitContentBounds(
   players: CanvasPlayer[],
   ghostPlayers: CanvasPlayer[],
   totalLength: number,
-  options: { endzoneSize: number; fieldLength: number; lineOfScrimmage: number },
+  options: { endzoneSize: number; fieldLength: number; lineOfScrimmage: number; playType?: 'offense' | 'defense' },
 ): ContentBounds {
   let minX = 1
   let minY = 1
@@ -175,8 +173,23 @@ export function computeFitContentBounds(
   }
 
   const losYNorm = (options.endzoneSize + options.fieldLength - options.lineOfScrimmage) / totalLength
-  add(0.5, losYNorm)
+  const yardsNorm = (yards: number) => yards / totalLength
 
+  const pad = 0.04
+  const fixedMinY = Math.max(0, losYNorm - yardsNorm(20))
+  const fixedMaxY = Math.min(1, losYNorm + yardsNorm(7))
+
+  if (options.playType === 'defense') {
+    // Locked view: fixed 7 yd back / 20 yd past LOS and full field width — no resize when players move
+    return {
+      minX: Math.max(0, 0.1 - pad),
+      minY: Math.max(0, fixedMinY - pad),
+      maxX: Math.min(1, 0.9 + pad),
+      maxY: Math.min(1, fixedMaxY + pad),
+    }
+  }
+
+  add(0.5, losYNorm)
   for (const p of players) {
     add(p.x, p.y)
     for (const seg of p.route?.segments ?? []) {
@@ -191,13 +204,19 @@ export function computeFitContentBounds(
     }
   }
 
-  if (minX > maxX) return { minX: 0.3, minY: Math.max(0, losYNorm - 0.1), maxX: 0.7, maxY: Math.min(1, losYNorm + 0.1) }
-  const pad = 0.04
+  const outMinY = Math.max(0, fixedMinY - pad)
+  const outMaxY = Math.min(1, fixedMaxY + pad)
+
+  if (minX > maxX) {
+    minX = 0.25
+    maxX = 0.75
+  }
+
   return {
     minX: Math.max(0, minX - pad),
-    minY: Math.max(0, minY - pad),
+    minY: outMinY,
     maxX: Math.min(1, maxX + pad),
-    maxY: Math.min(1, maxY + pad),
+    maxY: outMaxY,
   }
 }
 
@@ -253,11 +272,13 @@ export function useCanvasRenderer() {
     const { offsetX, offsetY, fieldW, fieldH } = fieldRect
 
     const contentBounds =
-      options.viewMode === 'fit' && options.ghostPlayers?.length
-        ? computeFitContentBounds(data.players, options.ghostPlayers, fieldRect.totalLength, {
+      options.viewMode === 'fit' &&
+      (options.ghostPlayers?.length || options.playType === 'defense')
+        ? computeFitContentBounds(data.players, options.ghostPlayers ?? [], fieldRect.totalLength, {
             endzoneSize: options.endzoneSize,
             fieldLength: options.fieldLength,
             lineOfScrimmage: options.lineOfScrimmage,
+            playType: options.playType,
           })
         : undefined
 
@@ -528,7 +549,7 @@ export function useCanvasRenderer() {
     const scale = options.previewScale ?? 1
     const playerX = player.x * fieldW
     const playerY = player.y * fieldH
-    const color = POSITION_COLORS[player.position] ?? '#888888'
+    const color = player.markerColor ?? (POSITION_COLORS[player.position] ?? '#888888')
     if (isPreview) {
       ctx.save()
       ctx.setLineDash([8, 6])
@@ -748,7 +769,6 @@ export function useCanvasRenderer() {
     ctx.scale(scale, scale)
     ctx.translate(-cx, -cy)
 
-    const routeColor = '#444'
     const motionColor = '#999'
     const playerFill = '#1a1a1a'
     const playerStroke = '#e5e5e5'
@@ -756,9 +776,10 @@ export function useCanvasRenderer() {
     const radius = 0.014
     const onePx = 1 / scale
 
-    // Routes (behind players); start from end of motion when present
+    // Routes (behind players); start from end of motion when present; use player color
     data.players.forEach((player) => {
       if (!player.route?.segments?.length) return
+      const routeColor = player.markerColor ?? (POSITION_COLORS[player.position] ?? '#444')
       const motionEnd = player.motionPath?.length ? player.motionPath[player.motionPath.length - 1] : null
       let last = motionEnd ? { x: motionEnd.x, y: motionEnd.y } : { x: player.x, y: player.y }
       player.route.segments.forEach((seg) => {
@@ -831,7 +852,7 @@ export function useCanvasRenderer() {
     const scale = options.previewScale ?? 1
     const startX = player.x * fieldW
     const startY = player.y * fieldH
-    const color = POSITION_COLORS[player.position] ?? '#888888'
+    const color = player.markerColor ?? (POSITION_COLORS[player.position] ?? '#888888')
 
     const points = player.motionPath.map((p) => ({
       x: p.x * fieldW,
@@ -933,7 +954,7 @@ export function useCanvasRenderer() {
     const scale = options.previewScale ?? 1
     const startX = player.x * fieldW
     const startY = player.y * fieldH
-    const color = POSITION_COLORS[player.position] ?? '#ef4444'
+    const color = player.markerColor ?? (POSITION_COLORS[player.position] ?? '#ef4444')
     const isRusher = player.designation === 'R' || player.position === 'RSH'
 
     // Rusher: line always follows the offense QB so it updates when QB is moved
@@ -1149,54 +1170,74 @@ export function useCanvasRenderer() {
       ctx.shadowBlur = scale < 1 ? 2 : 6
       ctx.shadowOffsetY = scale < 1 ? 0.5 : 2
 
-      ctx.beginPath()
-      ctx.arc(px, py, radius, 0, Math.PI * 2)
+      const color = player.markerColor ?? (POSITION_COLORS[player.position] || (player.side === 'offense' ? '#22c55e' : '#ef4444'))
+      const shape = player.markerShape ?? 'circle'
 
-      // Determine player color
-      const color = POSITION_COLORS[player.position] || (player.side === 'offense' ? '#22c55e' : '#ef4444')
+      ctx.beginPath()
+      if (shape === 'circle') {
+        ctx.arc(px, py, radius, 0, Math.PI * 2)
+      } else if (shape === 'square') {
+        ctx.rect(px - radius, py - radius, radius * 2, radius * 2)
+      } else {
+        // triangle (point up)
+        ctx.moveTo(px, py - radius)
+        ctx.lineTo(px + radius, py + radius * 0.6)
+        ctx.lineTo(px - radius, py + radius * 0.6)
+        ctx.closePath()
+      }
 
       if (isSelected) {
-        // Selected: White fill, Colored text/border
         ctx.fillStyle = '#ffffff'
         ctx.fill()
-        
-        ctx.strokeStyle = color
-        ctx.lineWidth = Math.max(0.5, 4 * scale)
-        ctx.stroke()
-        
-        // Glow effect
-        ctx.restore() // Restore shadow context
-        ctx.save()
-        ctx.shadowColor = color
-        ctx.shadowBlur = scale < 1 ? 4 : 15
-        ctx.beginPath()
-        ctx.arc(px, py, radius, 0, Math.PI * 2)
         ctx.strokeStyle = color
         ctx.lineWidth = Math.max(0.5, 2 * scale)
         ctx.stroke()
         ctx.restore()
-
-        // Text color for selected
+        ctx.save()
+        ctx.shadowColor = color
+        ctx.shadowBlur = scale < 1 ? 3 : 5
+        ctx.beginPath()
+        if (shape === 'circle') {
+          ctx.arc(px, py, radius, 0, Math.PI * 2)
+        } else if (shape === 'square') {
+          ctx.rect(px - radius, py - radius, radius * 2, radius * 2)
+        } else {
+          ctx.moveTo(px, py - radius)
+          ctx.lineTo(px + radius, py + radius * 0.6)
+          ctx.lineTo(px - radius, py + radius * 0.6)
+          ctx.closePath()
+        }
+        ctx.strokeStyle = color
+        ctx.lineWidth = Math.max(0.5, 1.5 * scale)
+        ctx.stroke()
+        ctx.restore()
         ctx.fillStyle = color
       } else {
-        // Normal: Colored fill, White text/border
         ctx.fillStyle = color
         ctx.fill()
         ctx.strokeStyle = '#ffffff'
         ctx.lineWidth = Math.max(0.5, 2 * scale)
         ctx.stroke()
-        ctx.restore() // Restore shadow context
-
-        // Text color for normal
+        ctx.restore()
         ctx.fillStyle = '#ffffff'
       }
 
-      // Number/Designation text inside circle (50% smaller than circle-proportional size)
-      const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
-      ctx.font = `bold ${Math.max(6, radius * 0.35)}px Oracle Sans, sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(label, px, py)
+      const showLabel = player.showLabel ?? options.defaultPlayerLabelOnCanvas ?? 'position'
+      if (showLabel !== 'none') {
+        const numStr = player.number != null ? String(player.number) : ''
+        const posStr = player.designation ?? player.position
+        const label =
+          showLabel === 'number' ? (numStr || posStr)
+          : showLabel === 'position' ? posStr
+          : showLabel === 'both' ? (numStr ? `${numStr} ${posStr}` : posStr)
+          : ''
+        if (label) {
+          ctx.font = `bold ${Math.max(6, radius * 0.35)}px Oracle Sans, sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(label, px, py)
+        }
+      }
 
       // Name text (respects options.showPlayerNames, default true)
       if (player.name && options.showPlayerNames !== false) {

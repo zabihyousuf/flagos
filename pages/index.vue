@@ -32,9 +32,9 @@
   </div>
 
   <div v-else class="space-y-8">
-    <!-- Welcome Header: greeting changes daily; name in cursive -->
-    <div>
-      <h2 class="text-2xl font-semibold tracking-tight font-display">
+    <!-- Welcome Header: greeting + name (Copernicus) -->
+    <div class="welcome-header">
+      <h2 class="text-2xl font-semibold tracking-tight welcome-title">
         <span class="welcome-greeting">{{ dailyGreeting }}{{ displayName ? ', ' : '' }}</span><span v-if="displayName" class="welcome-name">{{ displayName }}</span>
       </h2>
     </div>
@@ -56,7 +56,7 @@
 
     <!-- Stats Grid -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
-      <div v-for="stat in stats" :key="stat.label" class="stat-card bg-white min-w-0">
+      <div v-for="stat in stats" :key="stat.label" class="stat-card bg-card min-w-0">
         <div class="flex items-center justify-between">
           <div>
             <p class="stat-label">{{ stat.label }}</p>
@@ -125,8 +125,7 @@
           <NuxtLink to="/settings" class="text-xs text-primary hover:underline mt-1">Set in Settings</NuxtLink>
         </div>
 
-        <!-- white background with border -->
-        <div v-else class="team-card bg-white rounded-lg p-4">
+        <div v-else class="team-card bg-card rounded-lg p-4">
           <div class="team-info">
             <p class="team-name">{{ primaryTeam.name }}</p>
             <p v-if="primaryTeam.description" class="team-description">{{ primaryTeam.description }}</p>
@@ -334,15 +333,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Welcome: user name in cursive (Parisienne – Google Fonts “Hello Paris” style) */
+/* Welcome message: Copernicus (add @font-face or Adobe Fonts link to load) */
+.welcome-header .welcome-title {
+  font-family: 'Copernicus', sans-serif;
+}
 .welcome-greeting {
   color: var(--color-muted-foreground);
   font-weight: 500;
 }
 .welcome-name {
-  font-family: 'Parisienne', cursive;
   font-weight: 400;
-  font-size: 1.35em;
   color: var(--color-foreground);
 }
 
