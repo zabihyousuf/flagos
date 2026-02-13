@@ -355,14 +355,14 @@ onMounted(async () => {
 }
 
 .cta-title {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--color-foreground);
   margin: 0;
 }
 
 .cta-sub {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-muted-foreground);
   margin: 2px 0 0;
 }
@@ -375,7 +375,7 @@ onMounted(async () => {
   background: var(--color-accent);
   border: 1px solid var(--color-border);
   font-family: ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 12px;
   margin-left: 4px;
 }
 
@@ -392,13 +392,13 @@ onMounted(async () => {
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-muted-foreground);
   margin: 0;
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   line-height: 1.2;
   margin: 4px 0 0;
@@ -407,7 +407,7 @@ onMounted(async () => {
 }
 
 .stat-sub {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-muted-foreground);
   margin: 2px 0 0;
 }
@@ -483,7 +483,7 @@ onMounted(async () => {
 }
 
 .team-stat-value {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--color-foreground);
   margin: 0;
@@ -491,7 +491,7 @@ onMounted(async () => {
 }
 
 .team-stat-label {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-muted-foreground);
   margin: 2px 0 0;
 }

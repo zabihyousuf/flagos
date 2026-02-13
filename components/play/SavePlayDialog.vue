@@ -29,6 +29,9 @@
         <div class="space-y-2">
           <Label>Play Name</Label>
           <Input v-model="form.name" placeholder="Play Name" :disabled="saving" />
+          <p v-if="isDuplicateName" class="text-xs text-muted-foreground">
+            A play with this name already exists in the playbook. We'll add " Copy" to the end when saving.
+          </p>
         </div>
       </div>
 
@@ -62,6 +65,7 @@ const emit = defineEmits<{
   'save': [data: { playbookId: string, name: string }]
 }>()
 
+const client = useSupabaseDB()
 const { playbooks, fetchPlaybooks, createPlaybook } = usePlaybooks()
 
 const form = reactive({
@@ -69,7 +73,42 @@ const form = reactive({
   name: props.defaultName || ''
 })
 
+const playNamesInPlaybook = ref<string[]>([])
+
 const isValid = computed(() => form.playbookId && form.name.trim().length > 0)
+
+const isDuplicateName = computed(() => {
+  const name = form.name.trim()
+  if (!name || playNamesInPlaybook.value.length === 0) return false
+  const lower = name.toLowerCase()
+  return playNamesInPlaybook.value.some((n) => n.toLowerCase() === lower)
+})
+
+function getUniqueName(baseName: string, existing: string[]): string {
+  const lowerExisting = new Set(existing.map((n) => n.toLowerCase()))
+  if (!lowerExisting.has(baseName.toLowerCase())) return baseName
+  let candidate = `${baseName} Copy`
+  let i = 2
+  while (lowerExisting.has(candidate.toLowerCase())) {
+    candidate = `${baseName} Copy ${i}`
+    i += 1
+  }
+  return candidate
+}
+
+watch([() => props.open, () => form.playbookId], async ([openVal, pbId]) => {
+  if (openVal && pbId) {
+    const user = useSupabaseUser()
+    if (!user.value) return
+    const { data } = await client
+      .from('plays')
+      .select('name')
+      .eq('playbook_id', pbId)
+    playNamesInPlaybook.value = (data ?? []).map((r: { name: string }) => r.name)
+  } else if (!openVal) {
+    playNamesInPlaybook.value = []
+  }
+})
 
 watch(() => props.open, async (val) => {
   if (val) {
@@ -77,7 +116,6 @@ watch(() => props.open, async (val) => {
       await fetchPlaybooks()
     }
     
-    // If still no playbooks, create a default one
     if (playbooks.value.length === 0) {
       const defaultPb = await createPlaybook('My Plays', 'Default collection of plays')
       if (defaultPb) {
@@ -85,11 +123,9 @@ watch(() => props.open, async (val) => {
       }
     }
     
-    // Auto-select first playbook if none selected
     if (!form.playbookId && playbooks.value.length > 0) {
       form.playbookId = playbooks.value[0].id
     }
-    // Update name from prop if present (and form name is empty or default) Or always if opening fresh?
     if (props.defaultName) {
       form.name = props.defaultName
     }
@@ -98,9 +134,11 @@ watch(() => props.open, async (val) => {
 
 function handleSave() {
   if (!isValid.value) return
+  const name = form.name.trim()
+  const finalName = getUniqueName(name, playNamesInPlaybook.value)
   emit('save', {
     playbookId: form.playbookId,
-    name: form.name
+    name: finalName
   })
 }
 </script>

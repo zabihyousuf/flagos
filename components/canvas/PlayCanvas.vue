@@ -106,6 +106,7 @@ const {
   addPlayerToCanvasData,
   removePlayerFromCanvasData,
   updatePlayerAttribute,
+  updateCoverageZonePosition,
   pushHistoryBeforeDrag,
   pushHistoryAfterDrag,
   undo,
@@ -181,6 +182,7 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   onDragEnd: pushHistoryAfterDrag,
   onSelectRoute: onSelectRoute,
   onDeselectRoute: onDeselectRoute,
+  onMoveCoverageZone: updateCoverageZonePosition,
 })
 
 function handleSave() {
@@ -316,5 +318,6 @@ defineExpose({
   redo,
   canUndo,
   canRedo,
+  seedHistory,
 })
 </script>

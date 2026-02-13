@@ -7,6 +7,7 @@
         <slot />
       </main>
     </div>
+    <ConfirmDialog />
   </div>
 </template>
 

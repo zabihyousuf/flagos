@@ -217,6 +217,7 @@ async function handleDelete(id: string) {
   })
   if (!ok) return
 
+  await nextTick()
   loading.value = true
   try {
     const { error } = await client.from('plays').delete().eq('id', id)
@@ -249,7 +250,7 @@ onMounted(() => {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: capitalize;
 }

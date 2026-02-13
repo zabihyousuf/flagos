@@ -1,5 +1,5 @@
 <template>
-  <AlertDialog :open="state.open">
+  <AlertDialog :open="state.open" @update:open="onOpenChange">
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>{{ state.title }}</AlertDialogTitle>
@@ -31,4 +31,12 @@ import {
 } from '~/components/ui/alert-dialog'
 
 const { state, handleAction, handleCancel } = useConfirm()
+
+function onOpenChange(open: boolean) {
+  state.open = open
+  if (!open && state.resolve) {
+    state.resolve(false)
+    state.resolve = null
+  }
+}
 </script>

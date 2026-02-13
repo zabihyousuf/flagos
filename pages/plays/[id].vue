@@ -2,7 +2,7 @@
   <div class="h-full w-full flex flex-col overflow-hidden py-4">
     <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
     <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-4 rounded-lg shadow-md">
-      <!-- Left: Breadcrumbs + title + sport (equal flex with right for centering) -->
+      <!-- Left: Breadcrumbs + title + play type -->
       <div class="flex-1 min-w-0 flex items-center gap-1.5">
         <button
           class="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1 shrink-0"
@@ -13,8 +13,8 @@
         </button>
         <ChevronRight class="w-3 h-3 text-muted-foreground/50 shrink-0" />
         
-        <!-- Editable Play Name (fixed width) -->
-        <div class="w-52 shrink-0" v-if="currentPlay">
+        <!-- Editable Play Name (narrower so play type fits) -->
+        <div class="w-36 shrink-0" v-if="currentPlay">
           <input
             v-model="currentPlay.name"
             class="w-full bg-transparent text-sm font-medium truncate border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
@@ -23,45 +23,44 @@
         </div>
         <span v-else class="text-sm font-medium">Loading...</span>
 
-        <!-- Offense / Defense Toggle (disabled for saved plays) -->
-        <div class="flex items-center bg-muted rounded-full p-0.5 ml-2" v-if="currentPlay">
-          <button
-            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="currentPlay.play_type === 'offense'
-              ? 'bg-primary/15 text-primary shadow-sm border border-primary/30'
-              : 'text-primary/70 hover:bg-primary/10 hover:text-primary'"
-            :disabled="playId !== 'new'"
-            @click="handleTypeChange('offense')"
-          >
-            <Swords class="w-3 h-3" />
-            <span>Offense</span>
-          </button>
-          <button
-            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
-            :class="currentPlay.play_type === 'defense'
-              ? 'bg-destructive/15 text-destructive shadow-sm border border-destructive/30'
-              : 'text-destructive/70 hover:bg-destructive/10 hover:text-destructive'"
-            :disabled="playId !== 'new'"
-            @click="handleTypeChange('defense')"
-          >
-            <Shield class="w-3 h-3" />
-            <span>Defense</span>
-          </button>
+        <!-- Play type: Offensive / Defensive (disabled for saved plays) -->
+        <div class="flex items-center gap-2 ml-2 shrink-0" v-if="currentPlay">
+          <span class="text-[14px] font-semibold text-muted-foreground uppercase tracking-wider">Play type</span>
+          <div class="flex items-center bg-muted rounded-full p-0.5">
+            <button
+              class="px-2 py-0.5 text-[14px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="currentPlay.play_type === 'offense'
+                ? 'bg-primary/15 text-primary shadow-sm border border-primary/30'
+                : 'text-primary/70 hover:bg-primary/10 hover:text-primary'"
+              :disabled="playId !== 'new'"
+              @click="handleTypeChange('offense')"
+            >
+              <Swords class="w-3 h-3" />
+              <span>Offensive</span>
+            </button>
+            <button
+              class="px-2 py-0.5 text-[14px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+              :class="currentPlay.play_type === 'defense'
+                ? 'bg-destructive/15 text-destructive shadow-sm border border-destructive/30'
+                : 'text-destructive/70 hover:bg-destructive/10 hover:text-destructive'"
+              :disabled="playId !== 'new'"
+              @click="handleTypeChange('defense')"
+            >
+              <Shield class="w-3 h-3" />
+              <span>Defensive</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Center: Toolbar (equal flex so centered between left/right) -->
+      <!-- Center: Toolbar -->
       <div class="flex-1 flex justify-center min-w-0">
         <CanvasToolbar
           v-if="canvasReady"
           :selected-tool="cSelectedTool"
-          :can-undo="cCanUndo"
-          :can-redo="cCanRedo"
           @select-tool="onSetTool"
           @clear-routes="onClearAllRoutes"
           @ai-action="onAiAction"
-          @undo="canvasRef?.undo()"
-          @redo="canvasRef?.redo()"
         />
       </div>
 
@@ -69,40 +68,49 @@
       <div class="flex-1 min-w-0 flex items-center justify-end gap-2">
         <!-- Ghost defense overlay: pick a defensive play to show as ghosts -->
         <DropdownMenu v-if="currentPlay?.play_type === 'offense'" v-model:open="ghostDropdownOpen">
-          <DropdownMenuTrigger as-child>
-            <Button
-              variant="outline"
-              size="sm"
-              class="h-8 gap-1.5"
-              :class="ghostPlayers.length ? 'border-primary/50 text-primary bg-primary/5' : ''"
-            >
-              <Ghost class="w-3.5 h-3.5" />
-              <span class="text-[11px] font-medium">{{ ghostLabel }}</span>
-              <ChevronDown class="w-3 h-3 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-8 gap-1.5"
+                    :class="ghostPlayers.length ? 'border-primary/50 text-primary bg-primary/5' : ''"
+                  >
+                    <Shield class="w-3.5 h-3.5" />
+                    <span class="text-[13px] font-medium">{{ ghostLabel }}</span>
+                    <ChevronDown class="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Overlay a defensive play on the field to see coverage and rush paths</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <DropdownMenuContent align="end" class="w-56 max-h-[280px] overflow-y-auto">
             <DropdownMenuItem
-              class="text-[12px]"
+              class="text-[14px]"
               :class="!ghostPlayers.length ? 'bg-accent' : ''"
               @click="setGhostFromPlay(null)"
             >
               <span class="truncate">None</span>
             </DropdownMenuItem>
             <template v-if="defensePlaysForGhost.length === 0 && !ghostPlaysLoading">
-              <DropdownMenuItem disabled class="text-muted-foreground text-[11px]">
+              <DropdownMenuItem disabled class="text-muted-foreground text-[13px]">
                 No defense plays in this playbook
               </DropdownMenuItem>
             </template>
             <template v-else-if="ghostPlaysLoading">
-              <DropdownMenuItem disabled class="text-muted-foreground text-[11px]">
+              <DropdownMenuItem disabled class="text-muted-foreground text-[13px]">
                 Loading…
               </DropdownMenuItem>
             </template>
             <DropdownMenuItem
               v-for="play in defensePlaysForGhost"
               :key="play.id"
-              class="text-[12px]"
+              class="text-[14px]"
               :class="ghostPlayId === play.id ? 'bg-accent' : ''"
               @click="setGhostFromPlay(play)"
             >
@@ -112,22 +120,40 @@
         </DropdownMenu>
 
         <div class="flex items-center bg-muted rounded-md p-0.5">
-          <button
-            class="px-2.5 py-1 text-[11px] font-medium rounded transition-colors"
-            :class="viewMode === 'fit' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
-            @click="viewMode = 'fit'"
-          >
-            <Maximize2 class="w-3 h-3 inline-block mr-1" />
-            Fit
-          </button>
-          <button
-            class="px-2.5 py-1 text-[11px] font-medium rounded transition-colors"
-            :class="viewMode === 'full' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
-            @click="viewMode = 'full'"
-          >
-            <Fullscreen class="w-3 h-3 inline-block mr-1" />
-            Full
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  class="px-2.5 py-1 text-[13px] font-medium rounded transition-colors"
+                  :class="viewMode === 'fit' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                  @click="viewMode = 'fit'"
+                >
+                  <Maximize2 class="w-3 h-3 inline-block mr-1" />
+                  Fit
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Zoom to the line of scrimmage</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <button
+                  class="px-2.5 py-1 text-[13px] font-medium rounded transition-colors"
+                  :class="viewMode === 'full' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                  @click="viewMode = 'full'"
+                >
+                  <Fullscreen class="w-3 h-3 inline-block mr-1" />
+                  Full
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Show the full field</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <Button
@@ -210,7 +236,7 @@
 <script setup lang="ts">
 import type { CanvasData, CanvasPlayer, CanvasTool, Player } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
-import { ArrowLeft, ChevronRight, Check, Maximize2, Fullscreen, Ghost, ChevronDown } from 'lucide-vue-next'
+import { ArrowLeft, ChevronRight, Check, Maximize2, Fullscreen, ChevronDown } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
@@ -218,6 +244,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '~/components/ui/tooltip'
 import PlayCanvas from '~/components/canvas/PlayCanvas.vue'
 import CanvasToolbar from '~/components/canvas/CanvasToolbar.vue'
 import CanvasRosterCard from '~/components/canvas/CanvasRosterCard.vue'
@@ -234,12 +266,26 @@ const router = useRouter()
 const playId = computed(() => route.params.id as string)
 
 const { currentPlay, loading, fetchPlay, saveCanvasData, initDraftPlay, createPlay, updatePlay } = usePlays()
+const { confirm } = useConfirm()
 const { settings: fieldSettings, fetchSettings } = useFieldSettings()
 const { players, fetchPlayers } = usePlayers()
 const { profile, fetchProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
 
 const viewMode = ref<'fit' | 'full'>('fit')
+
+// Restore saved view mode when play loads
+watch(
+  () => [playId.value, currentPlay.value?.canvas_data?.view_mode] as const,
+  ([id, saved]) => {
+    if (id === 'new') {
+      viewMode.value = 'fit'
+      return
+    }
+    if (saved === 'fit' || saved === 'full') viewMode.value = saved
+  },
+  { immediate: true }
+)
 const canvasRef = ref<InstanceType<typeof PlayCanvas> | null>(null)
 const canvasReady = ref(false)
 
@@ -252,7 +298,7 @@ const ghostPlaysLoading = ref(false)
 const ghostLabel = computed(() =>
   ghostPlayers.value.length
     ? (defensePlaysForGhost.value.find((p) => p.id === ghostPlayId.value)?.name ?? 'Ghost defense')
-    : 'Ghost defense'
+    : 'Defense'
 )
 
 // Safe computed accessors — proxyRefs auto-unwraps exposed refs, so no .value needed
@@ -261,8 +307,6 @@ const cSelectedPlayerId = computed(() => canvasRef.value?.selectedPlayerId ?? nu
 const cSelectedPlayer = computed(() => canvasRef.value?.selectedPlayer ?? null)
 const cSelectedTool = computed<CanvasTool>(() => canvasRef.value?.selectedTool ?? 'select')
 const cIsDirty = computed(() => canvasRef.value?.isDirty ?? false)
-const cCanUndo = computed(() => canvasRef.value?.canUndo ?? false)
-const cCanRedo = computed(() => canvasRef.value?.canRedo ?? false)
 
 // Wrapper functions — safe to call even if ref not ready
 function onSelectPlayer(id: string) { canvasRef.value?.selectPlayer(id) }
@@ -358,13 +402,17 @@ function handleSave() {
 
 async function handleSaveData(data: CanvasData) {
   if (!currentPlay.value) return
-  // If draft, saving canvas data updates local state only until final save
+  const payload: CanvasData = {
+    ...data,
+    ghost_defense_play_id: ghostPlayId.value ?? null,
+    view_mode: viewMode.value,
+  }
   if (playId.value === 'new') {
-    currentPlay.value.canvas_data = data
+    currentPlay.value.canvas_data = payload
     if (canvasRef.value) canvasRef.value.isDirty = false
     return
   }
-  await saveCanvasData(currentPlay.value.id, data)
+  await saveCanvasData(currentPlay.value.id, payload)
   if (canvasRef.value) {
     canvasRef.value.isDirty = false
   }
@@ -386,14 +434,29 @@ function handleNameChange() {
   }
 }
 
-function handleTypeChange(type: 'offense' | 'defense') {
+async function handleTypeChange(type: 'offense' | 'defense') {
   if (!currentPlay.value) return
   if (currentPlay.value.play_type === type) return
-  
+
+  if (cIsDirty.value) {
+    const ok = await confirm({
+      title: 'Switch play type?',
+      description: 'If you switch, your current changes will be lost. Do you want to continue?',
+      actionLabel: 'Switch',
+      variant: 'default',
+    })
+    if (!ok) return
+  }
+
   currentPlay.value.play_type = type
-  
+
+  // Ghost defense is offense-only; clear it when switching to defensive play
+  if (type === 'defense') {
+    ghostPlayers.value = []
+    ghostPlayId.value = null
+  }
+
   // Reset canvas for new type
-  // Use timeout to allow canvas to update props
   nextTick(() => {
     canvasRef.value?.resetFormation(type, starters.value, {
       los: fieldSettingsData.value.line_of_scrimmage,
@@ -420,9 +483,13 @@ async function onConfirmSave(data: { playbookId: string, name: string }) {
   
   isSaving.value = true
   try {
-    // Ensure canvas data is up to date
-    const canvasData = canvasRef.value?.getExportData() || currentPlay.value.canvas_data
-    
+    // Ensure canvas data is up to date (include ghost defense selection)
+    const canvasData: CanvasData = {
+      ...(canvasRef.value?.getExportData() || currentPlay.value.canvas_data),
+      ghost_defense_play_id: ghostPlayId.value ?? null,
+      view_mode: viewMode.value,
+    }
+
     // Create the play
     const newPlay = await createPlay(
       data.playbookId,
@@ -494,6 +561,31 @@ function setGhostFromPlay(
   ghostPlayId.value = play.id
 }
 
+/** Restore ghost defense overlay from saved canvas_data.ghost_defense_play_id (on load) */
+async function restoreGhostDefense() {
+  const gid = currentPlay.value?.canvas_data?.ghost_defense_play_id
+  if (!gid || currentPlay.value?.play_type !== 'offense') {
+    ghostPlayers.value = []
+    ghostPlayId.value = null
+    return
+  }
+  const client = useSupabaseDB()
+  const { data: play } = await client
+    .from('plays')
+    .select('id, name, canvas_data')
+    .eq('id', gid)
+    .single()
+  if (play) {
+    const typed = play as { id: string; name: string; canvas_data: CanvasData }
+    ghostPlayId.value = typed.id
+    ghostPlayers.value = JSON.parse(JSON.stringify(typed.canvas_data?.players ?? []))
+    defensePlaysForGhost.value = [typed]
+  } else {
+    ghostPlayers.value = []
+    ghostPlayId.value = null
+  }
+}
+
 watch(ghostDropdownOpen, (open) => {
   if (open && currentPlay.value?.play_type === 'offense') {
     fetchDefensePlaysForGhost()
@@ -519,6 +611,7 @@ watch(playId, async (id) => {
         },
         starterPositionMap.value
       )
+      nextTick(() => canvasRef.value?.seedHistory())
     }
   }
 })
@@ -530,7 +623,7 @@ onMounted(async () => {
     // Load existing play
     await fetchPlay(playId.value)
   }
-  
+
   // Execute fetches concurrently
   await Promise.all([
     fetchSettings(),
@@ -546,21 +639,28 @@ onMounted(async () => {
   // Wait for PlayCanvas to mount and expose its API
   await nextTick()
   canvasReady.value = true
-  
+
+  if (playId.value !== 'new' && currentPlay.value?.play_type === 'offense') {
+    await restoreGhostDefense()
+  }
+
   // If draft, ensure formation is reset/loaded WITH correct starters
   if (playId.value === 'new' && currentPlay.value) {
     // Since we awaited Promise.all above, `starters` (computed) should now have data
-    await nextTick() 
-     canvasRef.value?.resetFormation(
-       currentPlay.value.play_type, 
-       starters.value, 
-       {
-         los: fieldSettingsData.value.line_of_scrimmage,
-         length: fieldSettingsData.value.field_length,
-         endzone: fieldSettingsData.value.endzone_size,
-       }, 
-       starterPositionMap.value
-     )
+    await nextTick()
+    canvasRef.value?.resetFormation(
+      currentPlay.value.play_type,
+      starters.value,
+      {
+        los: fieldSettingsData.value.line_of_scrimmage,
+        length: fieldSettingsData.value.field_length,
+        endzone: fieldSettingsData.value.endzone_size,
+      },
+      starterPositionMap.value
+    )
+    // Seed undo history with starters formation so undo doesn't go back to default formation
+    await nextTick()
+    canvasRef.value?.seedHistory()
   }
 })
 </script>

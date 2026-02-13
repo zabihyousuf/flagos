@@ -184,7 +184,7 @@ export function useCanvasRenderer() {
 
     // Endzone text
     ctx.fillStyle = COLORS.endzoneText
-    const ezFontSize = Math.max(12, fieldW * 0.05)
+    const ezFontSize = Math.max(14, fieldW * 0.05)
     ctx.font = `700 ${ezFontSize}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -224,7 +224,7 @@ export function useCanvasRenderer() {
       const displayYard = yard <= fieldLength / 2 ? yard : fieldLength - yard
       if (displayYard > 0 && isMajor) {
         ctx.fillStyle = COLORS.yardNumber
-        const numFontSize = Math.max(10, fieldW * 0.035)
+        const numFontSize = Math.max(12, fieldW * 0.035)
         ctx.font = `600 ${numFontSize}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -265,7 +265,7 @@ export function useCanvasRenderer() {
     ctx.restore()
 
      // LOS pill label
-    const labelFontSize = Math.max(9, fieldW * 0.022)
+    const labelFontSize = Math.max(11, fieldW * 0.022)
     ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
     const losText = `LOS · ${lineOfScrimmage}yd`
     const losTextW = ctx.measureText(losText).width
@@ -680,7 +680,7 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.globalAlpha = 0.85
       ctx.fillStyle = '#ffffff'
-      ctx.font = `bold ${Math.max(9, radius * 0.65)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(11, radius * 0.65)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
@@ -701,19 +701,42 @@ export function useCanvasRenderer() {
     const { fieldLength, endzoneSize } = options
     const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
 
+    const isFitView = options.viewMode === 'fit'
+    const playerRadius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
+
     players.forEach((player) => {
       const px = player.x * fieldW
       const py = player.y * fieldH
-      const radius = Math.max(14, fieldW * 0.04)
+      const radius = playerRadius
       const isSelected = player.id === options.selectedPlayerId
-      
-      // Draw Coverage Radius (Defense only; rushers do not cover a zone)
       const isRusher = player.designation === 'R' || player.position === 'RSH'
-      if (player.side === 'defense' && player.coverageRadius && !isRusher) {
+
+      // Coverage zone center (unlocked = run-to zone; locked = on player)
+      const zoneX = (player.coverageZoneUnlocked && player.coverageZoneX != null ? player.coverageZoneX : player.x) * fieldW
+      const zoneY = (player.coverageZoneUnlocked && player.coverageZoneY != null ? player.coverageZoneY : player.y) * fieldH
+      const zoneDiffers = player.coverageZoneUnlocked && (player.coverageZoneX != null || player.coverageZoneY != null) &&
+        (Math.abs((player.coverageZoneX ?? player.x) - player.x) > 0.001 || Math.abs((player.coverageZoneY ?? player.y) - player.y) > 0.001)
+
+      // Line from player to zone when unlocked and zone moved (indicates "will run to zone")
+      if (player.side === 'defense' && !isRusher && zoneDiffers) {
         ctx.save()
         ctx.beginPath()
-        const pixRadius = player.coverageRadius * yardHeight 
-        ctx.arc(px, py, pixRadius, 0, Math.PI * 2)
+        ctx.moveTo(px, py)
+        ctx.lineTo(zoneX, zoneY)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+        ctx.lineWidth = 2
+        ctx.setLineDash([8, 6])
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.restore()
+      }
+
+      // Draw Coverage Radius (Defense only; rushers do not cover a zone)
+      if (player.side === 'defense' && player.coverageRadius && !isRusher) {
+        ctx.save()
+        const pixRadius = player.coverageRadius * yardHeight
+        ctx.beginPath()
+        ctx.arc(zoneX, zoneY, pixRadius, 0, Math.PI * 2)
         ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'
         ctx.fill()
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)'
@@ -772,7 +795,7 @@ export function useCanvasRenderer() {
 
       // Number/Designation text inside circle
       const label = player.number != null ? String(player.number) : (player.designation ?? player.position)
-      ctx.font = `bold ${Math.max(10, radius * 0.7)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(12, radius * 0.7)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
@@ -783,7 +806,7 @@ export function useCanvasRenderer() {
         ctx.fillStyle = '#ffffff' // White text
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)' // Strong shadow for contrast against grass
         ctx.shadowBlur = 3
-        ctx.font = `600 ${Math.max(9, radius * 0.45)}px Oracle Sans, sans-serif`
+        ctx.font = `600 ${Math.max(11, radius * 0.45)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillText(player.name, px, py + radius + 5)
@@ -811,7 +834,7 @@ export function useCanvasRenderer() {
         ctx.lineWidth = 1.5
         ctx.stroke()
         ctx.fillStyle = '#fff'
-        ctx.font = `bold ${Math.max(10, radius * 0.5)}px Oracle Sans, sans-serif`
+        ctx.font = `bold ${Math.max(12, radius * 0.5)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText('1', px, badgeY)
@@ -854,7 +877,7 @@ export function useCanvasRenderer() {
 
     // Label
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-    ctx.font = `bold ${Math.max(10, radius * 0.7)}px Oracle Sans, sans-serif`
+    ctx.font = `bold ${Math.max(12, radius * 0.7)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('QB', qbX, qbY)
@@ -874,36 +897,46 @@ export function useCanvasRenderer() {
 
     players.forEach((player) => {
       if (player.side !== 'defense' || !player.coverageRadius || player.coverageRadius <= 0) return
+      const isRusher = player.designation === 'R' || player.position === 'RSH'
+      if (isRusher) return
 
       const px = player.x * fieldW
       const py = player.y * fieldH
+      const zx = (player.coverageZoneUnlocked && player.coverageZoneX != null ? player.coverageZoneX : player.x) * fieldW
+      const zy = (player.coverageZoneUnlocked && player.coverageZoneY != null ? player.coverageZoneY : player.y) * fieldH
       const radiusPx = player.coverageRadius * yardHeight
+      const zoneDiffers = player.coverageZoneUnlocked && (player.coverageZoneX != null || player.coverageZoneY != null) &&
+        (Math.abs((player.coverageZoneX ?? player.x) - player.x) > 0.001 || Math.abs((player.coverageZoneY ?? player.y) - player.y) > 0.001)
+
+      if (zoneDiffers) {
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(px, py)
+        ctx.lineTo(zx, zy)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([6, 4])
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.restore()
+      }
 
       ctx.save()
-      
-      // Fill
       ctx.beginPath()
-      ctx.arc(px, py, radiusPx, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)' // Subtle white fill
+      ctx.arc(zx, zy, radiusPx, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
       ctx.fill()
-
-      // Border
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.stroke()
-      
-      // Label if large enough
       if (radiusPx > 20) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-        ctx.font = `600 10px Oracle Sans, sans-serif`
+        ctx.font = `600 12px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        // Draw slightly above the player (player radius is ~14px)
-        // Actually, let's draw it at the top edge of the circle
-        ctx.fillText(`${player.coverageRadius}y`, px, py - radiusPx + 12)
+        ctx.fillText(`${player.coverageRadius}y`, zx, zy - radiusPx + 12)
       }
-
       ctx.restore()
     })
   }

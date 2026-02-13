@@ -97,7 +97,7 @@
                   <th
                     v-for="(attr, ai) in UNIVERSAL_ATTRIBUTE_GROUP.attrs"
                     :key="attr.key"
-                    class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[10px]"
+                    class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[12px]"
                     :class="ai === 0 ? 'border-l border-border/20' : ''"
                   >
                     <TooltipProvider :delay-duration="150">
@@ -113,7 +113,7 @@
                     <th
                       v-for="(attr, ai) in group.attrs"
                       :key="attr.key"
-                      class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[10px]"
+                      class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[12px]"
                       :class="ai === 0 ? 'border-l border-border/20' : ''"
                     >
                       <TooltipProvider :delay-duration="150">
@@ -130,7 +130,7 @@
                     <th
                       v-for="(attr, ai) in group.attrs"
                       :key="attr.key"
-                      class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[10px]"
+                      class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[12px]"
                       :class="ai === 0 ? 'border-l border-border/20' : ''"
                     >
                       <TooltipProvider :delay-duration="150">
@@ -232,7 +232,7 @@
                         v-for="pos in OFFENSE_POS"
                         :key="pos"
                         @click="togglePosition(row, 'offense', pos)"
-                        class="px-1 py-0.5 text-[9px] font-medium rounded transition-colors"
+                        class="px-1 py-0.5 text-[11px] font-medium rounded transition-colors"
                         :class="row.offense_positions.includes(pos)
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-secondary text-secondary-foreground hover:bg-accent'"
@@ -248,7 +248,7 @@
                         v-for="pos in DEFENSE_POS"
                         :key="pos"
                         @click="togglePosition(row, 'defense', pos)"
-                        class="px-1 py-0.5 text-[9px] font-medium rounded transition-colors"
+                        class="px-1 py-0.5 text-[11px] font-medium rounded transition-colors"
                         :class="row.defense_positions.includes(pos)
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-secondary text-secondary-foreground hover:bg-accent'"
@@ -423,7 +423,7 @@
                           <span
                             v-for="pos in row.offense_positions"
                             :key="pos"
-                            class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary/20 text-primary"
+                            class="px-1.5 py-0.5 text-[12px] font-medium rounded bg-primary/20 text-primary"
                           >{{ pos }}</span>
                           <span v-if="row.offense_positions.length === 0" class="text-muted-foreground/40">—</span>
                         </div>
@@ -433,15 +433,15 @@
                           <span
                             v-for="pos in row.defense_positions"
                             :key="pos"
-                            class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary/20 text-primary"
+                            class="px-1.5 py-0.5 text-[12px] font-medium rounded bg-primary/20 text-primary"
                           >{{ pos }}</span>
                           <span v-if="row.defense_positions.length === 0" class="text-muted-foreground/40">—</span>
                         </div>
                       </td>
                       <td class="p-2">
-                        <span v-if="row.errors.length > 0" class="text-[10px] text-destructive">{{ row.errors[0] }}</span>
-                        <span v-else-if="row.warnings.length > 0" class="text-[10px] text-yellow-400">{{ row.warnings[0] }}</span>
-                        <span v-else class="text-[10px] text-green-400">OK</span>
+                        <span v-if="row.errors.length > 0" class="text-[12px] text-destructive">{{ row.errors[0] }}</span>
+                        <span v-else-if="row.warnings.length > 0" class="text-[12px] text-yellow-400">{{ row.warnings[0] }}</span>
+                        <span v-else class="text-[12px] text-green-400">OK</span>
                       </td>
                     </tr>
                   </tbody>

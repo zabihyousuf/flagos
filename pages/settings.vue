@@ -183,15 +183,15 @@
               <div class="grid grid-cols-3 gap-2">
                 <div class="team-mini-stat">
                   <p class="text-lg font-bold">{{ teamPlayerCount }}</p>
-                  <p class="text-[10px] text-muted-foreground">Players</p>
+                  <p class="text-[12px] text-muted-foreground">Players</p>
                 </div>
                 <div class="team-mini-stat">
                   <p class="text-lg font-bold">{{ offStarterCount }}</p>
-                  <p class="text-[10px] text-muted-foreground">Off Starters</p>
+                  <p class="text-[12px] text-muted-foreground">Off Starters</p>
                 </div>
                 <div class="team-mini-stat">
                   <p class="text-lg font-bold">{{ defStarterCount }}</p>
-                  <p class="text-[10px] text-muted-foreground">Def Starters</p>
+                  <p class="text-[12px] text-muted-foreground">Def Starters</p>
                 </div>
               </div>
             </div>
@@ -340,7 +340,7 @@ onMounted(() => {
   border: none;
   background: transparent;
   color: var(--color-muted-foreground);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -421,7 +421,7 @@ onMounted(() => {
 }
 
 .config-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--color-foreground);
 }
@@ -437,7 +437,7 @@ onMounted(() => {
 }
 
 .config-unit {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--color-muted-foreground);
   white-space: nowrap;
 }
@@ -459,12 +459,12 @@ onMounted(() => {
 }
 
 .config-stat-label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-muted-foreground);
 }
 
 .config-stat-value {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-foreground);
   font-variant-numeric: tabular-nums;

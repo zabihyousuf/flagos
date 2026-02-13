@@ -82,7 +82,7 @@
             <Button variant="ghost" size="sm" class="h-9" :class="showFilters ? 'bg-muted' : ''" @click="showFilters = !showFilters">
               <Filter class="w-4 h-4 mr-2" />
               Filters
-              <Badge v-if="hasActiveFilters" variant="secondary" class="ml-2 h-5 px-1.5 text-[10px] tabular-nums">Active</Badge>
+              <Badge v-if="hasActiveFilters" variant="secondary" class="ml-2 h-5 px-1.5 text-[12px] tabular-nums">Active</Badge>
             </Button>
           </div>
 
@@ -363,7 +363,7 @@
                 <span
                   v-for="team in getPlayerTeams(p.id)"
                   :key="team.id || 'fa'"
-                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[12px] font-medium"
                   :class="team.name === 'Free Agent' ? 'bg-muted text-muted-foreground' : ''"
                   :style="team.color ? { backgroundColor: team.color + '20', color: team.color } : {}"
                 >
@@ -537,7 +537,7 @@
                              </div>
 
                              <div v-else class="flex flex-wrap gap-1 min-h-[36px] items-center">
-                                <Badge v-for="pos in p.offense_positions" :key="pos" variant="secondary" class="text-[10px] h-5 px-1.5 pointer-events-none">
+                                <Badge v-for="pos in p.offense_positions" :key="pos" variant="secondary" class="text-[12px] h-5 px-1.5 pointer-events-none">
                                    {{ pos }}
                                 </Badge>
                                 <span v-if="!p.offense_positions.length" class="text-xs text-muted-foreground italic">-</span>
@@ -588,7 +588,7 @@
                              </div>
 
                              <div v-else class="flex flex-wrap gap-1 min-h-[36px] items-center">
-                                <Badge v-for="pos in p.defense_positions" :key="pos" variant="secondary" class="text-[10px] h-5 px-1.5 pointer-events-none">
+                                <Badge v-for="pos in p.defense_positions" :key="pos" variant="secondary" class="text-[12px] h-5 px-1.5 pointer-events-none">
                                    {{ pos }}
                                 </Badge>
                                 <span v-if="!p.defense_positions.length" class="text-xs text-muted-foreground italic">-</span>
@@ -679,13 +679,13 @@
                                 <div class="flex items-center gap-6 flex-shrink-0">
                                    <!-- OFFENSE -->
                                    <div class="flex items-center gap-2">
-                                      <span class="text-[10px] text-muted-foreground font-bold uppercase w-12 text-right">Offense</span>
+                                      <span class="text-[12px] text-muted-foreground font-bold uppercase w-12 text-right">Offense</span>
                                       <div class="flex items-center bg-muted rounded-md p-0.5 border">
                                           <TooltipProvider>
                                              <Tooltip>
                                                 <TooltipTrigger as-child>
                                                    <button
-                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      class="px-2 py-1 rounded-sm text-[12px] font-medium transition-all"
                                                       :class="[
                                                          isTeamStarter(p.id, team.id, 'offense') 
                                                             ? 'bg-background shadow-sm text-foreground' 
@@ -708,7 +708,7 @@
                                              <Tooltip>
                                                 <TooltipTrigger as-child>
                                                    <button
-                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      class="px-2 py-1 rounded-sm text-[12px] font-medium transition-all"
                                                       :class="[
                                                          !isTeamStarter(p.id, team.id, 'offense') 
                                                             ? 'bg-background shadow-sm text-foreground' 
@@ -748,13 +748,13 @@
                                    
                                    <!-- DEFENSE -->
                                    <div class="flex items-center gap-2 border-l pl-6">
-                                      <span class="text-[10px] text-muted-foreground font-bold uppercase w-12 text-right">Defense</span>
+                                      <span class="text-[12px] text-muted-foreground font-bold uppercase w-12 text-right">Defense</span>
                                       <div class="flex items-center bg-muted rounded-md p-0.5 border">
                                           <TooltipProvider>
                                              <Tooltip>
                                                 <TooltipTrigger as-child>
                                                    <button
-                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      class="px-2 py-1 rounded-sm text-[12px] font-medium transition-all"
                                                       :class="[
                                                          isTeamStarter(p.id, team.id, 'defense') 
                                                             ? 'bg-background shadow-sm text-foreground' 
@@ -777,7 +777,7 @@
                                              <Tooltip>
                                                 <TooltipTrigger as-child>
                                                    <button
-                                                      class="px-2 py-1 rounded-sm text-[10px] font-medium transition-all"
+                                                      class="px-2 py-1 rounded-sm text-[12px] font-medium transition-all"
                                                       :class="[
                                                          !isTeamStarter(p.id, team.id, 'defense') 
                                                             ? 'bg-background shadow-sm text-foreground' 
@@ -853,10 +853,10 @@
                         </div>
                         <div class="space-y-5">
                           <div v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
-                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
+                            <span class="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div v-for="attr in group.attrs" :key="attr.key" class="space-y-1">
-                                <label class="text-[10px] text-muted-foreground uppercase font-medium block truncate" :title="attr.label">{{ attr.label }}</label>
+                                <label class="text-[12px] text-muted-foreground uppercase font-medium block truncate" :title="attr.label">{{ attr.label }}</label>
                                 <component
                                   :is="isEditing ? 'input' : 'div'"
                                   inputmode="numeric"
@@ -885,10 +885,10 @@
                         </div>
                         <div class="space-y-5">
                           <div v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
-                            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
+                            <span class="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div v-for="attr in group.attrs" :key="attr.key" class="space-y-1">
-                                <label class="text-[10px] text-muted-foreground uppercase font-medium block truncate" :title="attr.label">{{ attr.label }}</label>
+                                <label class="text-[12px] text-muted-foreground uppercase font-medium block truncate" :title="attr.label">{{ attr.label }}</label>
                                 <component
                                   :is="isEditing ? 'input' : 'div'"
                                   inputmode="numeric"

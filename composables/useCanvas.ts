@@ -293,6 +293,18 @@ export function useCanvas() {
     }
   }
 
+  function updateCoverageZonePosition(playerId: string, x: number, y: number) {
+    const player = canvasData.value.players.find((p) => p.id === playerId)
+    if (!player || player.side !== 'defense') return
+    const isRusher = player.designation === 'R' || player.position === 'RSH'
+    if (isRusher) return
+    player.coverageZoneUnlocked = true
+    player.coverageZoneX = Math.max(0, Math.min(1, x))
+    player.coverageZoneY = Math.max(0, Math.min(1, y))
+    isDirty.value = true
+    // History is pushed by caller (e.g. pushHistoryBeforeDrag / pushHistoryAfterDrag for zone drag)
+  }
+
   function resetFormation(
     side: 'offense' | 'defense',
     starters?: Player[],
@@ -431,6 +443,7 @@ export function useCanvas() {
     updatePlayerLabel,
     updatePlayerSide,
     updatePlayerAttribute,
+    updateCoverageZonePosition,
     resetFormation,
     setZoom,
     getExportData,

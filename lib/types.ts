@@ -138,6 +138,10 @@ export interface CanvasData {
   version: number
   players: CanvasPlayer[]
   annotations: CanvasAnnotation[]
+  /** When viewing an offensive play: id of the defensive play to show as ghost overlay (saved with play) */
+  ghost_defense_play_id?: string | null
+  /** Canvas view: fit in viewport or full field (saved per play) */
+  view_mode?: 'fit' | 'full'
 }
 
 export interface CanvasPlayer {
@@ -153,6 +157,11 @@ export interface CanvasPlayer {
   name?: string
   /** Defensive attributes */
   coverageRadius?: number // In yards
+  /** When true, zone can be moved; player runs to zone when play starts (line drawn from player to zone) */
+  coverageZoneUnlocked?: boolean
+  /** Zone center in 0-1 field coords when coverageZoneUnlocked (defaults to player pos) */
+  coverageZoneX?: number
+  coverageZoneY?: number
   alignment?: 'tight' | 'normal' | 'soft' | 'off' // Alignment depth
   /** Offense: QB throws to this receiver regardless of read progression */
   primaryTarget?: boolean

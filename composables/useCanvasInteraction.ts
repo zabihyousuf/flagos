@@ -29,11 +29,14 @@ interface InteractionOptions {
   onSelectRoute?: (playerId: string, clientX: number, clientY: number) => void
   /** When user clicks empty (deselect), call so delete chip can be hidden */
   onDeselectRoute?: () => void
+  /** When user drags an unlocked coverage zone, call with playerId and clamped field coords (0-1) */
+  onMoveCoverageZone?: (playerId: string, x: number, y: number) => void
 }
 
 export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, options: InteractionOptions) {
   const isDragging = ref(false)
   const dragPlayerId = ref<string | null>(null)
+  const dragZonePlayerId = ref<string | null>(null)
   const isPanning = ref(false)
   const lastPanPos = ref({ x: 0, y: 0 })
 
@@ -90,8 +93,9 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
   function findPlayerAt(coords: { x: number; y: number }): CanvasPlayer | null {
     const fieldRect = getFieldRect()
     if (!fieldRect) return null
-
-    const radius = Math.max(14, fieldRect.fieldW * 0.04) / fieldRect.fieldW
+    const isFitView = options.viewMode?.value === 'fit'
+    const radiusPx = isFitView ? Math.max(10, fieldRect.fieldW * 0.028) : Math.max(14, fieldRect.fieldW * 0.04)
+    const radius = radiusPx / fieldRect.fieldW
     const aspectScale = fieldRect.fieldH / fieldRect.fieldW
 
     for (const player of [...options.canvasData.value.players].reverse()) {
@@ -101,6 +105,27 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
       if (Math.sqrt(dx * dx + dyScaled * dyScaled) < radius * 1.5) {
         return player
       }
+    }
+    return null
+  }
+
+  /** Find defense player whose unlocked coverage zone circle contains the point (for zone drag) */
+  function findCoverageZoneAt(coords: { x: number; y: number }): CanvasPlayer | null {
+    const fieldRect = getFieldRect()
+    if (!fieldRect) return null
+    const fs = options.fieldSettings.value
+    const yardHeightPx = fieldRect.fieldH / (fs.field_length + fs.endzone_size * 2)
+
+    for (const player of [...options.canvasData.value.players].reverse()) {
+      if (player.side !== 'defense' || !player.coverageZoneUnlocked || !player.coverageRadius) continue
+      if (player.designation === 'R' || player.position === 'RSH') continue
+      const zx = (player.coverageZoneX != null ? player.coverageZoneX : player.x) * fieldRect.fieldW
+      const zy = (player.coverageZoneY != null ? player.coverageZoneY : player.y) * fieldRect.fieldH
+      const cx = coords.x * fieldRect.fieldW
+      const cy = coords.y * fieldRect.fieldH
+      const pixRadius = player.coverageRadius * yardHeightPx
+      const dist = Math.sqrt((cx - zx) ** 2 + (cy - zy) ** 2)
+      if (dist <= pixRadius) return player
     }
     return null
   }
@@ -162,13 +187,20 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
         isDragging.value = true
         dragPlayerId.value = player.id
       } else {
-        const routePlayer = findRouteAt(coords)
-        if (routePlayer && options.onSelectRoute) {
-          options.onSelectRoute(routePlayer.id, e.clientX, e.clientY)
-          options.onSelectPlayer(routePlayer.id)
+        const zonePlayer = findCoverageZoneAt(coords)
+        if (zonePlayer && options.onMoveCoverageZone) {
+          options.onDragStart?.()
+          options.onSelectPlayer(zonePlayer.id)
+          dragZonePlayerId.value = zonePlayer.id
         } else {
-          options.onDeselectRoute?.()
-          options.onSelectPlayer(null)
+          const routePlayer = findRouteAt(coords)
+          if (routePlayer && options.onSelectRoute) {
+            options.onSelectRoute(routePlayer.id, e.clientX, e.clientY)
+            options.onSelectPlayer(routePlayer.id)
+          } else {
+            options.onDeselectRoute?.()
+            options.onSelectPlayer(null)
+          }
         }
       }
     } else if (isDrawingTool(tool)) {
@@ -272,14 +304,28 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
         options.onRequestRender()
       }
     }
+
+    if (dragZonePlayerId.value && options.onMoveCoverageZone) {
+      const coords = getFieldCoords(e)
+      if (coords) {
+        const clampedX = Math.max(0, Math.min(1, coords.x))
+        const clampedY = Math.max(0, Math.min(1, coords.y))
+        options.onMoveCoverageZone(dragZonePlayerId.value, clampedX, clampedY)
+        options.onRequestRender()
+      }
+    }
   }
 
   function handleMouseUp(_e: MouseEvent) {
     if (isDragging.value) {
       options.onDragEnd?.()
     }
+    if (dragZonePlayerId.value) {
+      options.onDragEnd?.()
+    }
     isDragging.value = false
     dragPlayerId.value = null
+    dragZonePlayerId.value = null
     isPanning.value = false
   }
 
