@@ -2,18 +2,9 @@
   <div class="h-full w-full flex flex-col overflow-hidden py-4">
     <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
     <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-2 lg:gap-4 rounded-lg shadow-md">
-      <!-- Left: Breadcrumbs + title + play type -->
+      <!-- Left: Play name + play type -->
       <div class="flex-1 min-w-0 flex items-center gap-1.5">
-        <button
-          class="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1 shrink-0"
-          @click="goBack"
-        >
-          <ArrowLeft class="w-3.5 h-3.5" />
-          <span class="truncate max-w-[120px]">{{ playbookName ?? 'Playbooks' }}</span>
-        </button>
-        <ChevronRight class="w-3 h-3 text-muted-foreground/50 shrink-0" />
-        
-        <!-- Editable Play Name (narrower so play type fits) -->
+        <!-- Editable Play Name -->
         <div class="w-36 shrink-0" v-if="currentPlay">
           <input
             v-model="currentPlay.name"
@@ -62,10 +53,16 @@
           :selected-player-is-primary="selectedPlayerIsPrimary"
           :suggest-play-disabled="currentPlay?.play_type === 'defense'"
           :motion-tool-disabled="motionToolDisabled"
+          :read-order-disabled="readOrderDisabled"
+          :route-tools-disabled="currentPlay?.play_type === 'defense'"
+          :erase-tool-disabled="currentPlay?.play_type === 'defense'"
+          :show-zone-position-button="showZonePositionButton"
+          :zone-position-unlocked="zonePositionUnlocked"
           @select-tool="onSetTool"
           @clear-routes="onClearAllRoutes"
           @ai-action="onAiAction"
           @set-primary-target="onSetPrimaryTarget"
+          @toggle-zone-position="onToggleZonePosition"
         />
       </div>
 
@@ -215,6 +212,7 @@
             :view-mode="viewMode"
             :ghost-players="ghostPlayers"
             :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
+            :suggested-route-preview="suggestedRoutePreview"
             @save="handleSaveData"
             @suggest-play-error="onSuggestPlayError"
             class="w-full h-full block"
@@ -230,10 +228,15 @@
             :all-roster="roster"
             :field-settings="fieldSettingsData"
             :play-type="currentPlay.play_type"
+            :can-undo="cCanUndo"
+            :can-redo="cCanRedo"
             @update-designation="onSetPlayerDesignation"
             @update-attribute="onUpdatePlayerAttribute"
             @clear-route="onClearRoute"
             @delete-segment="onDeleteSegment"
+            @suggest-route-preview="suggestedRoutePreview = $event"
+            @undo="onUndo"
+            @redo="onRedo"
           />
         </div>
       </div>
@@ -242,9 +245,9 @@
 </template>
 
 <script setup lang="ts">
-import type { CanvasData, CanvasPlayer, CanvasTool, Player } from '~/lib/types'
+import type { CanvasData, CanvasPlayer, CanvasTool, Player, RouteSegment } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
-import { ArrowLeft, ChevronRight, Check, Maximize2, Fullscreen, ChevronDown } from 'lucide-vue-next'
+import { Check, Maximize2, Fullscreen, ChevronDown } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
@@ -297,6 +300,9 @@ watch(
 const canvasRef = ref<InstanceType<typeof PlayCanvas> | null>(null)
 const canvasReady = ref(false)
 
+/** Suggested route preview (from Player Details Suggest) — drawn on canvas until Accept/Deny */
+const suggestedRoutePreview = ref<{ playerId: string; route: { segments: RouteSegment[] } } | null>(null)
+
 // Ghost defense overlay (offense only): show a defensive play as semi-transparent overlay
 const ghostPlayers = ref<CanvasPlayer[]>([])
 const ghostPlayId = ref<string | null>(null)
@@ -314,6 +320,11 @@ const cPlayers = computed(() => canvasRef.value?.canvasData?.players ?? [])
 const cSelectedPlayerId = computed(() => canvasRef.value?.selectedPlayerId ?? null)
 const cSelectedPlayer = computed(() => canvasRef.value?.selectedPlayer ?? null)
 const cSelectedTool = computed<CanvasTool>(() => canvasRef.value?.selectedTool ?? 'select')
+
+// Clear suggested route preview when selected player changes
+watch(cSelectedPlayerId, () => {
+  suggestedRoutePreview.value = null
+})
 const cIsDirty = computed(() => {
   const d = canvasRef.value?.isDirty
   return typeof d === 'object' && d != null && 'value' in d ? (d as { value: boolean }).value : (d === true)
@@ -328,15 +339,45 @@ const canSetPrimaryTarget = computed(() => {
   return true
 })
 
-/** Motion tool disabled for C (cannot motion) and QB (rollout only via Suggest Play) */
+/** Motion tool disabled on defense; or when C (cannot motion). QB can use Motion for rollout. */
 const motionToolDisabled = computed(() => {
+  if (currentPlay.value?.play_type === 'defense') return true
   const p = cSelectedPlayer.value
   if (!p) return false
   const pos = (p.position || '').toUpperCase()
   const des = (p.designation || '').toUpperCase()
-  return pos === 'C' || des === 'C' || pos === 'QB' || des === 'Q'
+  return pos === 'C' || des === 'C'
 })
+
+/** Read progression (1, 2, 3…) is offense only */
+const readOrderDisabled = computed(() => currentPlay.value?.play_type === 'defense')
 const selectedPlayerIsPrimary = computed(() => !!cSelectedPlayer.value?.primaryTarget)
+
+/** Defense only: show zone position button when a coverage player (non-rusher) is selected */
+const showZonePositionButton = computed(() => {
+  if (currentPlay.value?.play_type !== 'defense') return false
+  const p = cSelectedPlayer.value
+  if (!p) return false
+  return p.designation !== 'R' && p.position !== 'RSH'
+})
+const zonePositionUnlocked = computed(() => !!cSelectedPlayer.value?.coverageZoneUnlocked)
+
+function onToggleZonePosition() {
+  const p = cSelectedPlayer.value
+  if (!p) return
+  canvasRef.value?.updatePlayerAttribute(p.id, {
+    coverageZoneUnlocked: !p.coverageZoneUnlocked,
+    ...(p.coverageZoneUnlocked ? { coverageZoneX: undefined, coverageZoneY: undefined } : {}),
+  })
+}
+const cCanUndo = computed(() => {
+  const c = canvasRef.value?.canUndo
+  return typeof c === 'object' && c != null && 'value' in c ? (c as { value: boolean }).value : !!c
+})
+const cCanRedo = computed(() => {
+  const c = canvasRef.value?.canRedo
+  return typeof c === 'object' && c != null && 'value' in c ? (c as { value: boolean }).value : !!c
+})
 
 // Wrapper functions — safe to call even if ref not ready
 function onSelectPlayer(id: string) { canvasRef.value?.selectPlayer(id) }
@@ -364,6 +405,14 @@ function onAiAction(action: string) { canvasRef.value?.handleAiAction(action) }
 function onSetPrimaryTarget() {
   const id = cSelectedPlayerId.value
   if (id) canvasRef.value?.updatePlayerAttribute(id, { primaryTarget: true })
+}
+function onUndo() {
+  canvasRef.value?.undo()
+  nextTick(() => canvasRef.value?.requestRender())
+}
+function onRedo() {
+  canvasRef.value?.redo()
+  nextTick(() => canvasRef.value?.requestRender())
 }
 function onSuggestPlayError(_message: string) {
   // Error state is already reflected in the canvas/UI; optional: add toast here later.
@@ -506,6 +555,11 @@ async function handleTypeChange(type: 'offense' | 'defense') {
   if (type === 'defense') {
     ghostPlayers.value = []
     ghostPlayId.value = null
+    // Offense-only tools: switch to select when going to defense
+    const offenseOnlyTools: CanvasTool[] = ['straight', 'curve', 'option', 'motion', 'readorder', 'erase']
+    if (canvasRef.value && offenseOnlyTools.includes(canvasRef.value.selectedTool)) {
+      canvasRef.value.setTool('select')
+    }
   }
 
   // Reset canvas for new type. Don't mark dirty here — only user edits set dirty,

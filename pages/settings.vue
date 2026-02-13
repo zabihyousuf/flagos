@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-layout flex flex-col xl:flex-row overflow-hidden min-h-0">
+  <div class="settings-layout flex flex-col xl:flex-row min-h-0">
     <!-- Vertical Tab Navigation (narrower at 1024px) -->
     <nav class="settings-nav w-44 shrink-0 xl:w-[180px] xl:min-w-[180px]">
       <button
@@ -639,6 +639,7 @@ onMounted(() => {
   display: flex;
   height: calc(100vh - 64px);
   min-height: 0;
+  overflow-y: hidden;
 }
 
 .settings-nav {
@@ -686,10 +687,14 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .settings-split {
   display: flex;
+  width: 100%;
 }
 
 .settings-preview {
@@ -711,6 +716,9 @@ onMounted(() => {
 .settings-panel {
   padding: 32px;
   max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
 }
 
 /* General tab: setting label left, control right */
@@ -873,6 +881,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 100%;
   min-height: 400px;
 }

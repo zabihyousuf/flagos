@@ -41,8 +41,8 @@
 
     <!-- Quick Play Button -->
     <div class="sidebar-quick-action">
-      <TooltipProvider :delay-duration="0">
-        <Tooltip>
+      <TooltipProvider :delay-duration="0" :ignore-non-keyboard-focus="true">
+        <Tooltip :ignore-non-keyboard-focus="true">
           <TooltipTrigger as-child>
             <button
               class="quick-play-btn"
@@ -68,8 +68,8 @@
             {{ group.badge }}
           </span>
         </div>
-        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="item.to" :delay-duration="0">
-          <Tooltip>
+        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="item.to" :delay-duration="0" :ignore-non-keyboard-focus="true">
+          <Tooltip :ignore-non-keyboard-focus="true">
             <TooltipTrigger as-child>
               <NuxtLink
                 :to="item.disabled ? '' : item.to"

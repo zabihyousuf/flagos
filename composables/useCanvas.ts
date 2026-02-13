@@ -34,6 +34,17 @@ function migrateCanvasData(data: CanvasData): CanvasData {
 
 const HISTORY_CAP = 30
 
+/** Alignment depth offset in normalized Y (0–1). Defense: + = toward LOS, - = deeper. Used to move defender when alignment changes. */
+function alignmentDepthOffset(alignment: CanvasPlayer['alignment']): number {
+  switch (alignment) {
+    case 'tight': return 0.025
+    case 'soft': return -0.02
+    case 'off': return -0.045
+    case 'normal':
+    default: return 0
+  }
+}
+
 export function useCanvas() {
   const canvasData = ref<CanvasData>(getDefaultFormation('offense'))
   const selectedTool = ref<CanvasTool>('select')
@@ -46,6 +57,35 @@ export function useCanvas() {
 
   const historyStack = ref<CanvasData[]>([])
   const historyIndex = ref(-1)
+
+  /** Per-player history: undo/redo in Player Details only affects that player. */
+  const playerHistoryStacks = ref<Record<string, CanvasPlayer[]>>({})
+  const playerHistoryIndices = ref<Record<string, number>>({})
+
+  function getPlayerSnapshot(playerId: string): CanvasPlayer | null {
+    const p = canvasData.value.players.find((x) => x.id === playerId)
+    return p ? JSON.parse(JSON.stringify(p)) : null
+  }
+
+  function pushHistoryForPlayer(playerId: string) {
+    const snapshot = getPlayerSnapshot(playerId)
+    if (!snapshot) return
+    const stacks = playerHistoryStacks.value
+    const indices = playerHistoryIndices.value
+    if (!stacks[playerId]) stacks[playerId] = []
+    if (!(playerId in indices)) indices[playerId] = -1
+    const stack = stacks[playerId]
+    const idx = indices[playerId]
+    if (idx < stack.length - 1) {
+      stacks[playerId] = stack.slice(0, idx + 1)
+    }
+    stacks[playerId].push(snapshot)
+    if (stacks[playerId].length > HISTORY_CAP) {
+      stacks[playerId].shift()
+      indices[playerId] = Math.max(0, indices[playerId] - 1)
+    }
+    indices[playerId] = stacks[playerId].length - 1
+  }
 
   const selectedPlayer = computed(() => {
     if (!selectedPlayerId.value) return null
@@ -80,24 +120,68 @@ export function useCanvas() {
   }
 
   function undo() {
-    if (historyIndex.value <= 0) return
-    historyIndex.value--
-    loadCanvasData(historyStack.value[historyIndex.value])
+    const pid = selectedPlayerId.value
+    if (!pid) return
+    const stack = playerHistoryStacks.value[pid]
+    let idx = playerHistoryIndices.value[pid] ?? -1
+    if (!stack || stack.length === 0 || idx <= 0) return
+    idx--
+    playerHistoryIndices.value = { ...playerHistoryIndices.value, [pid]: idx }
+    const prev = stack[idx]
+    if (!prev) return
+    const player = canvasData.value.players.find((p) => p.id === pid)
+    if (player) {
+      Object.assign(player, prev)
+      isDirty.value = true
+    }
   }
 
   function redo() {
-    if (historyIndex.value >= historyStack.value.length - 1) return
-    historyIndex.value++
-    loadCanvasData(historyStack.value[historyIndex.value])
+    const pid = selectedPlayerId.value
+    if (!pid) return
+    const stack = playerHistoryStacks.value[pid]
+    let idx = playerHistoryIndices.value[pid] ?? -1
+    if (!stack || idx < 0 || idx >= stack.length - 1) return
+    idx++
+    playerHistoryIndices.value = { ...playerHistoryIndices.value, [pid]: idx }
+    const next = stack[idx]
+    if (!next) return
+    const player = canvasData.value.players.find((p) => p.id === pid)
+    if (player) {
+      Object.assign(player, next)
+      isDirty.value = true
+    }
   }
 
-  const canUndo = computed(() => historyIndex.value > 0)
-  const canRedo = computed(() => historyIndex.value >= 0 && historyIndex.value < historyStack.value.length - 1)
+  const canUndo = computed(() => {
+    const pid = selectedPlayerId.value
+    if (!pid) return false
+    const idx = playerHistoryIndices.value[pid] ?? -1
+    return idx > 0
+  })
+  const canRedo = computed(() => {
+    const pid = selectedPlayerId.value
+    if (!pid) return false
+    const stack = playerHistoryStacks.value[pid]
+    const idx = playerHistoryIndices.value[pid] ?? -1
+    return stack != null && idx >= 0 && idx < stack.length - 1
+  })
 
   /** Call after loading initial play data so undo has a starting point */
   function seedHistory() {
     historyStack.value = [getExportData()]
     historyIndex.value = 0
+    const stacks: Record<string, CanvasPlayer[]> = {}
+    const indices: Record<string, number> = {}
+    canvasData.value.players.forEach((p) => {
+      const snap = getPlayerSnapshot(p.id)
+      if (snap) {
+        stacks[p.id] = [snap]
+        indices[p.id] = 0
+      }
+    })
+    playerHistoryStacks.value = stacks
+    playerHistoryIndices.value = indices
   }
 
   function setTool(tool: CanvasTool) {
@@ -127,14 +211,15 @@ export function useCanvas() {
     }
   }
 
-  /** Call before starting a drag so we have state to undo to (called once per drag from interaction) */
-  function pushHistoryBeforeDrag() {
-    pushHistory()
+  /** Call before starting a drag so we have state to undo to (playerId = which player/zone is being dragged) */
+  function pushHistoryBeforeDrag(playerId?: string) {
+    if (playerId) pushHistoryForPlayer(playerId)
+    else pushHistory()
   }
 
-  /** Call after drag ends to save the new state to history */
-  function pushHistoryAfterDrag() {
-    pushHistory()
+  /** Call after drag ends (no push; current canvas state is the result) */
+  function pushHistoryAfterDrag(_playerId?: string) {
+    // Per-player: state already updated; no push needed
   }
 
   // ─── Segment-based route drawing ───────────────────────
@@ -165,7 +250,7 @@ export function useCanvas() {
     })
     activeSegmentIndex.value = player.route.segments.length - 1
     isDirty.value = true
-    pushHistory()
+    pushHistoryForPlayer(playerId)
   }
 
   function addPointToSegment(playerId: string, x: number, y: number) {
@@ -177,7 +262,7 @@ export function useCanvas() {
 
     segment.points.push({ x, y })
     isDirty.value = true
-    pushHistory()
+    pushHistoryForPlayer(playerId)
   }
 
   function finalizeSegment() {
@@ -192,7 +277,7 @@ export function useCanvas() {
     activeSegmentIndex.value = null
     player.route = null
     isDirty.value = true
-    pushHistory()
+    pushHistoryForPlayer(playerId)
   }
 
   function deleteRouteSegment(playerId: string, segmentIndex: number) {
@@ -201,6 +286,7 @@ export function useCanvas() {
     const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
     if (isRusher) return
     const idx = Math.max(0, Math.min(segmentIndex, player.route.segments.length - 1))
+    const hadReadOrder = player.route.segments[idx]?.readOrder != null
     player.route.segments.splice(idx, 1)
     if (player.route.segments.length === 0) {
       player.route = null
@@ -210,8 +296,9 @@ export function useCanvas() {
       if (activeSegmentIndex.value === idx) activeSegmentIndex.value = null
       else if (activeSegmentIndex.value > idx) activeSegmentIndex.value--
     }
+    if (hadReadOrder) renumberReadOrderProgression()
     isDirty.value = true
-    pushHistory()
+    pushHistoryForPlayer(playerId)
   }
 
   function clearAllRoutes() {
@@ -230,6 +317,21 @@ export function useCanvas() {
 
   // ─── Read order ────────────────────────────────────────
 
+  /** Renumber all read orders so they are 1, 2, 3... with no gaps (call after removing one). */
+  function renumberReadOrderProgression() {
+    const withOrder: { order: number; segment: RouteSegment }[] = []
+    canvasData.value.players.forEach((p) => {
+      p.route?.segments?.forEach((seg) => {
+        if (seg.readOrder != null) withOrder.push({ order: seg.readOrder, segment: seg })
+      })
+    })
+    withOrder.sort((a, b) => a.order - b.order)
+    withOrder.forEach(({ segment }, i) => {
+      segment.readOrder = i + 1
+    })
+    nextReadOrder.value = withOrder.length + 1
+  }
+
   function assignReadOrder(playerId: string, segmentIndex?: number) {
     const player = canvasData.value.players.find((p) => p.id === playerId)
     if (!player || !player.route || player.route.segments.length === 0) return
@@ -240,13 +342,14 @@ export function useCanvas() {
     if (!segment) return
 
     if (segment.readOrder) {
-      // Toggle off if already has one
+      // Remove from progression; renumber the rest so 1,2,3... have no gaps
       segment.readOrder = undefined
+      renumberReadOrderProgression()
     } else {
       segment.readOrder = nextReadOrder.value++
     }
     isDirty.value = true
-    pushHistory()
+    pushHistoryForPlayer(playerId)
   }
 
   // ─── Motion / QB rollout ───────────────────────────────
@@ -259,15 +362,16 @@ export function useCanvas() {
     const des = (player.designation || '').toUpperCase()
     // Centers cannot go in motion
     if (pos === 'C' || des === 'C') return
-    // QB can only use rollout (set by suggest play), not free-form motion
-    if (pos === 'QB' || des === 'Q') return
 
     if (!player.motionPath) {
       player.motionPath = []
     }
-    player.motionPath.push({ x, y })
+    // QB rollout: keep same Y (horizontal rollout only, not forward motion)
+    const isQB = pos === 'QB' || des === 'Q'
+    const motionPoint = isQB ? { x, y: player.y } : { x, y }
+    player.motionPath.push(motionPoint)
     isDirty.value = true
-    pushHistory()
+    pushHistoryForPlayer(playerId)
   }
 
   function clearMotionPath(playerId: string) {
@@ -288,7 +392,7 @@ export function useCanvas() {
         player.coverageRadius = undefined // Rushers do not cover a zone
       }
       isDirty.value = true
-      pushHistory()
+      pushHistoryForPlayer(playerId)
     }
   }
 
@@ -314,6 +418,14 @@ export function useCanvas() {
       if (attrs.primaryTarget === true) {
         canvasData.value.players.forEach((p) => { p.primaryTarget = false })
       }
+      // Alignment change for defense non-rushers: move player depth (tight = toward LOS, off = deep)
+      const isDefenseCoverage = player.side === 'defense' && !(player.designation === 'R' || player.position === 'RSH')
+      const oldAlignment = player.alignment
+      if (isDefenseCoverage && 'alignment' in attrs && attrs.alignment !== undefined) {
+        const delta = alignmentDepthOffset(attrs.alignment) - alignmentDepthOffset(oldAlignment)
+        const newY = Math.max(0, Math.min(1, player.y + delta))
+        attrs = { ...attrs, y: newY }
+      }
       Object.assign(player, attrs)
       if (attrs.position === 'RSH' || attrs.designation === 'R') {
         player.coverageRadius = undefined // Rushers do not cover a zone
@@ -326,7 +438,7 @@ export function useCanvas() {
         player.coverageRadius = 5 // Default coverage radius for defenders
       }
       isDirty.value = true
-      pushHistory()
+      pushHistoryForPlayer(playerId)
     }
   }
 
@@ -432,6 +544,11 @@ export function useCanvas() {
       coverageRadius: side === 'defense' ? 5 : undefined,
       alignment: side === 'defense' ? 'normal' : undefined,
     })
+    const snap = getPlayerSnapshot(id)
+    if (snap) {
+      playerHistoryStacks.value = { ...playerHistoryStacks.value, [id]: [snap] }
+      playerHistoryIndices.value = { ...playerHistoryIndices.value, [id]: 0 }
+    }
     isDirty.value = true
     pushHistory()
   }
@@ -441,6 +558,12 @@ export function useCanvas() {
     if (selectedPlayerId.value === playerId) {
       selectedPlayerId.value = null
     }
+    const stacks = { ...playerHistoryStacks.value }
+    const indices = { ...playerHistoryIndices.value }
+    delete stacks[playerId]
+    delete indices[playerId]
+    playerHistoryStacks.value = stacks
+    playerHistoryIndices.value = indices
     isDirty.value = true
     pushHistory()
   }

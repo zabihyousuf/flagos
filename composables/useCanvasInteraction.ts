@@ -21,10 +21,10 @@ interface InteractionOptions {
   onRequestRender: () => void
   /** When route tool is active and user clicks a player (no selection yet), switch to move mode instead of selecting for route */
   onSelectPlayerForMove?: (playerId: string) => void
-  /** When select tool and user starts dragging a player (mousedown on player), call once so undo can save state before move */
-  onDragStart?: () => void
-  /** When user releases after dragging a player, call so we can save state after move for undo stack */
-  onDragEnd?: () => void
+  /** When select tool and user starts dragging a player or zone, call with that player's id for per-player undo */
+  onDragStart?: (playerId?: string) => void
+  /** When user releases after dragging, call with the player id that was dragged */
+  onDragEnd?: (playerId?: string) => void
   /** When user clicks on a route (select tool, no player hit), call with playerId and click client position for delete chip */
   onSelectRoute?: (playerId: string, clientX: number, clientY: number) => void
   /** When user clicks empty (deselect), call so delete chip can be hidden */
@@ -182,14 +182,14 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     if (tool === 'select') {
       const player = findPlayerAt(coords)
       if (player) {
-        options.onDragStart?.()
+        options.onDragStart?.(player.id)
         options.onSelectPlayer(player.id)
         isDragging.value = true
         dragPlayerId.value = player.id
       } else {
         const zonePlayer = findCoverageZoneAt(coords)
         if (zonePlayer && options.onMoveCoverageZone) {
-          options.onDragStart?.()
+          options.onDragStart?.(zonePlayer.id)
           options.onSelectPlayer(zonePlayer.id)
           dragZonePlayerId.value = zonePlayer.id
         } else {
@@ -224,6 +224,7 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
         if (player) {
           if (options.onSelectPlayerForMove) {
             options.onSelectPlayerForMove(player.id)
+            options.onDragStart?.(player.id)
             isDragging.value = true
             dragPlayerId.value = player.id
           } else {
@@ -317,11 +318,9 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
   }
 
   function handleMouseUp(_e: MouseEvent) {
-    if (isDragging.value) {
-      options.onDragEnd?.()
-    }
-    if (dragZonePlayerId.value) {
-      options.onDragEnd?.()
+    const draggedId = dragPlayerId.value ?? dragZonePlayerId.value ?? undefined
+    if (isDragging.value || dragZonePlayerId.value) {
+      options.onDragEnd?.(draggedId)
     }
     isDragging.value = false
     dragPlayerId.value = null

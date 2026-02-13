@@ -7,6 +7,9 @@
       <p class="mt-2 text-muted-foreground text-sm sm:text-base">
         Get started with FlagOS. One playbook to rule them all.
       </p>
+      <p class="mt-3 text-muted-foreground text-xs max-w-[360px]">
+        We ask for your name, role, and optional team so we can personalize your experience and set up your first team if you’d like.
+      </p>
     </header>
 
     <!-- Success state -->
@@ -46,6 +49,22 @@
           required
           class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
         />
+        <p class="text-xs text-muted-foreground">So we can greet you and use it in your playbook.</p>
+      </div>
+      <div class="space-y-2">
+        <Label for="role" class="text-foreground font-medium">Role</Label>
+        <Select v-model="role" required>
+          <SelectTrigger id="role" class="h-11 bg-muted/40 border-border focus:bg-background transition-colors">
+            <SelectValue placeholder="Select your role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="coach">Coach</SelectItem>
+            <SelectItem value="player">Player</SelectItem>
+            <SelectItem value="parent">Parent</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+        <p class="text-xs text-muted-foreground">Helps us tailor the app (e.g. coach vs player).</p>
       </div>
       <div class="space-y-2">
         <Label for="email" class="text-foreground font-medium">Email</Label>
@@ -72,6 +91,18 @@
           class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
         />
         <p class="text-xs text-muted-foreground">Minimum 6 characters.</p>
+      </div>
+
+      <div class="space-y-2">
+        <Label for="team_name" class="text-foreground font-medium">Team name <span class="text-muted-foreground font-normal">(optional)</span></Label>
+        <Input
+          id="team_name"
+          v-model="teamName"
+          type="text"
+          placeholder="e.g. Hawks 12U"
+          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+        />
+        <p class="text-xs text-muted-foreground">If you add one, we’ll create this team for you so you can start adding players right away.</p>
       </div>
 
       <p v-if="errorMsg" class="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
@@ -106,8 +137,10 @@ definePageMeta({ layout: 'auth' })
 const client = useSupabaseClient()
 
 const displayName = ref('')
+const role = ref<string>('')
 const email = ref('')
 const password = ref('')
+const teamName = ref('')
 const errorMsg = ref('')
 const submitting = ref(false)
 const success = ref(false)
@@ -116,11 +149,18 @@ async function handleSignup() {
   submitting.value = true
   errorMsg.value = ''
   try {
+    const metadata: Record<string, unknown> = {
+      display_name: displayName.value,
+      role: role.value,
+    }
+    const name = teamName.value?.trim()
+    if (name) metadata.preferred_team_name = name
+
     const { error } = await client.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
-        data: { display_name: displayName.value },
+        data: metadata,
       },
     })
     if (error) throw error

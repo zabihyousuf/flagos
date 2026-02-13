@@ -53,6 +53,8 @@ const props = defineProps<{
   ghostPlayers?: CanvasPlayer[]
   /** When false, hide player names on the field (default true) */
   showPlayerNames?: boolean
+  /** Suggested route preview for one player (from Player Details Suggest) — drawn on canvas until Accept/Deny */
+  suggestedRoutePreview?: { playerId: string; route: { segments: { type: string; points: { x: number; y: number }[] }[] } } | null
 }>()
 
 const emit = defineEmits<{
@@ -181,6 +183,7 @@ function requestRender() {
     playType: props.playType,
     ghostPlayers: props.ghostPlayers,
     showPlayerNames: props.showPlayerNames !== false,
+    suggestedRoutePreview: props.suggestedRoutePreview ?? null,
   })
 }
 
@@ -269,11 +272,11 @@ async function handleAiAction(action: string) {
       const qb = players.find((p) => p.side === 'offense' && ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q'))
       if (qb) {
         const dx = qbMotion.includes('right') ? 0.06 : qbMotion.includes('left') ? -0.06 : 0
-        const depth = qbMotion.startsWith('boot') ? 0.06 : 0.03
         if (dx !== 0) {
+          // QB rollout: left or right only, never past the LOS (keep same y as QB)
           qb.motionPath = [
-            { x: qb.x + dx, y: Math.max(0.1, qb.y - depth * 0.5) },
-            { x: qb.x + dx * 2, y: Math.max(0.1, qb.y - depth) },
+            { x: qb.x + dx, y: qb.y },
+            { x: qb.x + dx * 2, y: qb.y },
           ]
         }
       }
@@ -337,7 +340,7 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview], () => {
   requestRender()
 }, { deep: true })
 

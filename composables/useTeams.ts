@@ -215,6 +215,18 @@ export function useTeams() {
 
       if (err) throw err
       teams.value = (data ?? []) as unknown as Team[]
+
+      // Signup: if user had preferred_team_name and has no teams yet, create that team for them
+      const preferredName = user.value?.user_metadata?.preferred_team_name as string | undefined
+      const name = typeof preferredName === 'string' ? preferredName.trim() : ''
+      if (name && teams.value.length === 0) {
+        const created = await createTeam(name, '')
+        if (created) {
+          const authClient = useSupabaseClient()
+          const meta = { ...user.value?.user_metadata, preferred_team_name: null }
+          await authClient.auth.updateUser({ data: meta })
+        }
+      }
     } catch (e: any) {
       error.value = e.message
     } finally {

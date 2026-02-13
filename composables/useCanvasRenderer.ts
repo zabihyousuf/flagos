@@ -21,6 +21,8 @@ export interface RenderOptions {
   previewScale?: number
   /** Minimal B&W thumbnail: no field, zoomed to fit play, small circles and numbers only. */
   thumbnailMode?: boolean
+  /** Suggested route preview for one player (drawn on canvas until Accept/Deny) */
+  suggestedRoutePreview?: { playerId: string; route: { segments: RouteSegment[] } } | null
 }
 
 const PADDING = 12
@@ -178,9 +180,12 @@ export function useCanvasRenderer() {
     ctx.translate(offsetX, offsetY)
 
     drawField(ctx, fieldW, fieldH, options)
-    // Draw routes behind players
+    // Draw routes behind players (use suggested route preview when set for this player)
     data.players.forEach((player) => {
-      drawPlayerRoute(ctx, player, fieldW, fieldH, options)
+      const preview = options.suggestedRoutePreview?.playerId === player.id ? options.suggestedRoutePreview : null
+      const routeToDraw = preview ? preview.route : player.route
+      const effectivePlayer = routeToDraw ? { ...player, route: routeToDraw } : player
+      drawPlayerRoute(ctx, effectivePlayer, fieldW, fieldH, options, !!preview)
       drawMotionPath(ctx, player, fieldW, fieldH, options)
     })
 
@@ -413,6 +418,7 @@ export function useCanvasRenderer() {
     fieldW: number,
     fieldH: number,
     options: RenderOptions,
+    isPreview = false,
   ) {
     if (!player.route || !player.route.segments || player.route.segments.length === 0) return
 
@@ -420,6 +426,11 @@ export function useCanvasRenderer() {
     const playerX = player.x * fieldW
     const playerY = player.y * fieldH
     const color = POSITION_COLORS[player.position] ?? '#888888'
+    if (isPreview) {
+      ctx.save()
+      ctx.setLineDash([8, 6])
+      ctx.globalAlpha = 0.85
+    }
 
     // Route starts at end of motion when present, otherwise at player position
     const motionEnd = player.motionPath?.length ? player.motionPath[player.motionPath.length - 1] : null
@@ -429,7 +440,8 @@ export function useCanvasRenderer() {
     let lastEndPoint = { ...routeStart }
 
     // Draw full path (all segments) with no arrows at intermediate points
-    player.route.segments.forEach((segment) => {
+    const segCount = player.route.segments.length
+    player.route.segments.forEach((segment, segIndex) => {
       if (segment.points.length === 0) return
 
       const points = segment.points.map((p) => ({
@@ -438,8 +450,9 @@ export function useCanvasRenderer() {
       }))
 
       ctx.save()
+      const lineWidth = Math.max(0.5, (segment.type === 'option' ? 2 : 2.5) * scale)
       ctx.strokeStyle = color
-      ctx.lineWidth = Math.max(0.5, (segment.type === 'option' ? 2 : 2.5) * scale)
+      ctx.lineWidth = lineWidth
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
 
@@ -450,10 +463,24 @@ export function useCanvasRenderer() {
       ctx.beginPath()
       ctx.moveTo(lastEndPoint.x, lastEndPoint.y)
 
+      const isLastSegment = segIndex === segCount - 1
       if (segment.type === 'curve') {
         drawCurveSegment(ctx, lastEndPoint, points)
       } else {
-        points.forEach((p) => ctx.lineTo(p.x, p.y))
+        // For straight/option: stop line short by half lineWidth at the very end so round cap meets arrow tip
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i]
+          if (isLastSegment && segment.type !== 'option' && i === points.length - 1) {
+            const prev = i > 0 ? points[i - 1] : lastEndPoint
+            const dx = p.x - prev.x
+            const dy = p.y - prev.y
+            const len = Math.sqrt(dx * dx + dy * dy) || 1
+            const inset = lineWidth / 2
+            ctx.lineTo(p.x - (dx / len) * inset, p.y - (dy / len) * inset)
+          } else {
+            ctx.lineTo(p.x, p.y)
+          }
+        }
       }
 
       ctx.stroke()
@@ -502,6 +529,7 @@ export function useCanvasRenderer() {
         drawArrowHead(ctx, arrowPrev, arrowEnd, color, Math.max(3, 10 * scale))
       }
     }
+    if (isPreview) ctx.restore()
   }
 
   /**
@@ -523,8 +551,12 @@ export function useCanvasRenderer() {
     if (!lastSeg.points.length) return
 
     const throwPoint = lastSeg.points[lastSeg.points.length - 1]
-    const qbX = qb.x * fieldW
-    const qbY = qb.y * fieldH
+    // When QB has a rollout (motion path), throw line starts from end of rollout
+    const qbThrowFrom = qb.motionPath?.length
+      ? qb.motionPath[qb.motionPath.length - 1]
+      : { x: qb.x, y: qb.y }
+    const qbX = qbThrowFrom.x * fieldW
+    const qbY = qbThrowFrom.y * fieldH
     const endX = throwPoint.x * fieldW
     const endY = throwPoint.y * fieldH
 

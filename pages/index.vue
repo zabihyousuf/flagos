@@ -221,7 +221,7 @@ async function fetchRecentPlays() {
     .select('*, playbooks!inner(name)')
     .eq('user_id', user.value.id)
     .order('updated_at', { ascending: false })
-    .limit(5)
+    .limit(3)
 
   if (data) {
     recentPlays.value = data.map((p: any) => ({
@@ -231,7 +231,7 @@ async function fetchRecentPlays() {
   }
 }
 
-// All plays stats (separate from recentPlays which is limited to 5)
+// All plays stats (separate from recentPlays which is limited to 3)
 const totalPlayCount = ref(0)
 const offensePlayCount = ref(0)
 const defensePlayCount = ref(0)

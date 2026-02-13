@@ -19,7 +19,7 @@
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
 
-    <!-- Route drawing tools -->
+    <!-- Route drawing tools (offense only; defense uses coverage/rush path) -->
     <TooltipProvider v-for="tool in routeTools" :key="tool.id">
       <Tooltip>
         <TooltipTrigger as-child>
@@ -27,12 +27,15 @@
             size="icon"
             :variant="selectedTool === tool.id ? 'default' : 'ghost'"
             class="h-8 w-8"
+            :disabled="routeToolsDisabled"
             @click="$emit('select-tool', tool.id)"
           >
             <component :is="tool.icon" class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom"><p>{{ tool.label }}</p></TooltipContent>
+        <TooltipContent side="bottom">
+          <p>{{ routeToolsDisabled ? 'Route tools (offense only)' : tool.label }}</p>
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -53,12 +56,12 @@
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p>{{ motionToolDisabled ? 'Motion (not for C or QB)' : 'Motion (C and QB: QB rollout only)' }}</p>
+          <p>{{ motionToolDisabled ? 'Motion (offense only)' : 'Motion (C cannot; QB = rollout)' }}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
-    <!-- Read Order -->
+    <!-- Read Order (offense only) -->
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger as-child>
@@ -66,12 +69,34 @@
             size="icon"
             :variant="selectedTool === 'readorder' ? 'default' : 'ghost'"
             class="h-8 w-8"
+            :disabled="readOrderDisabled"
             @click="$emit('select-tool', 'readorder')"
           >
             <ListOrdered class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom"><p>Read Progression (1, 2, 3…)</p></TooltipContent>
+        <TooltipContent side="bottom">
+          <p>{{ readOrderDisabled ? 'Read progression (offense only)' : 'Read Progression (1, 2, 3…)' }}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <!-- Zone position (defense only, coverage player selected): Locked to player / Unlocked — drag on field -->
+    <TooltipProvider v-if="showZonePositionButton">
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            :variant="zonePositionUnlocked ? 'default' : 'ghost'"
+            class="h-8 w-8"
+            @click="$emit('toggle-zone-position')"
+          >
+            <Crosshair class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>{{ zonePositionUnlocked ? 'Zone unlocked — drag on field' : 'Zone locked to player' }}</p>
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -92,7 +117,7 @@
       </Tooltip>
     </TooltipProvider>
 
-    <!-- Erase -->
+    <!-- Erase Route (offense only) -->
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger as-child>
@@ -100,12 +125,15 @@
             size="icon"
             :variant="selectedTool === 'erase' ? 'default' : 'ghost'"
             class="h-8 w-8"
+            :disabled="eraseToolDisabled"
             @click="$emit('select-tool', 'erase')"
           >
             <Eraser class="w-3.5 h-3.5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom"><p>Erase Route</p></TooltipContent>
+        <TooltipContent side="bottom">
+          <p>{{ eraseToolDisabled ? 'Erase route (offense only)' : 'Erase Route' }}</p>
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
 
@@ -158,6 +186,7 @@ import {
   GitBranch,
   Move,
   ListOrdered,
+  Crosshair,
   Eraser,
   Trash2,
   Sparkles,
@@ -172,8 +201,18 @@ const props = defineProps<{
   selectedPlayerIsPrimary?: boolean
   /** Disable Suggest Play (e.g. for defense) */
   suggestPlayDisabled?: boolean
-  /** Disable Motion tool (e.g. when C or QB selected — C cannot motion, QB only rollout) */
+  /** Disable Motion tool (e.g. on defense, or when C or QB selected) */
   motionToolDisabled?: boolean
+  /** Disable Read Progression tool (e.g. on defense) */
+  readOrderDisabled?: boolean
+  /** Disable route drawing tools (straight, curve, option) e.g. when in defense mode */
+  routeToolsDisabled?: boolean
+  /** Disable Erase Route tool (e.g. on defense) */
+  eraseToolDisabled?: boolean
+  /** Show Zone position toggle (defense, coverage player selected) */
+  showZonePositionButton?: boolean
+  /** Selected coverage player's zone is unlocked (drag on field) */
+  zonePositionUnlocked?: boolean
 }>()
 
 defineEmits<{
@@ -181,6 +220,7 @@ defineEmits<{
   'clear-routes': []
   'ai-action': [action: string]
   'set-primary-target': []
+  'toggle-zone-position': []
 }>()
 
 const routeTools = [

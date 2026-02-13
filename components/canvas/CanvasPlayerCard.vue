@@ -1,32 +1,64 @@
 <template>
   <div v-if="selectedPlayer" class="w-full h-full bg-card border-border flex flex-col overflow-hidden">
-    <!-- Panel Header -->
-    <div class="h-10 border-border flex items-center px-3 shrink-0">
+    <!-- Panel Header: Title left, Undo/Redo right -->
+    <div class="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
       <span class="text-sm font-semibold text-foreground">Player Details</span>
+      <div class="flex items-center gap-0.5 shrink-0">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-7 w-7"
+                :disabled="!canUndo"
+                @click="$emit('undo')"
+              >
+                <Undo2 class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p>Undo</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-7 w-7"
+                :disabled="!canRedo"
+                @click="$emit('redo')"
+              >
+                <Redo2 class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p>Redo</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
 
     <div class="p-3 space-y-3 overflow-y-auto custom-scrollbar flex-1">
-      <!-- Position & Info -->
-      <div class="space-y-3">
-        <div class="flex items-center gap-3">
-          <div
-            class="w-10 h-10 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ring-2 ring-border/20"
-            :style="{ background: posColor(selectedPlayer.position) }"
-          >
-            {{ selectedPlayer.designation }}
-          </div>
-          <div class="flex-1">
-            <div class="flex items-center justify-between">
-              <span class="text-base font-bold text-foreground">{{ selectedPlayer.name ?? 'Unnamed' }}</span>
-              <span v-if="selectedPlayer.number" class="text-[13px] font-mono text-muted-foreground">#{{ selectedPlayer.number }}</span>
+      <!-- Row 1: Player name and identity (same for offense and defense) -->
+      <div class="flex items-center gap-3 pb-3 border-b border-border/50">
+        <div
+          class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ring-2 ring-border/20"
+          :style="{ background: posColor(selectedPlayer.position) }"
+        >
+          {{ selectedPlayer.designation }}
+        </div>
+        <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base font-bold text-foreground truncate">{{ selectedPlayer.name ?? 'Unnamed' }}</span>
+              <span v-if="selectedPlayer.number" class="text-[13px] font-mono text-muted-foreground shrink-0">#{{ selectedPlayer.number }}</span>
             </div>
-            <div class="grid grid-cols-2 gap-2 mt-1.5">
-            <!-- Combined Role Selector -->
+            <div class="mt-1.5">
               <Select
                 :model-value="selectedPlayerRole"
                 @update:model-value="(v) => handleRoleChange(v as string)"
               >
-                <SelectTrigger class="h-6 text-[13px] bg-muted/30 border-border/50 col-span-2">
+                <SelectTrigger class="h-6 text-[13px] bg-muted/30 border-border/50 w-full">
                   <SelectValue placeholder="Select Position" />
                 </SelectTrigger>
                 <SelectContent>
@@ -44,56 +76,40 @@
               </Select>
             </div>
           </div>
+      </div>
+
+      <!-- Defense: Coverage controls at top so they’re the main focus -->
+      <div v-if="playType === 'defense' && !isRusher(selectedPlayer)" class="space-y-3 pb-3 border-b border-border/50">
+        <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Coverage</p>
+
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[13px] text-muted-foreground">Coverage radius</label>
+            <span class="text-[13px] font-mono">{{ selectedPlayer.coverageRadius ?? 5 }} yd</span>
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="15"
+            step="1"
+            :value="selectedPlayer.coverageRadius ?? 5"
+            class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+            @input="(e: any) => $emit('update-attribute', selectedPlayer!.id, { coverageRadius: parseInt(e.target.value) })"
+          />
         </div>
 
-        <!-- Defensive Settings (rushers do not cover a zone) -->
-        <div v-if="playType === 'defense' && !isRusher(selectedPlayer)" class="space-y-3 pt-2 border-t border-border/50">
-          <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Defensive Coverage</p>
-
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label class="text-[13px] text-muted-foreground">Coverage Radius</label>
-              <span class="text-[13px] font-mono">{{ selectedPlayer.coverageRadius ?? 5 }} yd</span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="15"
-              step="1"
-              :value="selectedPlayer.coverageRadius ?? 5"
-              class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
-              @input="(e: any) => $emit('update-attribute', selectedPlayer!.id, { coverageRadius: parseInt(e.target.value) })"
-            />
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-[13px] text-muted-foreground">Zone position</label>
+        <div class="space-y-1.5">
+          <label class="text-[13px] text-muted-foreground">Alignment</label>
+          <div class="grid grid-cols-4 gap-1">
             <button
-              type="button"
-              class="w-full px-2 py-1.5 text-[13px] font-medium rounded border transition-colors"
-              :class="selectedPlayer.coverageZoneUnlocked ? 'bg-primary/15 text-primary border-primary/30' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
-              @click="$emit('update-attribute', selectedPlayer!.id, {
-                coverageZoneUnlocked: !selectedPlayer.coverageZoneUnlocked,
-                ...(selectedPlayer.coverageZoneUnlocked ? { coverageZoneX: undefined, coverageZoneY: undefined } : {})
-              })"
+              v-for="align in ['tight', 'normal', 'soft', 'off']"
+              :key="align"
+              class="px-1 py-1 text-[13px] rounded border transition-colors capitalize"
+              :class="(selectedPlayer.alignment || 'normal') === align ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
+              @click="$emit('update-attribute', selectedPlayer!.id, { alignment: align as 'tight' | 'normal' | 'soft' | 'off' })"
             >
-              {{ selectedPlayer.coverageZoneUnlocked ? 'Unlocked — drag zone on field' : 'Locked to player' }}
+              {{ align }}
             </button>
-          </div>
-
-          <div class="space-y-1.5">
-            <label class="text-[13px] text-muted-foreground">Alignment</label>
-            <div class="grid grid-cols-4 gap-1">
-               <button
-                v-for="align in ['tight', 'normal', 'soft', 'off']"
-                :key="align"
-                class="px-1 py-1 text-[13px] rounded border transition-colors capitalize"
-                :class="(selectedPlayer.alignment || 'normal') === align ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
-                @click="$emit('update-attribute', selectedPlayer!.id, { alignment: align as 'tight' | 'normal' | 'soft' | 'off' })"
-               >
-                 {{ align }}
-               </button>
-            </div>
           </div>
         </div>
       </div>
@@ -251,26 +267,45 @@ import {
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
-import { Sparkles, Check, X, Target } from 'lucide-vue-next'
+import { Sparkles, Check, X, Target, Undo2, Redo2 } from 'lucide-vue-next'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '~/components/ui/tooltip'
 
-const props = defineProps<{
-  selectedPlayer: CanvasPlayer | null
-  allRoster: Player[]
-  fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }
-  playType: 'offense' | 'defense'
-}>()
+const props = withDefaults(
+  defineProps<{
+    selectedPlayer: CanvasPlayer | null
+    allRoster: Player[]
+    fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number }
+    playType: 'offense' | 'defense'
+    canUndo?: boolean
+    canRedo?: boolean
+  }>(),
+  { canUndo: false, canRedo: false }
+)
 
 const emit = defineEmits<{
   'update-designation': [playerId: string, designation: string]
   'update-attribute': [playerId: string, attributes: Partial<CanvasPlayer>]
   'clear-route': [playerId: string]
   'delete-segment': [playerId: string, segmentIndex: number]
+  'suggest-route-preview': [payload: { playerId: string; route: { segments: RouteSegment[] } } | null]
+  undo: []
+  redo: []
 }>()
 
 const { analyzeRoute, generateRandomRoute, suggestRouteForPlayer } = useRouteAnalysis()
 
 // State for suggested route
 const pendingRoute = ref<{ segments: RouteSegment[] } | null>(null)
+
+watch(() => props.selectedPlayer?.id, () => {
+  pendingRoute.value = null
+  emit('suggest-route-preview', null)
+})
 
 function posColor(pos: string) {
   return POSITION_COLORS[pos] ?? '#888888'
@@ -426,6 +461,7 @@ function handleSuggestRoute() {
       : generateRandomRoute(props.selectedPlayer, props.fieldSettings)
   if (route) {
     pendingRoute.value = route
+    emit('suggest-route-preview', { playerId: props.selectedPlayer.id, route })
   }
 }
 
@@ -433,11 +469,13 @@ function acceptRoute() {
   if (pendingRoute.value && props.selectedPlayer) {
     emit('update-attribute', props.selectedPlayer.id, { route: pendingRoute.value })
     pendingRoute.value = null
+    emit('suggest-route-preview', null)
   }
 }
 
 function denyRoute() {
   pendingRoute.value = null
+  emit('suggest-route-preview', null)
 }
 
 const yardLine = computed(() => {
