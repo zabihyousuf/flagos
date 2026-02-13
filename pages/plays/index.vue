@@ -80,11 +80,11 @@
     </div>
 
     <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <NuxtLink
+      <div
         v-for="play in filteredPlays"
         :key="play.id"
-        :to="`/plays/${play.id}`"
-        class="play-card glass glass-hover"
+        class="play-card relative group cursor-pointer"
+        @click="navigateToPlay(play.id)"
       >
         <div class="flex items-start justify-between mb-3">
           <div 
@@ -95,7 +95,23 @@
             <Shield v-else class="w-3.5 h-3.5" />
             <span>{{ play.play_type }}</span>
           </div>
-          <span class="text-xs text-muted-foreground">{{ formatDate(play.updated_at) }}</span>
+          
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">{{ formatDate(play.updated_at) }}</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="icon" class="h-6 w-6 -mr-1 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+                  <MoreVertical class="w-3.5 h-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
+                  <Trash2 class="w-3.5 h-3.5 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <h4 class="font-medium text-sm mb-1">{{ play.name }}</h4>
         <p class="text-xs text-muted-foreground">
@@ -105,7 +121,7 @@
         <p v-if="play.formation" class="text-xs text-muted-foreground mt-1 opacity-70">
           {{ play.formation }}
         </p>
-      </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
@@ -115,10 +131,13 @@ import type { Play } from '~/lib/types'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
-import { Plus, Search, Swords, Shield, BookOpen } from 'lucide-vue-next'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
+import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2 } from 'lucide-vue-next'
 
+const router = useRouter()
 const quickPlay = useQuickPlay()
 const client = useSupabaseDB()
+const { confirm } = useConfirm()
 
 interface PlayWithPlaybook extends Play {
   _playbookName?: string
@@ -184,6 +203,30 @@ function formatDate(dateStr: string) {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d ago`
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function navigateToPlay(id: string) {
+  router.push(`/plays/${id}`)
+}
+
+async function handleDelete(id: string) {
+  const ok = await confirm({
+    title: 'Delete Play',
+    description: 'Are you sure you want to delete this play? This action cannot be undone.',
+    actionLabel: 'Delete',
+  })
+  if (!ok) return
+
+  loading.value = true
+  try {
+    const { error } = await client.from('plays').delete().eq('id', id)
+    if (error) throw error
+    allPlays.value = allPlays.value.filter(p => p.id !== id)
+  } catch (e) {
+    console.error('Failed to delete play:', e)
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {

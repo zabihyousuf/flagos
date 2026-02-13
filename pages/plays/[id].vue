@@ -1,7 +1,7 @@
 <template>
   <div class="h-full w-full flex flex-col overflow-hidden">
     <!-- Header Bar -->
-    <div class="h-12 border-b border-border bg-card flex items-center px-4 shrink-0 gap-4">
+    <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-4">
       <!-- Left: Breadcrumbs -->
       <div class="flex items-center gap-1.5 min-w-0 shrink-0">
         <button
@@ -12,13 +12,37 @@
           <span class="truncate max-w-[120px]">{{ playbookName ?? 'Playbooks' }}</span>
         </button>
         <ChevronRight class="w-3 h-3 text-muted-foreground/50 shrink-0" />
-        <span class="text-sm font-medium truncate max-w-[140px]">{{ currentPlay?.name ?? '...' }}</span>
-        <span
-          v-if="currentPlay?.play_type"
-          class="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0"
-        >
-          {{ currentPlay.play_type === 'offense' ? 'OFF' : 'DEF' }}
-        </span>
+        
+        <!-- Editable Play Name -->
+        <div class="relative group">
+          <input
+            v-if="currentPlay"
+            v-model="currentPlay.name"
+            class="bg-transparent text-sm font-medium truncate max-w-[200px] border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
+            @change="handleNameChange"
+          />
+          <span v-else class="text-sm font-medium">Loading...</span>
+        </div>
+
+        <!-- Sport Toggle -->
+        <div class="flex items-center bg-muted rounded-full p-0.5 ml-2" v-if="currentPlay">
+          <button
+            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1"
+            :class="currentPlay.play_type === 'offense' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            @click="handleTypeChange('offense')"
+          >
+            <Swords class="w-3 h-3" />
+            <span v-if="currentPlay.play_type === 'offense'">OFFENSE</span>
+          </button>
+          <button
+            class="px-2 py-0.5 text-[10px] font-medium rounded-full transition-colors flex items-center gap-1"
+            :class="currentPlay.play_type === 'defense' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+            @click="handleTypeChange('defense')"
+          >
+            <Shield class="w-3 h-3" />
+            <span v-if="currentPlay.play_type === 'defense'">DEFENSE</span>
+          </button>
+        </div>
       </div>
 
       <!-- Center: Toolbar -->
@@ -56,17 +80,24 @@
         <Button
           size="sm"
           class="h-8 px-3"
-          :disabled="!cIsDirty"
-          @click="handleSave"
+          :disabled="(!cIsDirty && playId !== 'new') || loading"
+          @click="handleSaveClick"
         >
           <Check class="w-3.5 h-3.5 mr-1" />
-          Save
+          {{ playId === 'new' ? 'Save Play' : 'Save Changes' }}
         </Button>
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="flex-1 flex items-center justify-center text-muted-foreground bg-background">
+    <SavePlayDialog
+      v-model:open="saveDialogOpen"
+      :default-name="currentPlay?.name"
+      :saving="isSaving"
+      @save="onConfirmSave"
+    />
+
+    <!-- Loading State: Only show on initial load (not on save) -->
+    <div v-if="loading && !currentPlay" class="flex-1 flex items-center justify-center text-muted-foreground bg-background">
       Loading play...
     </div>
 
@@ -128,6 +159,8 @@ import PlayCanvas from '~/components/canvas/PlayCanvas.vue'
 import CanvasToolbar from '~/components/canvas/CanvasToolbar.vue'
 import CanvasRosterCard from '~/components/canvas/CanvasRosterCard.vue'
 import CanvasPlayerCard from '~/components/canvas/CanvasPlayerCard.vue'
+import SavePlayDialog from '~/components/play/SavePlayDialog.vue'
+import { Swords, Shield } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'canvas',
@@ -137,7 +170,7 @@ const route = useRoute()
 const router = useRouter()
 const playId = computed(() => route.params.id as string)
 
-const { currentPlay, loading, fetchPlay, saveCanvasData } = usePlays()
+const { currentPlay, loading, fetchPlay, saveCanvasData, initDraftPlay, createPlay, updatePlay } = usePlays()
 const { settings: fieldSettings, fetchSettings } = useFieldSettings()
 const { players, fetchPlayers } = usePlayers()
 const { profile, fetchProfile } = useProfile()
@@ -246,9 +279,92 @@ function handleSave() {
 
 async function handleSaveData(data: CanvasData) {
   if (!currentPlay.value) return
+  // If draft, saving canvas data updates local state only until final save
+  if (playId.value === 'new') {
+    currentPlay.value.canvas_data = data
+    if (canvasRef.value) canvasRef.value.isDirty = false
+    return
+  }
   await saveCanvasData(currentPlay.value.id, data)
   if (canvasRef.value) {
     canvasRef.value.isDirty = false
+  }
+}
+
+// ─── Draft Logic ───
+const saveDialogOpen = ref(false)
+const isSaving = ref(false)
+
+function handleNameChange() {
+  if (playId.value === 'new') return // Local update
+  // Auto-save name change for existing plays? Or defer...
+  // For now, let's treat name change as needing a save if we want auto-save
+  // but "Save Changes" button handles it. We should probably update the DB immediately for name
+  // to avoid desync, OR mark as dirty. Mark as dirty is harder since it's outside canvas.
+  // Let's autosave name for existing plays for better UX:
+  if (currentPlay.value && playId.value !== 'new') {
+    updatePlay(currentPlay.value.id, { name: currentPlay.value.name })
+  }
+}
+
+function handleTypeChange(type: 'offense' | 'defense') {
+  if (!currentPlay.value) return
+  if (currentPlay.value.play_type === type) return
+  
+  currentPlay.value.play_type = type
+  
+  // Reset canvas for new type
+  // Use timeout to allow canvas to update props
+  nextTick(() => {
+    canvasRef.value?.resetFormation(type, starters.value, {
+      los: fieldSettingsData.value.line_of_scrimmage,
+      length: fieldSettingsData.value.field_length,
+      endzone: fieldSettingsData.value.endzone_size,
+    }, starterPositionMap.value)
+  })
+
+  if (playId.value !== 'new') {
+    updatePlay(currentPlay.value.id, { play_type: type })
+  }
+}
+
+function handleSaveClick() {
+  if (playId.value === 'new') {
+    saveDialogOpen.value = true
+  } else {
+    handleSave()
+  }
+}
+
+async function onConfirmSave(data: { playbookId: string, name: string }) {
+  if (!currentPlay.value) return
+  
+  isSaving.value = true
+  try {
+    // Ensure canvas data is up to date
+    const canvasData = canvasRef.value?.getExportData() || currentPlay.value.canvas_data
+    
+    // Create the play
+    const newPlay = await createPlay(
+      data.playbookId,
+      data.name,
+      currentPlay.value.play_type,
+      currentPlay.value.formation, 
+      starters.value
+    )
+    
+    if (newPlay) {
+      // Need to immediately update with the draft canvas data (routes, positions) 
+      // because createPlay uses default formation
+      await updatePlay(newPlay.id, { canvas_data: canvasData })
+      
+      saveDialogOpen.value = false
+      router.replace(`/plays/${newPlay.id}`)
+    }
+  } catch (e) {
+    console.error('Failed to save play:', e)
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -265,16 +381,43 @@ async function fetchPlaybookName(playbookId: string) {
 }
 
 onMounted(async () => {
-  await fetchPlay(playId.value)
-  fetchSettings()
-  fetchPlayers()
-  fetchProfile()
-  fetchTeams()
+  if (playId.value === 'new') {
+    initDraftPlay()
+  } else {
+    // Load existing play
+    await fetchPlay(playId.value)
+  }
+  
+  // Execute fetches concurrently
+  await Promise.all([
+    fetchSettings(),
+    fetchPlayers(),
+    fetchProfile(),
+    fetchTeams()
+  ])
+  
   if (currentPlay.value?.playbook_id) {
     fetchPlaybookName(currentPlay.value.playbook_id)
   }
+
   // Wait for PlayCanvas to mount and expose its API
   await nextTick()
   canvasReady.value = true
+  
+  // If draft, ensure formation is reset/loaded WITH correct starters
+  if (playId.value === 'new' && currentPlay.value) {
+    // Since we awaited Promise.all above, `starters` (computed) should now have data
+    await nextTick() 
+     canvasRef.value?.resetFormation(
+       currentPlay.value.play_type, 
+       starters.value, 
+       {
+         los: fieldSettingsData.value.line_of_scrimmage,
+         length: fieldSettingsData.value.field_length,
+         endzone: fieldSettingsData.value.endzone_size,
+       }, 
+       starterPositionMap.value
+     )
+  }
 })
 </script>

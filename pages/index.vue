@@ -37,14 +37,6 @@
       <h2 class="text-2xl font-semibold tracking-tight font-display">
         Welcome back{{ displayName ? `, ${displayName}` : '' }}
       </h2>
-      <p class="text-muted-foreground text-sm mt-1">
-        <template v-if="primaryTeamName">
-          Managing <span class="font-medium text-foreground">{{ primaryTeamName }}</span> · Here's your overview.
-        </template>
-        <template v-else>
-          Here's your FlagOS overview.
-        </template>
-      </p>
     </div>
 
     <!-- Quick Play CTA -->
@@ -64,7 +56,7 @@
 
     <!-- Stats Grid -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div v-for="stat in stats" :key="stat.label" class="stat-card glass">
+      <div v-for="stat in stats" :key="stat.label" class="stat-card bg-white">
         <div class="flex items-center justify-between">
           <div>
             <p class="stat-label">{{ stat.label }}</p>

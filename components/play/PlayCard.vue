@@ -1,6 +1,6 @@
 <template>
   <NuxtLink :to="`/plays/${play.id}`">
-    <Card class="glass glass-hover transition-all duration-200 cursor-pointer group h-full">
+    <Card class="glass-hover transition-all duration-200 cursor-pointer group h-full">
       <CardContent class="p-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">

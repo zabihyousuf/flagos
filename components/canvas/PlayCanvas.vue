@@ -95,6 +95,7 @@ function requestRender() {
     panOffset: panOffset.value,
     selectedPlayerId: selectedPlayerId.value,
     viewMode: props.viewMode ?? 'fit',
+    playType: props.playType,
   })
 }
 

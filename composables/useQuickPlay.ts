@@ -6,8 +6,10 @@
 const isQuickPlayOpen = ref(false)
 
 export function useQuickPlay() {
+  const router = useRouter()
+
   function open() {
-    isQuickPlayOpen.value = true
+    router.push('/plays/new')
   }
 
   function close() {

@@ -5,9 +5,11 @@
         <h2 class="text-2xl font-semibold tracking-tight font-display">{{ playbook?.name ?? 'Playbook' }}</h2>
         <p v-if="playbook?.description" class="text-muted-foreground text-sm mt-1">{{ playbook.description }}</p>
       </div>
-      <Button @click="openDialog(null)">
-        <Plus class="w-4 h-4 mr-2" />
-        New Play
+      <Button as-child>
+        <NuxtLink :to="`/plays/new?playbookId=${playbookId}`">
+          <Plus class="w-4 h-4 mr-2" />
+          New Play
+        </NuxtLink>
       </Button>
     </div>
 
@@ -35,9 +37,11 @@
       <Swords class="w-12 h-12 text-muted-foreground mx-auto mb-3" />
       <h3 class="font-medium text-lg">No plays yet</h3>
       <p class="text-muted-foreground text-sm mt-1">Create your first play to start designing.</p>
-      <Button class="mt-4" @click="openDialog(null)">
-        <Plus class="w-4 h-4 mr-2" />
-        Create Play
+      <Button as-child class="mt-4">
+        <NuxtLink :to="`/plays/new?playbookId=${playbookId}`">
+          <Plus class="w-4 h-4 mr-2" />
+          Create Play
+        </NuxtLink>
       </Button>
     </div>
 
@@ -54,7 +58,7 @@
               v-for="play in plays"
               :key="play.id"
               :play="play"
-              @edit="openDialog(play)"
+              @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
             />
@@ -66,7 +70,7 @@
               v-for="play in offensePlays"
               :key="play.id"
               :play="play"
-              @edit="openDialog(play)"
+              @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
             />
@@ -78,7 +82,7 @@
               v-for="play in defensePlays"
               :key="play.id"
               :play="play"
-              @edit="openDialog(play)"
+              @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
             />
@@ -87,12 +91,7 @@
       </Tabs>
     </div>
 
-    <PlayDialog
-      :open="dialogOpen"
-      :play="editingPlay"
-      @update:open="dialogOpen = $event"
-      @submit="handleSubmit"
-    />
+
   </div>
 </template>
 
@@ -121,57 +120,17 @@ const { setTitle } = useBreadcrumbs()
 const offensePlays = computed(() => plays.value.filter((p) => p.play_type === 'offense'))
 const defensePlays = computed(() => plays.value.filter((p) => p.play_type === 'defense'))
 
-const dialogOpen = ref(false)
-const editingPlay = ref<Play | null>(null)
+// Removed openDialog and dialogOpen logic for creating/editing since we navigate now
+// But we still need handleDelete
+// We can remove: dialogOpen, editingPlay, openDialog, handleSubmit (for creation part)
+
 const deletingId = ref<string | null>(null)
 
-function openDialog(play: Play | null) {
-  editingPlay.value = play
-  dialogOpen.value = true
+function navigateToPlay(id: string) {
+  router.push(`/plays/${id}`)
 }
 
-async function handleSubmit(data: { name: string; playType: 'offense' | 'defense'; formation: string }) {
-  if (editingPlay.value) {
-    await updatePlay(editingPlay.value.id, {
-      name: data.name,
-      play_type: data.playType,
-      formation: data.formation,
-    } as Partial<Play>)
-  } else {
-    // Determine starters to load onto the field
-    let starters: Player[] = []
 
-    // 1. Try to find user's default team
-    let defaultTeam = teams.value.find((t) => t.id === profile.value?.default_team_id)
-
-    // 2. If no default team set but user has teams, fallback to the first one (most recent usually)
-    if (!defaultTeam && teams.value.length > 0) {
-      defaultTeam = teams.value[0]
-    }
-
-    if (defaultTeam?.team_players) {
-      // Filter for designated starters on this team
-      starters = defaultTeam.team_players
-        .filter((tp) => {
-          if (!tp.player) return false
-          return data.playType === 'offense' ? tp.offense_starter : tp.defense_starter
-        })
-        .map((tp) => tp.player)
-        .filter((p): p is Player => !!p)
-    } else {
-      // Fallback: Global starters from 'players' list (old behavior)
-      starters = players.value.filter((p) =>
-        data.playType === 'offense' ? p.offense_starter : p.defense_starter,
-      )
-    }
-
-    const newPlay = await createPlay(playbookId.value, data.name, data.playType, data.formation, starters)
-    // Navigate to the new play's canvas
-    if (newPlay) {
-      router.push(`/plays/${newPlay.id}`)
-    }
-  }
-}
 
 async function handleDelete(id: string) {
   const ok = await confirm({

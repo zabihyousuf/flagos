@@ -10,6 +10,7 @@ export interface RenderOptions {
   panOffset: { x: number; y: number }
   selectedPlayerId: string | null
   viewMode?: 'fit' | 'full'
+  playType?: 'offense' | 'defense'
 }
 
 const PADDING = 12
@@ -129,6 +130,12 @@ export function useCanvasRenderer() {
       drawPlayerRoute(ctx, player, fieldW, fieldH)
       drawMotionPath(ctx, player, fieldW, fieldH)
     })
+    
+    if (options.playType === 'defense') {
+      drawGhostQB(ctx, fieldW, fieldH, options)
+      drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
+    }
+
     // Draw players on top
     drawPlayers(ctx, data.players, fieldW, fieldH, options)
 
@@ -532,8 +539,9 @@ export function useCanvasRenderer() {
       const radius = Math.max(14, fieldW * 0.04)
       const isSelected = player.id === options.selectedPlayerId
       
-      // Draw Coverage Radius (Defense only)
-      if (player.side === 'defense' && player.coverageRadius) {
+      // Draw Coverage Radius (Defense only; rushers do not cover a zone)
+      const isRusher = player.designation === 'R' || player.position === 'RSH'
+      if (player.side === 'defense' && player.coverageRadius && !isRusher) {
         ctx.save()
         ctx.beginPath()
         const pixRadius = player.coverageRadius * yardHeight 
@@ -613,6 +621,94 @@ export function useCanvasRenderer() {
         ctx.fillText(player.name, px, py + radius + 5)
         ctx.restore()
       }
+    })
+  }
+
+  function drawGhostQB(
+    ctx: CanvasRenderingContext2D,
+    fieldW: number,
+    fieldH: number,
+    options: RenderOptions,
+  ) {
+    const { fieldLength, endzoneSize, lineOfScrimmage } = options
+    const totalLength = fieldLength + endzoneSize * 2
+    const yardHeight = fieldH / totalLength
+
+    // LOS Y position
+    const losY = yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
+    
+    // QA is 5 yards back (down/higher Y) from LOS
+    const qbY = losY + (5 * yardHeight)
+    const qbX = fieldW * 0.5
+    const radius = Math.max(14, fieldW * 0.04)
+
+    ctx.save()
+    // Ghostly appearance
+    ctx.globalAlpha = 0.5
+    ctx.setLineDash([4, 4])
+    
+    // Draw circle
+    ctx.beginPath()
+    ctx.arc(qbX, qbY, radius, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    // Label
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+    ctx.font = `bold ${Math.max(10, radius * 0.7)}px Oracle Sans, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('QB', qbX, qbY)
+
+    ctx.restore()
+  }
+
+  function drawCoverageZones(
+    ctx: CanvasRenderingContext2D,
+    players: CanvasPlayer[],
+    fieldW: number,
+    fieldH: number,
+    options: RenderOptions,
+  ) {
+    const { fieldLength, endzoneSize } = options
+    const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
+
+    players.forEach((player) => {
+      if (player.side !== 'defense' || !player.coverageRadius || player.coverageRadius <= 0) return
+
+      const px = player.x * fieldW
+      const py = player.y * fieldH
+      const radiusPx = player.coverageRadius * yardHeight
+
+      ctx.save()
+      
+      // Fill
+      ctx.beginPath()
+      ctx.arc(px, py, radiusPx, 0, Math.PI * 2)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)' // Subtle white fill
+      ctx.fill()
+
+      // Border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
+      ctx.stroke()
+      
+      // Label if large enough
+      if (radiusPx > 20) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+        ctx.font = `600 10px Oracle Sans, sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        // Draw slightly above the player (player radius is ~14px)
+        // Actually, let's draw it at the top edge of the circle
+        ctx.fillText(`${player.coverageRadius}y`, px, py - radiusPx + 12)
+      }
+
+      ctx.restore()
     })
   }
 

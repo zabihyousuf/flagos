@@ -27,7 +27,7 @@
             </div>
           </CardContent>
         </Card>
-        <Card class="glass ml-4">
+        <Card class="ml-4">
           <CardContent class="p-4">
             <div class="flex items-center justify-between mb-3">
               <Skeleton class="h-4 w-12" />
@@ -71,7 +71,7 @@
         />
 
         <!-- Player assignment section -->
-        <Card class="glass ml-4">
+        <Card class="ml-4">
           <CardContent class="p-4">
             <div class="flex items-center justify-between mb-3">
               <span class="text-sm font-medium text-muted-foreground">Roster</span>

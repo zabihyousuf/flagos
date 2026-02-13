@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="open" class="fixed inset-0 z-50 flex flex-col bg-background">
+      <div v-if="open" class="fixed inset-0 z-50 flex flex-col bg-white">
         <!-- Header -->
-        <div class="flex-none flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur-sm">
+        <div class="flex-none flex items-center justify-between px-6 py-4 border-b bg-white/95 backdrop-blur-sm">
           <div>
             <h2 class="text-lg font-semibold font-display">Add Players</h2>
             <p class="text-sm text-muted-foreground mt-0.5">Add multiple players with full attribute control. Defaults to 5 for all attributes.</p>
@@ -73,13 +73,21 @@
           </div>
 
           <!-- Quick Add Tab -->
-          <div v-if="activeTab === 'quick'" class="flex-1 min-h-0 overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent border rounded-md mx-6 mb-6">
-            <table class="relative w-full text-sm border-collapse min-w-[1800px]">
+          <div v-if="activeTab === 'quick'" class="flex-1 min-h-0 relative border-t">
+            <!-- Scroll indicator -->
+            <div class="absolute top-2 right-6 z-40 bg-background/80 backdrop-blur px-2 py-1 rounded-md border shadow-sm pointer-events-none text-xs text-muted-foreground flex items-center gap-1.5 animate-pulse">
+              <ArrowRight class="w-3 h-3" />
+              <span>Scroll for more attributes</span>
+            </div>
+
+            <div class="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
+              <table class="relative w-full text-sm border-collapse min-w-[1800px]">
               <!-- content unchanged, replacing wrapper only in effect, but need to match range -->
-              <thead class="sticky top-0 z-20 bg-background">
+              <thead class="sticky top-0 z-20 bg-white">
                 <!-- Column headers -->
                 <tr class="border-b">
-                  <th class="sticky left-0 z-30 bg-background px-3 py-2 text-left font-medium text-muted-foreground w-[200px] min-w-[200px]">Name</th>
+                  <th class="sticky left-0 z-30 bg-white px-2 py-2 text-center w-8"></th>
+                  <th class="sticky left-8 z-30 bg-white px-3 py-2 text-left font-medium text-muted-foreground w-[200px] min-w-[200px]">Name</th>
                   <th class="px-2 py-2 text-left font-medium text-muted-foreground w-[140px]">Team</th>
                   <th class="px-2 py-2 text-left font-medium text-muted-foreground w-16">#</th>
                   <th class="px-2 py-2 text-left font-medium text-muted-foreground w-14">HT</th>
@@ -135,13 +143,22 @@
                       </TooltipProvider>
                     </th>
                   </template>
-                  <th class="w-10"></th>
+                  <th class="w-2"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(row, i) in rows" :key="i" class="border-b border-border/30 hover:bg-muted/20">
+                  <!-- Remove -->
+                  <td class="sticky left-0 z-10 bg-white px-1 py-1 text-center">
+                    <button
+                      @click="removeRow(i)"
+                      class="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X class="w-3.5 h-3.5" />
+                    </button>
+                  </td>
                   <!-- Name (sticky) -->
-                  <td class="sticky left-0 z-10 bg-background px-2 py-1">
+                  <td class="sticky left-8 z-10 bg-white px-2 py-1">
                     <Input
                       v-model="row.name"
                       placeholder="Player name"
@@ -289,15 +306,7 @@
                       />
                     </td>
                   </template>
-                  <!-- Remove -->
-                  <td class="px-1 py-1 text-center">
-                    <button
-                      @click="removeRow(i)"
-                      class="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <X class="w-3.5 h-3.5" />
-                    </button>
-                  </td>
+
                 </tr>
               </tbody>
               <tfoot>
@@ -312,6 +321,8 @@
               </tfoot>
             </table>
           </div>
+
+            </div>
 
           <!-- CSV Upload Tab -->
           <div v-else-if="activeTab === 'csv'" class="flex-1 overflow-auto px-6 py-4">
@@ -385,7 +396,7 @@
               </div>
               <div class="rounded border overflow-auto max-h-[70vh]">
                 <table class="w-full text-sm">
-                  <thead class="sticky top-0 bg-background z-10">
+                  <thead class="sticky top-0 bg-white z-10">
                     <tr class="border-b text-left">
                       <th class="p-2 font-medium text-muted-foreground">Name</th>
                       <th class="p-2 font-medium text-muted-foreground w-16">#</th>
@@ -457,6 +468,7 @@ import {
   CheckCircle2,
   Loader2,
   Wand2,
+  ArrowRight,
 } from 'lucide-vue-next'
 import {
   Dialog,
@@ -578,9 +590,10 @@ watch(() => props.open, (isOpen) => {
     // If we have rows, maybe don't clear?
     // But usually opening means fresh start or continue.
     // Let's just ensure we have at least 1 row if empty.
-    if (rows.value.length === 0) {
-       for(let i=0; i<5; i++) addEmptyRow()
-    }
+    // Start with 0 rows as requested
+    // if (rows.value.length === 0) {
+    //    for(let i=0; i<5; i++) addEmptyRow()
+    // }
     
     activeTab.value = 'quick'
     pasteText.value = ''

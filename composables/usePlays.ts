@@ -8,6 +8,20 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  function initDraftPlay() {
+    currentPlay.value = {
+      id: 'new',
+      playbook_id: '',
+      user_id: '',
+      name: 'Untitled Play',
+      play_type: 'offense',
+      formation: '',
+      canvas_data: getDefaultFormation('offense') as any, // Cast to avoid Json vs CanvasData mismatch
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+  }
+
   async function fetchPlays() {
     if (!playbookId?.value) return
     loading.value = true
@@ -20,7 +34,7 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
         .order('created_at', { ascending: true })
 
       if (err) throw err
-      plays.value = (data ?? []) as Play[]
+      plays.value = (data ?? []) as unknown as Play[]
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -39,8 +53,8 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
         .single()
 
       if (err) throw err
-      currentPlay.value = data as Play
-      return data as Play
+      currentPlay.value = data as unknown as Play
+      return data as unknown as Play
     } catch (e: any) {
       error.value = e.message
       return null
@@ -77,8 +91,8 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
         .single()
 
       if (err) throw err
-      plays.value.push(data as Play)
-      return data as Play
+      plays.value.push(data as unknown as Play)
+      return data as unknown as Play
     } catch (e: any) {
       error.value = e.message
       return null
@@ -100,9 +114,9 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
 
       if (err) throw err
       const index = plays.value.findIndex((p) => p.id === id)
-      if (index !== -1) plays.value[index] = data as Play
-      if (currentPlay.value?.id === id) currentPlay.value = data as Play
-      return data as Play
+      if (index !== -1) plays.value[index] = data as unknown as Play
+      if (currentPlay.value?.id === id) currentPlay.value = data as unknown as Play
+      return data as unknown as Play
     } catch (e: any) {
       error.value = e.message
       return null
@@ -112,7 +126,7 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
   }
 
   async function saveCanvasData(id: string, canvasData: CanvasData) {
-    return updatePlay(id, { canvas_data: canvasData } as Partial<Play>)
+    return updatePlay(id, { canvas_data: canvasData as any } as Partial<Play>)
   }
 
   async function deletePlay(id: string) {
@@ -141,5 +155,6 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
     updatePlay,
     saveCanvasData,
     deletePlay,
+    initDraftPlay,
   }
 }

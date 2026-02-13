@@ -390,27 +390,27 @@
                       <h3 class="text-sm font-semibold tracking-wide font-display uppercase text-foreground">
                         {{ p.name }} Attributes
                       </h3>
-                      <Badge variant="outline" class="text-xs font-mono">
-                        {{ isEditing ? 'EDITING' : 'READ-ONLY' }}
-                      </Badge>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <template v-if="!isEditing">
-                        <Button size="sm" variant="outline" @click="startEditing">
-                          <Pencil class="w-3.5 h-3.5 mr-2" />
-                          Edit Attributes
-                        </Button>
-                      </template>
-                      <template v-else>
-                         <Button size="sm" variant="ghost" @click="cancelInlineEdit">
-                            Cancel
-                         </Button>
+                      <div class="flex items-center gap-2">
+                        <Badge variant="outline" class="text-xs font-mono">
+                          {{ isEditing ? 'EDITING' : 'READ ONLY' }}
+                        </Badge>
+                        <template v-if="!isEditing">
+                          <Button size="sm" variant="outline" @click="startEditing">
+                            <Pencil class="w-3.5 h-3.5 mr-2" />
+                            Edit Attributes
+                          </Button>
+                        </template>
+                        <template v-if="isEditing">
                          <Button size="sm" :disabled="!hasChanges || savingInline" @click="saveInlineEdit">
                             <Loader2 v-if="savingInline" class="w-3.5 h-3.5 mr-2 animate-spin" />
                             <Save v-else class="w-3.5 h-3.5 mr-2" />
                             Save Changes
                          </Button>
+                         <Button size="sm" variant="ghost" @click="cancelInlineEdit">
+                            Cancel
+                         </Button>
                       </template>
+                      </div>
                     </div>
                   </div>
 

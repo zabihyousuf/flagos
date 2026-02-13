@@ -1,7 +1,7 @@
 <template>
-  <div v-if="selectedPlayer" class="w-full h-full bg-card border-l border-border flex flex-col overflow-hidden">
+  <div v-if="selectedPlayer" class="w-full h-full bg-card border-border flex flex-col overflow-hidden">
     <!-- Panel Header -->
-    <div class="h-10 border-b border-border flex items-center px-3 shrink-0">
+    <div class="h-10 border-border flex items-center px-3 shrink-0">
       <span class="text-xs font-semibold text-foreground">Player Details</span>
     </div>
 
@@ -46,8 +46,8 @@
           </div>
         </div>
 
-        <!-- Defensive Settings -->
-        <div v-if="playType === 'defense'" class="space-y-3 pt-2 border-t border-border/50">
+        <!-- Defensive Settings (rushers do not cover a zone) -->
+        <div v-if="playType === 'defense' && !isRusher(selectedPlayer)" class="space-y-3 pt-2 border-t border-border/50">
           <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Defensive Coverage</p>
 
           <div class="space-y-1.5">
@@ -228,6 +228,11 @@ const pendingRoute = ref<{ segments: RouteSegment[] } | null>(null)
 
 function posColor(pos: string) {
   return POSITION_COLORS[pos] ?? '#888888'
+}
+
+function isRusher(player: CanvasPlayer | null): boolean {
+  if (!player) return false
+  return player.designation === 'R' || player.position === 'RSH'
 }
 
 const POSITION_DESIGNATION_MAP: Record<string, string[]> = {

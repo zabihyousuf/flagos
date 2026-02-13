@@ -282,7 +282,7 @@ export function getDefaultFormation(
       side: side,
       route: null,
       motionPath: null,
-      coverageRadius: side === 'defense' ? 5 : undefined, // Default 5 yd radius
+      coverageRadius: side === 'defense' && assignedPosition !== 'RSH' ? 5 : undefined, // Rushers have no zone
       alignment: side === 'defense' ? 'normal' : undefined,
       ...(starter && {
         number: starter.number,

@@ -188,6 +188,9 @@ export function useCanvas() {
     const player = canvasData.value.players.find((p) => p.id === playerId)
     if (player) {
       player.designation = designation
+      if (designation === 'R') {
+        player.coverageRadius = undefined // Rushers do not cover a zone
+      }
       isDirty.value = true
     }
   }
@@ -211,6 +214,9 @@ export function useCanvas() {
     const player = canvasData.value.players.find((p) => p.id === playerId)
     if (player) {
       Object.assign(player, attrs)
+      if (attrs.position === 'RSH' || attrs.designation === 'R') {
+        player.coverageRadius = undefined // Rushers do not cover a zone
+      }
       isDirty.value = true
     }
   }
@@ -222,6 +228,35 @@ export function useCanvas() {
     positionMap?: Record<string, string>,
   ) {
     canvasData.value = getDefaultFormation(side, starters, settings, positionMap)
+    
+    // Auto-draw arrow for Rusher to Ghost QB
+    if (side === 'defense') {
+      const rusher = canvasData.value.players.find(p => p.position === 'RSH')
+      if (rusher) {
+        // Calculate QB position (same logic as Ghost QB)
+        const s = settings || { los: 5, length: 50, endzone: 7 } // Fallback to rough defaults if missing
+        const total = s.length + s.endzone * 2
+        // If settings were missing, these defaults might be slightly off from global defaults 
+        // but getDefaultFormation handles its own defaults. 
+        // Let's use the same logic:
+        const los = s.los
+        const len = s.length
+        const ez = s.endzone
+        
+        const yardH = 1 / total
+        const losY = (ez + len - los) * yardH
+        const qbY = losY + (5 * yardH)
+        const qbX = 0.5
+        
+        rusher.route = {
+          segments: [{
+            type: 'straight',
+            points: [{ x: qbX, y: qbY }]
+          }]
+        }
+      }
+    }
+
     nextReadOrder.value = 1
     isDirty.value = true
   }
@@ -273,6 +308,8 @@ export function useCanvas() {
       motionPath: null,
       number: player.number,
       name: player.name,
+      coverageRadius: side === 'defense' ? 5 : undefined,
+      alignment: side === 'defense' ? 'normal' : undefined,
     })
     isDirty.value = true
   }

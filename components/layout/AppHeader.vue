@@ -1,5 +1,5 @@
 <template>
-  <header class="h-14 border-b border-border bg-background/80 backdrop-blur-sm flex items-center px-6 shrink-0">
+  <header class="h-14 border-border bg-background/80 backdrop-blur-sm flex items-center px-6 shrink-0">
     <h1 class="text-base font-medium text-foreground font-display">
       {{ pageTitle }}
     </h1>

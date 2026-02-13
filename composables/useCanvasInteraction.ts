@@ -196,8 +196,16 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     if (isDragging.value && dragPlayerId.value) {
       const coords = getFieldCoords(e)
       if (coords) {
-        const clampedX = Math.max(0, Math.min(1, coords.x))
-        const clampedY = Math.max(0, Math.min(1, coords.y))
+        let clampedX = Math.max(0, Math.min(1, coords.x))
+        let clampedY = Math.max(0, Math.min(1, coords.y))
+        const player = options.canvasData.value.players.find((p) => p.id === dragPlayerId.value)
+        if (player?.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')) {
+          const fs = options.fieldSettings.value
+          const totalLength = fs.field_length + fs.endzone_size * 2
+          const losY = (fs.endzone_size + fs.field_length - fs.line_of_scrimmage) / totalLength
+          const maxY = losY - 7 / totalLength
+          clampedY = Math.min(clampedY, maxY)
+        }
         options.onMovePlayer(dragPlayerId.value, clampedX, clampedY)
         options.onRequestRender()
       }
