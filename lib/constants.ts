@@ -21,6 +21,10 @@ export const POSITION_LABELS: Record<string, string> = {
   MLB: 'Middle Linebacker',
 }
 
+/** Defaults for new players. When backfilling existing players, new attributes are inferred from
+ * current values (e.g. reaction_time from speed+agility+football_iq, reach from height,
+ * body_control_balance from agility+evasion, offense/defense new attrs from related existing attrs).
+ * See migration: backfill_new_attributes_from_current_values. */
 export const DEFAULT_UNIVERSAL_ATTRIBUTES: UniversalAttributes = {
   speed: 5,
   acceleration: 5,
@@ -28,6 +32,12 @@ export const DEFAULT_UNIVERSAL_ATTRIBUTES: UniversalAttributes = {
   football_iq: 5,
   agility: 5,
   playmaking: 5,
+  reaction_time: 5,
+  deceleration: 5,
+  change_of_direction: 5,
+  reach: 5,
+  body_control_balance: 5,
+  field_vision: 5,
 }
 
 export const DEFAULT_OFFENSE_ATTRIBUTES: OffenseAttributes = {
@@ -35,13 +45,23 @@ export const DEFAULT_OFFENSE_ATTRIBUTES: OffenseAttributes = {
   accuracy: 5,
   decision_making: 5,
   pocket_awareness: 5,
+  release_quickness: 5,
+  throw_timing: 5,
+  throw_on_run: 5,
+  ball_security: 5,
   catching: 5,
   route_running: 5,
   release: 5,
   separation: 5,
   jump_ball: 5,
+  ball_tracking: 5,
+  contested_catch: 5,
+  hands_consistency: 5,
+  after_catch_vision: 5,
   snapping: 5,
   snap_accuracy: 5,
+  snap_speed: 5,
+  snap_velocity: 5,
   hip_drop: 5,
   knee_slide: 5,
   hip_twist: 5,
@@ -51,11 +71,24 @@ export const DEFAULT_DEFENSE_ATTRIBUTES: DefenseAttributes = {
   coverage: 5,
   ball_hawking: 5,
   zone_awareness: 5,
+  coverage_technique: 5,
+  ball_skills_defensive: 5,
+  closing_burst: 5,
+  recovery_agility: 5,
+  flag_pull_technique: 5,
+  play_recognition: 5,
   rush: 5,
   rush_moves: 5,
   timing: 5,
-  play_recognition: 5,
+  get_off_burst: 5,
+  rush_angle_efficiency: 5,
+  closing_burst_rush: 5,
+  rush_discipline: 5,
+  sack_flag_conversion: 5,
   field_awareness: 5,
+  zone_recognition: 5,
+  pursuit_angle: 5,
+  coverage_support: 5,
   flag_pulling: 5,
   pursuit: 5,
 }
@@ -69,6 +102,12 @@ export const UNIVERSAL_ATTRIBUTE_GROUP = {
     { key: 'football_iq', label: 'Football IQ' },
     { key: 'agility', label: 'Agility' },
     { key: 'playmaking', label: 'Playmaking' },
+    { key: 'reaction_time', label: 'Reaction Time' },
+    { key: 'deceleration', label: 'Deceleration' },
+    { key: 'change_of_direction', label: 'Change of Direction (COD)' },
+    { key: 'reach', label: 'Reach (Catch Radius)' },
+    { key: 'body_control_balance', label: 'Body Control / Balance' },
+    { key: 'field_vision', label: 'Field Vision' },
   ],
 } as const
 
@@ -80,6 +119,10 @@ export const OFFENSE_ATTRIBUTE_GROUPS = [
       { key: 'accuracy', label: 'Accuracy' },
       { key: 'decision_making', label: 'Decision Making' },
       { key: 'pocket_awareness', label: 'Pocket Awareness' },
+      { key: 'release_quickness', label: 'Release Quickness' },
+      { key: 'throw_timing', label: 'Throw Timing (Anticipation)' },
+      { key: 'throw_on_run', label: 'Throw on the Run' },
+      { key: 'ball_security', label: 'Ball Security' },
     ],
   },
   {
@@ -90,6 +133,10 @@ export const OFFENSE_ATTRIBUTE_GROUPS = [
       { key: 'release', label: 'Release' },
       { key: 'separation', label: 'Separation' },
       { key: 'jump_ball', label: 'Jump Ball' },
+      { key: 'ball_tracking', label: 'Ball Tracking' },
+      { key: 'contested_catch', label: 'Contested Catch' },
+      { key: 'hands_consistency', label: 'Hands Consistency' },
+      { key: 'after_catch_vision', label: 'After Catch Vision' },
     ],
   },
   {
@@ -97,6 +144,8 @@ export const OFFENSE_ATTRIBUTE_GROUPS = [
     attrs: [
       { key: 'snapping', label: 'Snapping' },
       { key: 'snap_accuracy', label: 'Snap Accuracy' },
+      { key: 'snap_speed', label: 'Snap Speed' },
+      { key: 'snap_velocity', label: 'Snap Velocity' },
     ],
   },
   {
@@ -116,6 +165,12 @@ export const DEFENSE_ATTRIBUTE_GROUPS = [
       { key: 'coverage', label: 'Coverage' },
       { key: 'ball_hawking', label: 'Ball Hawking' },
       { key: 'zone_awareness', label: 'Zone Awareness' },
+      { key: 'coverage_technique', label: 'Coverage Technique' },
+      { key: 'ball_skills_defensive', label: 'Ball Skills (Defensive)' },
+      { key: 'closing_burst', label: 'Closing Burst' },
+      { key: 'recovery_agility', label: 'Recovery Agility' },
+      { key: 'flag_pull_technique', label: 'Flag Pull Technique' },
+      { key: 'play_recognition', label: 'Play Recognition' },
     ],
   },
   {
@@ -124,6 +179,11 @@ export const DEFENSE_ATTRIBUTE_GROUPS = [
       { key: 'rush', label: 'Rush' },
       { key: 'rush_moves', label: 'Rush Moves' },
       { key: 'timing', label: 'Timing' },
+      { key: 'get_off_burst', label: 'Get-Off Burst' },
+      { key: 'rush_angle_efficiency', label: 'Rush Angle Efficiency' },
+      { key: 'closing_burst_rush', label: 'Closing Burst (Rush)' },
+      { key: 'rush_discipline', label: 'Rush Discipline' },
+      { key: 'sack_flag_conversion', label: 'Sack / Flag Conversion' },
     ],
   },
   {
@@ -131,6 +191,9 @@ export const DEFENSE_ATTRIBUTE_GROUPS = [
     attrs: [
       { key: 'play_recognition', label: 'Play Recognition' },
       { key: 'field_awareness', label: 'Field Awareness' },
+      { key: 'zone_recognition', label: 'Zone Recognition' },
+      { key: 'pursuit_angle', label: 'Pursuit Angle' },
+      { key: 'coverage_support', label: 'Coverage Support' },
     ],
   },
   {
@@ -141,6 +204,78 @@ export const DEFENSE_ATTRIBUTE_GROUPS = [
     ],
   },
 ] as const
+
+/** Weights for attribute contribution to position-fit scoring (1 = normal). Used in determineBestRole etc. */
+export const ATTRIBUTE_WEIGHTS: Record<string, number> = {
+  // Universal — core for most positions
+  speed: 1.2,
+  acceleration: 1.1,
+  agility: 1.1,
+  reaction_time: 1.1,
+  change_of_direction: 1.1,
+  field_vision: 1.1,
+  football_iq: 1.0,
+  stamina: 1.0,
+  playmaking: 1.0,
+  deceleration: 1.0,
+  reach: 1.0,
+  body_control_balance: 1.0,
+  // QB
+  throwing_power: 1.2,
+  accuracy: 1.2,
+  decision_making: 1.2,
+  release_quickness: 1.1,
+  throw_timing: 1.1,
+  pocket_awareness: 1.0,
+  throw_on_run: 1.0,
+  ball_security: 1.0,
+  // WR
+  route_running: 1.2,
+  catching: 1.2,
+  separation: 1.1,
+  release: 1.1,
+  ball_tracking: 1.1,
+  contested_catch: 1.0,
+  hands_consistency: 1.0,
+  after_catch_vision: 1.0,
+  jump_ball: 1.0,
+  // C
+  snapping: 1.2,
+  snap_accuracy: 1.2,
+  snap_speed: 1.1,
+  snap_velocity: 1.1,
+  // DB
+  coverage: 1.2,
+  ball_hawking: 1.2,
+  zone_awareness: 1.1,
+  coverage_technique: 1.1,
+  closing_burst: 1.1,
+  recovery_agility: 1.0,
+  ball_skills_defensive: 1.0,
+  flag_pull_technique: 1.0,
+  play_recognition: 1.0,
+  // RSH
+  rush: 1.2,
+  rush_moves: 1.2,
+  get_off_burst: 1.1,
+  timing: 1.1,
+  closing_burst_rush: 1.0,
+  rush_angle_efficiency: 1.0,
+  rush_discipline: 1.0,
+  sack_flag_conversion: 1.0,
+  // MLB
+  field_awareness: 1.2,
+  play_recognition: 1.2,
+  zone_recognition: 1.1,
+  pursuit_angle: 1.1,
+  coverage_support: 1.0,
+  // Evasion (shared)
+  flag_pulling: 1.0,
+  pursuit: 1.0,
+  hip_drop: 1.0,
+  knee_slide: 1.0,
+  hip_twist: 1.0,
+}
 
 export const DEFAULT_FIELD_SETTINGS = {
   field_length: 50,

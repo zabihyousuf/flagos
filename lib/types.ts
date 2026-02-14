@@ -109,6 +109,12 @@ export interface UniversalAttributes {
   football_iq: number
   agility: number
   playmaking: number
+  reaction_time: number
+  deceleration: number
+  change_of_direction: number
+  reach: number
+  body_control_balance: number
+  field_vision: number
 }
 
 export interface OffenseAttributes {
@@ -117,15 +123,25 @@ export interface OffenseAttributes {
   accuracy: number
   decision_making: number
   pocket_awareness: number
+  release_quickness: number
+  throw_timing: number
+  throw_on_run: number
+  ball_security: number
   // WR
   catching: number
   route_running: number
   release: number
   separation: number
   jump_ball: number
+  ball_tracking: number
+  contested_catch: number
+  hands_consistency: number
+  after_catch_vision: number
   // C
   snapping: number
   snap_accuracy: number
+  snap_speed: number
+  snap_velocity: number
   // Evasion
   hip_drop: number
   knee_slide: number
@@ -137,13 +153,26 @@ export interface DefenseAttributes {
   coverage: number
   ball_hawking: number
   zone_awareness: number
+  coverage_technique: number
+  ball_skills_defensive: number
+  closing_burst: number
+  recovery_agility: number
+  flag_pull_technique: number
+  play_recognition: number
   // RSH
   rush: number
   rush_moves: number
   timing: number
+  get_off_burst: number
+  rush_angle_efficiency: number
+  closing_burst_rush: number
+  rush_discipline: number
+  sack_flag_conversion: number
   // MLB
-  play_recognition: number
   field_awareness: number
+  zone_recognition: number
+  pursuit_angle: number
+  coverage_support: number
   // Evasion
   flag_pulling: number
   pursuit: number

@@ -322,7 +322,8 @@ import {
   OFFENSE_DESIGNATIONS,
   DEFENSE_DESIGNATIONS,
   OFFENSE_POSITIONS,
-  DEFENSE_POSITIONS
+  DEFENSE_POSITIONS,
+  ATTRIBUTE_WEIGHTS,
 } from '~/lib/constants'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
@@ -462,20 +463,59 @@ const selectedPlayerRole = computed(() => {
   return props.selectedPlayer?.position || ''
 })
 
+function weightedAttr(attributes: any, keys: string[]): number {
+  return keys.reduce((sum, key) => {
+    const v = attributes?.[key] ?? 0
+    const w = ATTRIBUTE_WEIGHTS[key] ?? 1
+    return sum + v * w
+  }, 0)
+}
+
 function determineBestRole(player: CanvasPlayer, attributes: any): { position: string, designation: string } {
   const scores: Record<string, number> = {}
 
   availablePositions.value.forEach(pos => {
     let score = 0
-    if (pos === 'QB') score += (attributes.throwing_power || 0) + (attributes.accuracy || 0) + (attributes.decision_making || 0)
-    if (pos === 'WR') score += (attributes.catching || 0) + (attributes.route_running || 0) + (attributes.speed || 0)
-    if (pos === 'RB') score += (attributes.speed || 0) + (attributes.agility || 0) + (attributes.carrying || 0)
-    if (pos === 'C') score += (attributes.blocking || 0) + (attributes.strength || 0)
-    if (pos === 'TE') score += (attributes.catching || 0) + (attributes.blocking || 0)
-
-    if (pos === 'RSH') score += (attributes.rush_moves || 0) + (attributes.speed || 0)
-    if (pos === 'DB' || pos === 'CB' || pos === 'S') score += (attributes.coverage || 0) + (attributes.speed || 0) + (attributes.check_down || 0)
-
+    if (pos === 'QB') {
+      score = weightedAttr(attributes, [
+        'throwing_power', 'accuracy', 'decision_making', 'pocket_awareness',
+        'release_quickness', 'throw_timing', 'throw_on_run', 'ball_security',
+        'speed', 'agility', 'field_vision', 'reaction_time',
+      ])
+    }
+    if (pos === 'WR') {
+      score = weightedAttr(attributes, [
+        'catching', 'route_running', 'release', 'separation', 'jump_ball',
+        'ball_tracking', 'contested_catch', 'hands_consistency', 'after_catch_vision',
+        'speed', 'acceleration', 'agility', 'change_of_direction', 'reach',
+      ])
+    }
+    if (pos === 'C') {
+      score = weightedAttr(attributes, [
+        'snapping', 'snap_accuracy', 'snap_speed', 'snap_velocity',
+        'agility', 'reaction_time', 'body_control_balance',
+      ])
+    }
+    if (pos === 'RSH') {
+      score = weightedAttr(attributes, [
+        'rush', 'rush_moves', 'timing', 'get_off_burst', 'rush_angle_efficiency',
+        'closing_burst_rush', 'rush_discipline', 'sack_flag_conversion',
+        'speed', 'acceleration', 'reaction_time',
+      ])
+    }
+    if (pos === 'DB') {
+      score = weightedAttr(attributes, [
+        'coverage', 'ball_hawking', 'zone_awareness', 'coverage_technique',
+        'ball_skills_defensive', 'closing_burst', 'recovery_agility', 'flag_pull_technique',
+        'play_recognition', 'flag_pulling', 'pursuit', 'speed', 'agility', 'change_of_direction',
+      ])
+    }
+    if (pos === 'MLB') {
+      score = weightedAttr(attributes, [
+        'play_recognition', 'field_awareness', 'zone_recognition', 'pursuit_angle', 'coverage_support',
+        'zone_awareness', 'coverage', 'flag_pulling', 'pursuit', 'speed', 'reaction_time',
+      ])
+    }
     scores[pos] = score
   })
 

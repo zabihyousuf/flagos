@@ -951,6 +951,9 @@ import {
   DEFENSE_ATTRIBUTE_GROUPS,
   OFFENSE_POSITIONS,
   DEFENSE_POSITIONS,
+  DEFAULT_UNIVERSAL_ATTRIBUTES,
+  DEFAULT_OFFENSE_ATTRIBUTES,
+  DEFAULT_DEFENSE_ATTRIBUTES,
 } from '~/lib/constants'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
@@ -1175,11 +1178,11 @@ function toggleExpand(p: Player) {
     isEditing.value = false
     const teamIds = getPlayerTeamIds(p.id)
     
-    // Initialize edits with current data
+    // Initialize edits with current data (merge defaults so new attribute keys show)
     inlineEdits.value = {
-      universal: { ...p.universal_attributes },
-      offense: { ...p.offense_attributes },
-      defense: { ...p.defense_attributes },
+      universal: { ...DEFAULT_UNIVERSAL_ATTRIBUTES, ...p.universal_attributes },
+      offense: { ...DEFAULT_OFFENSE_ATTRIBUTES, ...p.offense_attributes },
+      defense: { ...DEFAULT_DEFENSE_ATTRIBUTES, ...p.defense_attributes },
       height: p.height ?? null,
       weight: p.weight ?? null,
       team_ids: [...teamIds],
@@ -1189,9 +1192,9 @@ function toggleExpand(p: Player) {
     
     // Snapshot for change detection
     editingPlayerSnapshot.value = {
-      universal: { ...p.universal_attributes },
-      offense: { ...p.offense_attributes },
-      defense: { ...p.defense_attributes },
+      universal: { ...DEFAULT_UNIVERSAL_ATTRIBUTES, ...p.universal_attributes },
+      offense: { ...DEFAULT_OFFENSE_ATTRIBUTES, ...p.offense_attributes },
+      defense: { ...DEFAULT_DEFENSE_ATTRIBUTES, ...p.defense_attributes },
       height: p.height ?? null,
       weight: p.weight ?? null,
       team_ids: [...teamIds],
