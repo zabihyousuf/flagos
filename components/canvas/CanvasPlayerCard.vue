@@ -171,15 +171,18 @@
         </div>
       </div>
 
-      <!-- Stats Grid -->
-      <div class="grid grid-cols-2 gap-2">
-        <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-          <p class="text-[13px] text-muted-foreground font-medium mb-0.5">YARD LINE</p>
-          <p class="text-base font-mono font-bold text-foreground">{{ yardLine }}</p>
-        </div>
-        <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
-          <p class="text-[13px] text-muted-foreground font-medium mb-0.5">FROM SIDELINE</p>
-          <p class="text-base font-mono font-bold text-foreground">{{ sidelineDistance }}</p>
+      <!-- Stats Grid: position on field -->
+      <div class="space-y-1.5">
+        <p class="text-[13px] font-bold text-muted-foreground uppercase tracking-wider">Position on field</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
+            <p class="text-[13px] text-muted-foreground font-medium mb-0.5">Yard line</p>
+            <p class="text-base font-mono font-bold text-foreground">{{ yardLine }}</p>
+          </div>
+          <div class="bg-muted/30 rounded px-2.5 py-1.5 border border-border/50">
+            <p class="text-[13px] text-muted-foreground font-medium mb-0.5">From sideline</p>
+            <p class="text-base font-mono font-bold text-foreground">{{ sidelineDistance }}</p>
+          </div>
         </div>
       </div>
 

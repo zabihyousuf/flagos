@@ -183,6 +183,7 @@ function onSelectPlayerForMove(playerId: string) {
 }
 
 const lastViewTransform = ref<ViewTransform | null>(null)
+const selectionAnimationId = ref<number | null>(null)
 
 function requestRender() {
   if (!canvasRef.value) return
@@ -367,6 +368,21 @@ watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () =
   requestRender()
 }, { deep: true })
 
+// Animation loop while a player is selected (for spinning dotted ring)
+watch(selectedPlayerId, (id) => {
+  if (selectionAnimationId.value != null) {
+    cancelAnimationFrame(selectionAnimationId.value)
+    selectionAnimationId.value = null
+  }
+  if (!id) return
+  function tick() {
+    requestRender()
+    selectionAnimationId.value = requestAnimationFrame(tick)
+  }
+  selectionAnimationId.value = requestAnimationFrame(tick)
+}, { immediate: true })
+
+
 watch(() => props.initialData, (data) => {
   if (data) {
     loadCanvasData(data)
@@ -401,6 +417,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (selectionAnimationId.value != null) {
+    cancelAnimationFrame(selectionAnimationId.value)
+  }
   removeListeners()
   resizeObserver?.disconnect()
 })

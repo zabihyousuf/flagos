@@ -1190,28 +1190,24 @@ export function useCanvasRenderer() {
         ctx.fillStyle = '#ffffff'
         ctx.fill()
         ctx.strokeStyle = color
-        ctx.lineWidth = Math.max(0.5, 2 * scale)
-        ctx.stroke()
-        ctx.restore()
-        ctx.save()
-        ctx.shadowColor = color
-        ctx.shadowBlur = scale < 1 ? 3 : 5
-        ctx.beginPath()
-        if (shape === 'circle') {
-          ctx.arc(px, py, radius, 0, Math.PI * 2)
-        } else if (shape === 'square') {
-          ctx.rect(px - radius, py - radius, radius * 2, radius * 2)
-        } else {
-          ctx.moveTo(px, py - radius)
-          ctx.lineTo(px + radius, py + radius * 0.6)
-          ctx.lineTo(px - radius, py + radius * 0.6)
-          ctx.closePath()
-        }
-        ctx.strokeStyle = color
-        ctx.lineWidth = Math.max(0.5, 1.5 * scale)
+        ctx.lineWidth = Math.max(0.5, 1 * scale)
         ctx.stroke()
         ctx.restore()
         ctx.fillStyle = color
+        // Spinning dotted ring around selected player (offset from time for animation)
+        const ringRadius = radius + 3
+        const dashLen = 4
+        const gapLen = 6
+        ctx.save()
+        ctx.strokeStyle = color
+        ctx.lineWidth = Math.max(0.5, 1.2 * scale)
+        ctx.setLineDash([dashLen, gapLen])
+        ctx.lineDashOffset = ((Date.now() / 25) % (dashLen + gapLen)) * -1
+        ctx.beginPath()
+        ctx.arc(px, py, ringRadius, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.restore()
       } else {
         ctx.fillStyle = color
         ctx.fill()
