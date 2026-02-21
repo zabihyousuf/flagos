@@ -7,9 +7,9 @@
       @dragover.prevent
       @drop="handleDrop"
     />
-    <!-- Delete route chip when user clicked on a route (hide if that player no longer has a route) -->
+    <!-- Delete route chip when user clicked on a route (hide in simulation mode and if that player no longer has a route) -->
     <div
-      v-if="routeDeleteChip && chipPlayerHasRoute"
+      v-if="routeDeleteChip && chipPlayerHasRoute && !props.simulationMode"
       class="absolute z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-destructive text-destructive-foreground text-xs font-medium shadow-lg border border-destructive/80"
       :style="routeDeleteChipStyle"
     >
@@ -59,6 +59,12 @@ const props = defineProps<{
   defaultPlayerLabelOnCanvas?: 'number' | 'position' | 'both' | 'none'
   /** Suggested route preview for one player (from Player Details Suggest) — drawn on canvas until Accept/Deny */
   suggestedRoutePreview?: { playerId: string; route: { segments: { type: string; points: { x: number; y: number }[] }[] } } | null
+  /** Animated positions from simulation (overrides player x/y in renderer) */
+  animatedPositions?: Map<string, { x: number; y: number }>
+  /** Animated ball from simulation */
+  animatedBall?: { x: number; y: number; visible: boolean; inFlight: boolean }
+  /** When true: no selection ring, no interaction, no route-delete chip */
+  simulationMode?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -205,6 +211,9 @@ function requestRender() {
     showPlayerNames: props.showPlayerNames !== false,
     defaultPlayerLabelOnCanvas: props.defaultPlayerLabelOnCanvas ?? 'position',
     suggestedRoutePreview: props.suggestedRoutePreview ?? null,
+    animatedPositions: props.animatedPositions,
+    animatedBall: props.animatedBall,
+    simulationMode: props.simulationMode,
   })
   lastViewTransform.value = view ?? null
 }
@@ -364,9 +373,14 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview, () => props.simulationMode], () => {
   requestRender()
 }, { deep: true })
+
+// Re-render when simulation animated positions or ball change (driven at 60fps by simulation engine)
+watch([() => props.animatedPositions, () => props.animatedBall], () => {
+  requestRender()
+})
 
 // Animation loop while a player is selected (for spinning dotted ring)
 watch(selectedPlayerId, (id) => {
@@ -395,7 +409,7 @@ let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
   nextTick(() => {
     resizeCanvas()
-    setupListeners()
+    if (!props.simulationMode) setupListeners()
 
     resizeObserver = new ResizeObserver(() => {
       resizeCanvas()

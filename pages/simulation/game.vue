@@ -9,7 +9,12 @@
         Full game simulation engine is coming soon. Test your playbooks against AI opponents.
       </p>
     </div>
-    <Button variant="outline" @click="$router.push('/')">Return Home</Button>
+    <div class="flex gap-3">
+      <Button @click="$router.push('/simulation/scenario')">
+        Try Play Simulation
+      </Button>
+      <Button variant="outline" @click="$router.push('/')">Return Home</Button>
+    </div>
   </div>
 </template>
 

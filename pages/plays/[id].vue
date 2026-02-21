@@ -159,6 +159,18 @@
         </div>
 
         <Button
+          v-if="currentPlay?.play_type === 'offense'"
+          size="sm"
+          variant="outline"
+          class="h-8 px-3"
+          :disabled="loading || playTest.isRunning.value"
+          @click="runPlayTest"
+        >
+          <Play class="w-3.5 h-3.5 mr-1" />
+          Test Play
+        </Button>
+
+        <Button
           size="sm"
           class="h-8 px-3"
           :disabled="(!cIsDirty && playId !== 'new') || loading"
@@ -207,23 +219,28 @@
           class="w-full max-w-3xl xl:max-w-4xl min-w-0 play-canvas-wrapper"
           :class="viewMode === 'fit' ? 'play-canvas-wrapper-fit' : ''"
         >
-          <PlayCanvas
-            ref="canvasRef"
-            :initial-data="currentPlay.canvas_data"
-            :play-type="currentPlay.play_type"
-            :field-settings="fieldSettingsData"
-            :starters="starters"
-            :all-roster="roster"
-            :starter-position-map="starterPositionMap"
-            :view-mode="viewMode"
-            :ghost-players="ghostPlayers"
-            :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
-            :default-player-label-on-canvas="fieldSettings?.default_player_label_on_canvas ?? 'position'"
-            :suggested-route-preview="suggestedRoutePreview"
-            @save="handleSaveData"
-            @suggest-play-error="onSuggestPlayError"
-            class="w-full h-full block"
-          />
+          <div class="relative w-full h-full">
+            <PlayCanvas
+              ref="canvasRef"
+              :initial-data="currentPlay.canvas_data"
+              :play-type="currentPlay.play_type"
+              :field-settings="fieldSettingsData"
+              :starters="starters"
+              :all-roster="roster"
+              :starter-position-map="starterPositionMap"
+              :view-mode="viewMode"
+              :ghost-players="ghostPlayers"
+              :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
+              :default-player-label-on-canvas="fieldSettings?.default_player_label_on_canvas ?? 'position'"
+              :suggested-route-preview="suggestedRoutePreview"
+              :animated-positions="playTest.isRunning.value ? playTest.animatedPositions.value : undefined"
+              :animated-ball="playTest.isRunning.value ? playTest.animatedBall.value : undefined"
+              :simulation-mode="playTest.isRunning.value"
+              @save="handleSaveData"
+              @suggest-play-error="onSuggestPlayError"
+              class="w-full h-full block"
+            />
+          </div>
         </div>
       </div>
 
@@ -254,7 +271,7 @@
 <script setup lang="ts">
 import type { CanvasData, CanvasPlayer, CanvasTool, Player, RouteSegment } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
-import { Check, Maximize2, Fullscreen, ChevronDown } from 'lucide-vue-next'
+import { Check, Maximize2, Fullscreen, ChevronDown, Play } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
@@ -289,6 +306,7 @@ const { settings: fieldSettings, fetchSettings } = useFieldSettings()
 const { players, fetchPlayers } = usePlayers()
 const { profile, fetchProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
+const playTest = usePlayTest()
 
 const viewMode = ref<'fit' | 'full'>('fit')
 
@@ -687,7 +705,16 @@ async function restoreGhostDefense() {
   await loadGhostPlayById(gid)
 }
 
-/** Load a defensive play by id and set it as the ghost overlay (used for saved state or default setting) */
+function runPlayTest() {
+  if (!canvasRef.value || !currentPlay.value) return
+
+  const canvasData = canvasRef.value.getExportData()
+  const offensivePlayers = canvasData.players.filter(p => p.side === 'offense')
+
+  playTest.initialize(offensivePlayers, roster.value, fieldSettingsData.value)
+  playTest.start()
+}
+
 async function loadGhostPlayById(gid: string) {
   if (!currentPlay.value || currentPlay.value.play_type !== 'offense') return
   const client = useSupabaseDB()

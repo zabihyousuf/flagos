@@ -25,6 +25,12 @@ export interface RenderOptions {
   thumbnailMode?: boolean
   /** Suggested route preview for one player (drawn on canvas until Accept/Deny) */
   suggestedRoutePreview?: { playerId: string; route: { segments: RouteSegment[] } } | null
+  /** Animated positions from simulation engine — overrides player.x/y when present */
+  animatedPositions?: Map<string, { x: number; y: number }>
+  /** Animated ball from simulation engine */
+  animatedBall?: { x: number; y: number; visible: boolean; inFlight: boolean }
+  /** When true, hides selection ring and route-delete chip UI; disables interactive overlays */
+  simulationMode?: boolean
 }
 
 const PADDING = 12
@@ -339,6 +345,11 @@ export function useCanvasRenderer() {
 
     // Draw players on top
     drawPlayers(ctx, data.players, fieldW, fieldH, options)
+
+    // Draw animated ball (simulation)
+    if (options.animatedBall?.visible) {
+      drawBall(ctx, options.animatedBall, fieldW, fieldH)
+    }
 
     ctx.restore()
     ctx.restore()
@@ -1124,10 +1135,12 @@ export function useCanvasRenderer() {
     playerRadius = Math.max(3, playerRadius * scale)
 
     players.forEach((player) => {
-      const px = player.x * fieldW
-      const py = player.y * fieldH
+      // In simulation mode, use animated position if available
+      const animPos = options.animatedPositions?.get(player.id)
+      const px = (animPos?.x ?? player.x) * fieldW
+      const py = (animPos?.y ?? player.y) * fieldH
       const radius = playerRadius
-      const isSelected = player.id === options.selectedPlayerId
+      const isSelected = !options.simulationMode && player.id === options.selectedPlayerId
       const isRusher = player.designation === 'R' || player.position === 'RSH'
 
       // Coverage zone center (unlocked = run-to zone; locked = on player)
@@ -1349,6 +1362,50 @@ export function useCanvasRenderer() {
       }
       ctx.restore()
     })
+  }
+
+  // ─── Ball rendering (simulation) ──────────────────────
+
+  function drawBall(
+    ctx: CanvasRenderingContext2D,
+    ball: { x: number; y: number; visible: boolean; inFlight: boolean },
+    fieldW: number,
+    fieldH: number,
+  ) {
+    const bx = ball.x * fieldW
+    const by = ball.y * fieldH
+    const r = 6
+
+    // Glow when in flight
+    if (ball.inFlight) {
+      ctx.save()
+      ctx.shadowBlur = 14
+      ctx.shadowColor = '#f59e0b'
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.35)'
+      ctx.beginPath()
+      ctx.arc(bx, by, r + 4, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    // Brown ball
+    ctx.save()
+    ctx.fillStyle = '#78350f'
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.arc(bx, by, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+
+    // Laces
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1.2
+    ctx.beginPath()
+    ctx.moveTo(bx - 3, by)
+    ctx.lineTo(bx + 3, by)
+    ctx.stroke()
+    ctx.restore()
   }
 
   return {

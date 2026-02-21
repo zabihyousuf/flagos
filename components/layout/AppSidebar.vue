@@ -254,10 +254,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'blur.ai',
-    badge: 'Coming Soon',
+    badge: 'Beta',
     items: [
       { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true },
-      { to: '/simulation/scenario', label: 'Test A Scenario', icon: FlaskConical, disabled: true },
+      { to: '/simulation/scenario', label: 'Play Simulation', icon: FlaskConical, disabled: true },
     ]
   }
 ]
