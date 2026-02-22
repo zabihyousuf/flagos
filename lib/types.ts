@@ -232,7 +232,7 @@ export interface CanvasRoute {
 
 export interface RouteSegment {
   points: CanvasPoint[]
-  type: 'straight' | 'curve' | 'option'
+  type: 'straight' | 'curve' | 'option' | 'rollout'
   readOrder?: number // 1, 2, 3... read progression
 }
 

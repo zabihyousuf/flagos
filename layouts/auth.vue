@@ -5,32 +5,31 @@
       <div class="auth-brand-pattern" aria-hidden="true" />
       <div class="relative z-10 shrink-0">
         <NuxtLink to="/" class="inline-flex items-center gap-3 group">
-          <img src="/logo.svg" alt="" class="w-10 h-10 rounded-lg opacity-95 group-hover:opacity-100 transition-opacity" />
           <span class="font-copernicus font-bold text-xl tracking-tight">FlagOS</span>
         </NuxtLink>
       </div>
       <div class="relative z-10 flex-1 flex items-center justify-center text-center lg:text-left">
         <div>
           <p class="font-display font-semibold text-3xl lg:text-4xl xl:text-5xl leading-tight max-w-md">
-            Draw plays. Build your playbook. Win the flag.
+            The play designer for flag football
           </p>
           <p class="mt-4 text-white/80 text-sm lg:text-base max-w-sm mx-auto lg:mx-0">
-            Design formations, routes, and coverages in one place. Your team’s playbook, simplified.
+            Diagram offensive routes and defensive coverages. Build playbooks, manage your roster, and share plays with your team—all in one place.
           </p>
         </div>
       </div>
       <div class="relative z-10 shrink-0 hidden lg:block">
         <div class="flex gap-6 text-xs text-white/60 uppercase tracking-widest">
-          <span>Formations</span>
-          <span>Routes</span>
+          <span>Plays</span>
+          <span>Teams</span>
           <span>Playbooks</span>
         </div>
       </div>
     </div>
 
-    <!-- Right: Form area -->
-    <div class="auth-form flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12 bg-background">
-      <div class="w-full max-w-[400px]">
+    <!-- Right: Form area (scrollable when content overflows, centered when short) -->
+    <div class="auth-form flex-1 min-h-0 overflow-y-auto flex items-center justify-center">
+      <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 lg:py-16 shrink-0">
         <slot />
       </div>
     </div>
@@ -43,15 +42,26 @@
   --auth-brand-end: oklch(0.18 0.06 200);
 }
 
+@media (min-width: 1024px) {
+  .auth-layout {
+    height: 100vh;
+    overflow: hidden;
+  }
+}
+
 .auth-brand {
   background: linear-gradient(165deg, var(--auth-brand-start) 0%, var(--auth-brand-end) 100%);
   min-height: 40vh;
+  flex-shrink: 0;
 }
 
 @media (min-width: 1024px) {
   .auth-brand {
     min-height: 100vh;
+    height: 100vh;
     max-width: 50%;
+    position: sticky;
+    top: 0;
   }
 }
 
@@ -68,6 +78,7 @@
 
 .auth-form {
   box-shadow: -8px 0 24px rgba(0,0,0,0.06);
+  background: var(--color-background);
 }
 
 @media (min-width: 1024px) {

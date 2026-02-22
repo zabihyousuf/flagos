@@ -5,7 +5,19 @@ import { getDefaultFormation } from '~/lib/constants'
  * Migrate old v1 canvas data (flat route.points[]) to v2 (route.segments[])
  */
 function migrateCanvasData(data: CanvasData): CanvasData {
-  if (data.version >= 2) return data
+  if (data.version >= 2) {
+    const migrated = { ...data }
+    migrated.players = data.players.map((p) => {
+      const player = { ...p }
+      const isQB = (p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q'
+      const rollSeg = player.route?.segments?.find((s) => s.type === 'rollout')
+      if (isQB && rollSeg && rollSeg.points.length > 0 && !player.motionPath?.length) {
+        player.motionPath = [...rollSeg.points]
+      }
+      return player
+    })
+    return migrated
+  }
   const migrated: CanvasData = {
     version: 2,
     annotations: data.annotations ?? [],
@@ -15,7 +27,6 @@ function migrateCanvasData(data: CanvasData): CanvasData {
         designation: p.designation ?? (p as any).label ?? p.position,
         motionPath: p.motionPath ?? null,
       }
-      // Migrate old route format
       if (player.route) {
         const oldRoute = player.route as any
         if (oldRoute.points && !oldRoute.segments) {
@@ -298,6 +309,8 @@ export function useCanvas() {
     const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
     if (isRusher) return // Rusher's path to QB cannot be deleted
     activeSegmentIndex.value = null
+    const isQB = (player.position || '').toUpperCase() === 'QB' || (player.designation || '').toUpperCase() === 'Q'
+    if (isQB) player.motionPath = null
     player.route = null
     isDirty.value = true
     pushHistoryForPlayer(playerId)
@@ -309,8 +322,13 @@ export function useCanvas() {
     const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
     if (isRusher) return
     const idx = Math.max(0, Math.min(segmentIndex, player.route.segments.length - 1))
-    const hadReadOrder = player.route.segments[idx]?.readOrder != null
+    const seg = player.route.segments[idx]
+    const isQB = (player.position || '').toUpperCase() === 'QB' || (player.designation || '').toUpperCase() === 'Q'
+    const hadReadOrder = seg?.readOrder != null
     player.route.segments.splice(idx, 1)
+    if (seg?.type === 'rollout' && isQB) {
+      player.motionPath = null
+    }
     if (player.route.segments.length === 0) {
       player.route = null
       player.primaryTarget = false
@@ -393,16 +411,33 @@ export function useCanvas() {
     const isQB = pos === 'QB' || des === 'Q'
     const motionPoint = isQB ? { x, y: player.y } : { x, y }
     player.motionPath.push(motionPoint)
+    // QB rollout: sync to route segment so it shows in route segments UI
+    if (isQB) {
+      if (!player.route) player.route = { segments: [] }
+      const rollSeg = player.route.segments.find((s) => s.type === 'rollout')
+      if (rollSeg) {
+        rollSeg.points = [...player.motionPath]
+      } else {
+        player.route.segments.unshift({ type: 'rollout', points: [...player.motionPath] })
+      }
+    }
     isDirty.value = true
     pushHistoryForPlayer(playerId)
   }
 
   function clearMotionPath(playerId: string) {
     const player = canvasData.value.players.find((p) => p.id === playerId)
-    if (player) {
-      player.motionPath = null
-      isDirty.value = true
+    if (!player) return
+    const isQB = (player.position || '').toUpperCase() === 'QB' || (player.designation || '').toUpperCase() === 'Q'
+    player.motionPath = null
+    if (isQB && player.route?.segments) {
+      const idx = player.route.segments.findIndex((s) => s.type === 'rollout')
+      if (idx >= 0) {
+        player.route.segments.splice(idx, 1)
+        if (player.route.segments.length === 0) player.route = null
+      }
     }
+    isDirty.value = true
   }
 
   // ─── Player designation ────────────────────────────────

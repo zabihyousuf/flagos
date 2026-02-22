@@ -237,6 +237,7 @@ export function usePlaySimulation() {
         routeStartPts.push(routeOrigin)
         for (const seg of cp.route.segments) {
           if (seg.type === 'option') continue // Skip option routes in simulation
+          if (seg.type === 'rollout') continue // Rollout is motion, already in motionPolyline
           for (const pt of seg.points) routeStartPts.push({ x: pt.x, y: pt.y })
         }
       }
@@ -451,8 +452,46 @@ export function usePlaySimulation() {
       const target = findThrowTarget(qb)
       if (!target) { endPlay('scramble', 'No target'); return }
 
-      // If receiver route is done, throw immediately to their position
-      if (target.routeDone) {
+      // Sack check — rusher already on top of QB
+      const sacker = checkSack(qb)
+      if (sacker) {
+        endPlay('sack', `Sack by ${sacker.canvas.name || sacker.canvas.designation}!`, sacker.id)
+        return
+      }
+
+      // Rush pressure: estimate when the closest rusher will reach the QB
+      let mustThrowNow = false
+      const closestRusherDist = getClosestRusherDist(qb)
+      if (closestRusherDist < Infinity) {
+        // Find that rusher's effective speed
+        let rusherNormSpeed = 0
+        for (const p of players) {
+          if (!p.isRusher) continue
+          const d = dist2d(p.x, p.y, qb.x, qb.y)
+          if (Math.abs(d - closestRusherDist) < 0.001) {
+            const spdAttr = attr(p.roster, 'speed')
+            const rushAttr = attr(p.roster, 'rush')
+            const getOff = attr(p.roster, 'get_off_burst')
+            rusherNormSpeed = ypsToNorm(speedToYPS(spdAttr) * (1.0 + (rushAttr / 10) * 0.2) * (1.0 + (getOff / 10) * 0.15))
+            break
+          }
+        }
+
+        if (rusherNormSpeed > 0) {
+          const timeToSack = closestRusherDist / rusherNormSpeed
+          // pocket_awareness: how early QB senses rush and gets ball out
+          // High awareness (10) → throws with 0.4s to spare
+          // Low awareness (1) → cuts it close, 0.1s buffer
+          const pocketAwareness = attr(qb.roster, 'pocket_awareness')
+          const safetyBuffer = 0.1 + (pocketAwareness / 10) * 0.3 // 0.1s–0.4s
+          if (timeToSack <= safetyBuffer) {
+            mustThrowNow = true
+          }
+        }
+      }
+
+      // If receiver route is done OR rush forces the throw, get the ball out
+      if (target.routeDone || mustThrowNow) {
         startThrow(qb, target)
         return
       }
@@ -493,7 +532,6 @@ export function usePlaySimulation() {
       const targetCatchFraction = 0.88 + (10 - throwTiming) * 0.01 // 0.88–0.97
 
       // Throw when the predicted catch point is at or past our target fraction
-      // i.e. "if I throw now, the receiver will catch it at the right spot"
       if (predictedCatchFraction >= targetCatchFraction) {
         startThrow(qb, target)
         return

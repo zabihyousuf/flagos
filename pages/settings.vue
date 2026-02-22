@@ -444,27 +444,27 @@
               <ul class="billing-perks">
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>2 playbooks</span>
+                  <span>Unlimited plays</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>3 plays per playbook</span>
+                  <span>Unlimited playbooks</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Create and manage teams</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>AI assistant coach & all AI features</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Blur.ai</span>
                 </li>
                 <li class="billing-perk billing-perk--no">
                   <X class="w-4 h-4 shrink-0 text-muted-foreground" />
-                  <span class="text-muted-foreground">Add your own players to a team</span>
-                </li>
-                <li class="billing-perk billing-perk--no">
-                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
-                  <span class="text-muted-foreground">Print playbooks in different formats</span>
-                </li>
-                <li class="billing-perk billing-perk--no">
-                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
-                  <span class="text-muted-foreground">AI assistant coach & AI features</span>
-                </li>
-                <li class="billing-perk billing-perk--no">
-                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
-                  <span class="text-muted-foreground">Blur.ai</span>
+                  <span class="text-muted-foreground">Test plays & run simulations</span>
                 </li>
               </ul>
               <div class="billing-card-footer">
@@ -484,27 +484,23 @@
               <ul class="billing-perks">
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Unlimited playbooks</span>
+                  <span>Everything in Free</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Unlimited plays</span>
+                  <span>Test plays & run simulations</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Add your own players to a team</span>
+                  <span>Play test with animated routes</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Scenario & game simulations</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
                   <span>Print playbooks in different formats</span>
-                </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>AI assistant coach & all AI features</span>
-                </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Blur.ai included</span>
                 </li>
               </ul>
               <div class="billing-card-footer">
@@ -529,7 +525,7 @@
             @click="activeTab = 'billing'"
           >
             <Sparkles class="w-4 h-4 shrink-0" />
-            <span>Upgrade to Pro — unlimited plays, AI coach & more</span>
+            <span>Upgrade to Pro — test plays, run simulations & more</span>
           </Button>
 
           <div class="config-fields">

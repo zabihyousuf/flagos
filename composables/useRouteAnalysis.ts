@@ -78,7 +78,31 @@ export function useRouteAnalysis() {
 
     player.route.segments.forEach((seg, segIndex) => {
       if (seg.points.length === 0) return
-
+      if (seg.type === 'rollout') {
+        const pts = [lastPt, ...seg.points]
+        for (let i = 1; i < pts.length; i++) {
+          const legDist = calculateDistance(pts[i - 1], pts[i], field_width, totalLength)
+          let time = legDist / maxSpeed
+          if (totalDistance < ACCEL_DISTANCE) {
+            const accelDistRemaining = ACCEL_DISTANCE - totalDistance
+            const distInAccel = Math.min(legDist, accelDistRemaining)
+            time += (distInAccel / maxSpeed) * 0.43
+          }
+          const isFirstLegOfRoute = segments.length === 0
+          if (!isFirstLegOfRoute) time += CUT_PENALTY_BASE * cutEfficiency
+          cumulativeTime += time
+          totalDistance += legDist
+          segments.push({
+            distance: legDist,
+            duration: time,
+            cumulativeTime: cumulativeTime,
+            type: 'straight',
+            isCut: !isFirstLegOfRoute
+          })
+        }
+        lastPt = seg.points[seg.points.length - 1]
+        return
+      }
       if (seg.type === 'curve') {
         // Curve: one analysis row for the whole segment
         const allPoints = [lastPt, ...seg.points]

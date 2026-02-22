@@ -75,7 +75,7 @@
           </div>
         </div>
         <TabsContent value="all" class="mt-4">
-          <div :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
+          <div :class="viewMode === 'list' ? 'flex flex-col gap-1.5' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
             <PlayCard
               v-for="play in plays"
               :key="play.id"
@@ -88,7 +88,7 @@
           </div>
         </TabsContent>
         <TabsContent value="offense" class="mt-4">
-          <div :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
+          <div :class="viewMode === 'list' ? 'flex flex-col gap-1.5' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
             <PlayCard
               v-for="play in offensePlays"
               :key="play.id"
@@ -101,7 +101,7 @@
           </div>
         </TabsContent>
         <TabsContent value="defense" class="mt-4">
-          <div :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
+          <div :class="viewMode === 'list' ? 'flex flex-col gap-1.5' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
             <PlayCard
               v-for="play in defensePlays"
               :key="play.id"

@@ -17,8 +17,9 @@
         <PanelLeftOpen class="w-5 h-5" />
       </button>
 
-      <NuxtLink v-if="!collapsed" to="/" class="sidebar-logo">
+      <NuxtLink v-if="!collapsed" to="/" class="sidebar-logo flex items-center gap-2">
         <span class="sidebar-logo-text font-copernicus">FlagOS</span>
+        <span class="px-2 py-1 rounded text-xs font-bold bg-primary/10 text-primary tracking-normal shrink-0">Beta</span>
       </NuxtLink>
 
       <div v-if="!collapsed" class="sidebar-utility">
@@ -36,7 +37,7 @@
 
     <!-- Quick Play Button -->
     <div class="sidebar-quick-action">
-      <TooltipProvider :delay-duration="0" :ignore-non-keyboard-focus="true">
+      <TooltipProvider :key="`quick-play-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
         <Tooltip :ignore-non-keyboard-focus="true">
           <TooltipTrigger as-child>
             <button
@@ -63,7 +64,7 @@
             {{ group.badge }}
           </span>
         </div>
-        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="item.to" :delay-duration="0" :ignore-non-keyboard-focus="true">
+        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="`${item.to}-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
           <Tooltip :ignore-non-keyboard-focus="true">
             <TooltipTrigger as-child>
               <NuxtLink
@@ -260,7 +261,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'blur.ai',
-    badge: 'Beta',
+    badge: 'Coming soon',
     items: [
       { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true },
       { to: '/simulation/scenario', label: 'Play Simulation', icon: FlaskConical, disabled: true },

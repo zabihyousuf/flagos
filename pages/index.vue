@@ -35,24 +35,9 @@
     <!-- Welcome Header: greeting + name (Copernicus) -->
     <div class="welcome-header">
       <h2 class="text-2xl font-semibold tracking-tight welcome-title">
-        <span class="welcome-greeting">{{ dailyGreeting }}{{ displayName ? ', ' : '' }}</span><span v-if="displayName" class="welcome-name">{{ displayName }}</span>
+        <span class="welcome-greeting">{{ dailyGreeting }}{{ displayName ? ', ' : '' }}</span><span v-if="displayName" class="welcome-name">{{ displayName }}</span><span class="welcome-greeting">{{ greetingEndPunctuation }}</span>
       </h2>
     </div>
-
-    <!-- Quick Play CTA -->
-    <button
-      class="quick-play-cta"
-      @click="quickPlay.open()"
-    >
-      <div class="cta-icon">
-        <Plus class="w-6 h-6" />
-      </div>
-      <div class="cta-text">
-        <p class="cta-title">Design a New Play</p>
-        <p class="cta-sub">Jump straight into the play designer <kbd class="cta-kbd">⌘N</kbd></p>
-      </div>
-      <ArrowRight class="w-5 h-5 text-muted-foreground cta-arrow" />
-    </button>
 
     <!-- Stats Grid -->
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
@@ -166,9 +151,8 @@
 <script setup lang="ts">
 import type { Play, Team } from '~/lib/types'
 import { Skeleton } from '~/components/ui/skeleton'
-import { BookOpen, Users, Shield as ShieldIcon, Swords, Plus, ArrowRight } from 'lucide-vue-next'
+import { BookOpen, Users, Shield as ShieldIcon, Swords, ArrowRight } from 'lucide-vue-next'
 
-const quickPlay = useQuickPlay()
 const { playbooks, fetchPlaybooks } = usePlaybooks()
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
@@ -204,6 +188,12 @@ const dailyGreeting = computed(() => {
   const seed = today.getFullYear() * 10000 + today.getMonth() * 100 + today.getDate()
   const index = seed % GREETINGS.length
   return GREETINGS[index]
+})
+
+// End punctuation: ! or ? depending on greeting (e.g. "Ready to design?" vs "Welcome back!")
+const greetingEndPunctuation = computed(() => {
+  const g = dailyGreeting.value
+  return ['Ready to design', 'Time to create'].includes(g) ? '?' : '!'
 })
 
 // Primary team
@@ -344,78 +334,6 @@ onMounted(async () => {
 .welcome-name {
   font-weight: 400;
   color: var(--color-foreground);
-}
-
-/* Quick Play CTA */
-.quick-play-cta {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 16px 20px;
-  border-radius: 12px;
-  border: 1px dashed var(--color-border);
-  background: color-mix(in oklch, var(--color-primary) 4%, var(--color-card));
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-}
-
-.quick-play-cta:hover {
-  border-color: var(--color-primary);
-  border-style: solid;
-  background: color-mix(in oklch, var(--color-primary) 8%, var(--color-card));
-}
-
-.quick-play-cta:hover .cta-arrow {
-  transform: translateX(4px);
-  color: var(--color-primary);
-}
-
-.cta-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--color-primary), color-mix(in oklch, var(--color-primary) 70%, #000));
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.cta-text {
-  flex: 1;
-}
-
-.cta-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-foreground);
-  margin: 0;
-}
-
-.cta-sub {
-  font-size: 12px;
-  color: var(--color-muted-foreground);
-  margin: 2px 0 0;
-}
-
-.cta-kbd {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--color-accent);
-  border: 1px solid var(--color-border);
-  font-family: ui-monospace, monospace;
-  font-size: 11px;
-  margin-left: 4px;
-}
-
-.cta-arrow {
-  transition: all 0.2s;
-  flex-shrink: 0;
 }
 
 /* Stat Cards */

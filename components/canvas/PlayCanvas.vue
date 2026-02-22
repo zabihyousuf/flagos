@@ -316,15 +316,29 @@ async function handleAiAction(action: string) {
         const dx = qbMotion.includes('right') ? 0.06 : qbMotion.includes('left') ? -0.06 : 0
         if (dx !== 0) {
           // QB rollout: left or right only, never past the LOS (keep same y as QB)
-          qb.motionPath = [
+          const pts = [
             { x: qb.x + dx, y: qb.y },
             { x: qb.x + dx * 2, y: qb.y },
           ]
+          qb.motionPath = [...pts]
+          if (!qb.route) qb.route = { segments: [] }
+          const rollSeg = qb.route.segments.find((s) => s.type === 'rollout')
+          if (rollSeg) rollSeg.points = [...pts]
+          else qb.route.segments.unshift({ type: 'rollout', points: [...pts] })
         }
       }
     } else {
       const qb = players.find((p) => p.side === 'offense' && ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q'))
-      if (qb) qb.motionPath = null
+      if (qb) {
+        qb.motionPath = null
+        if (qb.route?.segments) {
+          const idx = qb.route.segments.findIndex((s) => s.type === 'rollout')
+          if (idx >= 0) {
+            qb.route.segments.splice(idx, 1)
+            if (qb.route.segments.length === 0) qb.route = null
+          }
+        }
+      }
     }
     isDirty.value = true
     requestRender()

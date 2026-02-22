@@ -266,8 +266,8 @@
           </div>
         </div>
 
-        <!-- QB throws here (primary target) -->
-        <div v-if="selectedPlayer.route && selectedPlayer.route.segments.length > 0 && !pendingRoute" class="pt-1.5">
+        <!-- QB throws here (primary target) — only for receivers, not QB -->
+        <div v-if="selectedPlayer.route && selectedPlayer.route.segments.length > 0 && !pendingRoute && !isQB(selectedPlayer)" class="pt-1.5">
           <Button
             size="sm"
             :variant="selectedPlayer.primaryTarget ? 'default' : 'outline'"
@@ -390,6 +390,13 @@ const markerColorPresets = Object.values(POSITION_COLORS)
 function isRusher(player: CanvasPlayer | null): boolean {
   if (!player) return false
   return player.designation === 'R' || player.position === 'RSH'
+}
+
+function isQB(player: CanvasPlayer | null): boolean {
+  if (!player) return false
+  const pos = (player.position || '').toUpperCase()
+  const des = (player.designation || '').toUpperCase()
+  return pos === 'QB' || des === 'Q'
 }
 
 const POSITION_DESIGNATION_MAP: Record<string, string[]> = {

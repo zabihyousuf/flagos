@@ -42,15 +42,40 @@
       </Button>
     </div>
 
-    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-      <PlaybookCard
-        v-for="pb in playbooks"
-        :key="pb.id"
-        :playbook="pb"
-        :deleting="deletingId === pb.id"
-        @edit="openDialog(pb)"
-        @delete="handleDelete(pb.id)"
-      />
+    <div v-else class="space-y-4">
+      <div class="flex justify-end">
+        <div class="flex rounded-lg border border-border bg-muted/30 p-0.5">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="viewMode === 'grid' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'grid'"
+          >
+            <LayoutGrid class="w-3.5 h-3.5" />
+            Grid
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="viewMode === 'list' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'list'"
+          >
+            <List class="w-3.5 h-3.5" />
+            List
+          </button>
+        </div>
+      </div>
+      <div :class="viewMode === 'list' ? 'flex flex-col gap-1.5' : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'">
+        <PlaybookCard
+          v-for="pb in playbooks"
+          :key="pb.id"
+          :playbook="pb"
+          :variant="viewMode"
+          :deleting="deletingId === pb.id"
+          @edit="openDialog(pb)"
+          @delete="handleDelete(pb.id)"
+        />
+      </div>
     </div>
 
     <PlaybookDialog
@@ -67,7 +92,9 @@ import type { Playbook } from '~/lib/types'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
-import { Plus, BookOpen } from 'lucide-vue-next'
+import { Plus, BookOpen, LayoutGrid, List } from 'lucide-vue-next'
+
+const viewMode = ref<'grid' | 'list'>('grid')
 
 const { playbooks, loading, fetchPlaybooks, createPlaybook, updatePlaybook, deletePlaybook } = usePlaybooks()
 const { confirm } = useConfirm()

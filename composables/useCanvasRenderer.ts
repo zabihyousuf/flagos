@@ -634,6 +634,7 @@ export function useCanvasRenderer() {
     const segCount = player.route.segments.length
     player.route.segments.forEach((segment, segIndex) => {
       if (segment.points.length === 0) return
+      if (segment.type === 'rollout') return // Rollout drawn by drawMotionPath
 
       const points = segment.points.map((p) => ({
         x: p.x * fieldW,

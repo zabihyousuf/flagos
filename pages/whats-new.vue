@@ -2,53 +2,29 @@
   <div class="whats-new-page">
     <div class="whats-new-header">
       <h1 class="text-2xl font-semibold tracking-tight font-display">What's New</h1>
-      <p class="text-muted-foreground mt-1">Past updates and release notes for FlagOS.</p>
+      <p class="text-muted-foreground mt-1">What you can do in the first release of FlagOS.</p>
     </div>
 
-    <div class="whats-new-list">
-      <article
-        v-for="release in releases"
-        :key="release.version"
-        class="release-card"
-      >
-        <div class="release-head">
-          <span class="release-version">{{ release.version }}</span>
-          <span class="release-date">{{ release.date }}</span>
-        </div>
-        <ul class="release-notes">
-          <li v-for="(note, i) in release.notes" :key="i" class="release-note">
-            {{ note }}
-          </li>
-        </ul>
-      </article>
-    </div>
+    <article class="release-card">
+      <ul class="release-notes">
+        <li v-for="(item, i) in features" :key="i" class="release-note">
+          {{ item }}
+        </li>
+      </ul>
+    </article>
   </div>
 </template>
 
 <script setup lang="ts">
-const releases = [
-  {
-    version: 'v0.2.0',
-    date: 'February 2025',
-    notes: [
-      'General settings: default play view (Fit/Full), default starting play type (Offensive/Defensive), and ghost defense default.',
-      'New "What\'s New" page for release notes and past updates.',
-      'Player names on field can be toggled in Settings → General.',
-      'Save & Confirm flow for General settings so changes apply when you choose.',
-      'Ghost defense option is disabled and set to None when default play type is Defensive.',
-    ],
-  },
-  {
-    version: 'v0.1.0',
-    date: 'January 2025',
-    notes: [
-      'Play designer with offensive and defensive formations.',
-      'Route drawing and coverage zones for defense.',
-      'Ghost defense overlay to view a defensive play on top of your offense.',
-      'Field dimensions and first-down line configurable in Settings.',
-      'Teams, squad, and playbooks.',
-    ],
-  },
+const features = [
+  'Design offensive plays with formations and route drawing.',
+  'Design defensive plays with coverage zones.',
+  'Use the ghost defense overlay to view a defensive play on top of your offense.',
+  'Configure field dimensions and first-down line in Settings.',
+  'Manage teams, squad, and playbooks.',
+  'Test plays with the play test simulation.',
+  'Choose default play view (Fit/Full), play type (Offensive/Defensive), and ghost defense in Settings.',
+  'Toggle player names on the field in Settings → General.',
 ]
 </script>
 
@@ -63,36 +39,11 @@ const releases = [
   margin-bottom: 32px;
 }
 
-.whats-new-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .release-card {
   background: var(--color-card);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 20px 24px;
-}
-
-.release-head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.release-version {
-  font-size: 1rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-foreground);
-}
-
-.release-date {
-  font-size: 0.8125rem;
-  color: var(--color-muted-foreground);
 }
 
 .release-notes {
