@@ -73,6 +73,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   save: [data: CanvasData]
   'suggest-play-error': [message: string]
+  /** Emitted when user starts editing (e.g. drag) while simulation overlay is shown — parent should reset sim */
+  'exit-simulation': []
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -245,7 +247,10 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   onClearRoute: clearRoute,
   onRequestRender: requestRender,
   onSelectPlayerForMove: onSelectPlayerForMove,
-  onDragStart: pushHistoryBeforeDrag,
+  onDragStart: (playerId?: string) => {
+    if (props.simulationMode) emit('exit-simulation')
+    pushHistoryBeforeDrag(playerId)
+  },
   onDragEnd: pushHistoryAfterDrag,
   onSelectRoute: onSelectRoute,
   onDeselectRoute: onDeselectRoute,

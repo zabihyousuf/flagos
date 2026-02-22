@@ -174,7 +174,7 @@
           size="sm"
           variant="outline"
           class="h-8 px-3"
-          @click="playTest.reset()"
+          @click="playTest.clearOverlay()"
         >
           <RotateCcw class="w-3.5 h-3.5 mr-1" />
           Reset
@@ -243,11 +243,12 @@
               :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
               :default-player-label-on-canvas="fieldSettings?.default_player_label_on_canvas ?? 'position'"
               :suggested-route-preview="suggestedRoutePreview"
-              :animated-positions="playTest.isRunning.value ? playTest.animatedPositions.value : undefined"
-              :animated-ball="playTest.isRunning.value ? playTest.animatedBall.value : undefined"
-              :simulation-mode="playTest.isRunning.value"
+              :animated-positions="(playTest.isRunning.value || playTest.simulationState.value === 'play_over') ? playTest.animatedPositions.value : undefined"
+              :animated-ball="(playTest.isRunning.value || playTest.simulationState.value === 'play_over') ? playTest.animatedBall.value : undefined"
+              :simulation-mode="playTest.isRunning.value || playTest.simulationState.value === 'play_over'"
               @save="handleSaveData"
               @suggest-play-error="onSuggestPlayError"
+              @exit-simulation="playTest.clearOverlay()"
               class="w-full h-full block"
             />
           </div>
@@ -727,7 +728,8 @@ function runPlayTest() {
   const canvasData = canvasRef.value.getExportData()
   const offensivePlayers = canvasData.players.filter(p => p.side === 'offense')
 
-  playTest.initialize(offensivePlayers, roster.value, fieldSettingsData.value)
+  // Pass ghost defense so they actively play zones/rush during test
+  playTest.initialize(offensivePlayers, ghostPlayers.value, roster.value, fieldSettingsData.value)
   playTest.start()
 }
 

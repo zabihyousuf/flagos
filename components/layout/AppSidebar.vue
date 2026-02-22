@@ -67,17 +67,23 @@
           <Tooltip :ignore-non-keyboard-focus="true">
             <TooltipTrigger as-child>
               <NuxtLink
-                :to="item.disabled ? '' : item.to"
+                v-if="!item.disabled"
+                :to="item.to"
                 class="sidebar-nav-item"
-                :class="{ 
-                  active: isActive(item.to),
-                  'opacity-50 pointer-events-none grayscale': item.disabled
-                }"
+                :class="{ active: isActive(item.to) }"
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </NuxtLink>
+              <span
+                v-else
+                class="sidebar-nav-item opacity-50 grayscale cursor-not-allowed"
+              >
+                <component :is="item.icon" class="sidebar-nav-icon" />
+                <span class="sidebar-nav-label">{{ item.label }}</span>
+                <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
+              </span>
             </TooltipTrigger>
             <TooltipContent side="right" :side-offset="10" v-if="collapsed">
               {{ item.label }} <span v-if="item.disabled">(Coming Soon)</span>

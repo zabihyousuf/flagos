@@ -54,6 +54,7 @@ interface InternalPlayer {
   reachedZone: boolean
   zoneX: number
   zoneY: number
+  trackedReceiverId: string | null
   // Ball
   hasBall: boolean
 }
@@ -121,8 +122,9 @@ function dist2d(ax: number, ay: number, bx: number, by: number): number {
 
 /** Convert a speed attribute (1-10) to yards per second. */
 function speedToYPS(speedAttr: number): number {
-  // Range: ~10 yd/s (attr 1) to ~22 yd/s (attr 10)
-  return 10 + (speedAttr / 10) * 12
+  // Range: ~5.5 yd/s (attr 1) to ~10 yd/s (attr 10)
+  // Average athlete (5) ≈ 7.5 yd/s → 12 yards in 1.6s, 15-yard route in 2s
+  return 5 + (speedAttr / 10) * 5
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -185,6 +187,7 @@ export function usePlaySimulation() {
     defensePlayers: CanvasPlayer[],
     roster: Player[],
     fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage: number },
+    options?: { playTestMode?: boolean },
   ) {
     // Reset everything
     stop()
@@ -262,12 +265,13 @@ export function usePlaySimulation() {
         reachedZone: false,
         zoneX: cp.coverageZoneUnlocked && cp.coverageZoneX != null ? cp.coverageZoneX : cp.x,
         zoneY: cp.coverageZoneUnlocked && cp.coverageZoneY != null ? cp.coverageZoneY : cp.y,
+        trackedReceiverId: null,
         hasBall: false,
       }
       players.push(ip)
     }
 
-    isPlayTestMode = defensePlayers.length === 0
+    isPlayTestMode = options?.playTestMode ?? defensePlayers.length === 0
 
     // Center snap duration from snapping attribute (1–10): higher = faster
     const centerRoster = centerCanvas ? roster.find(r => r.number === centerCanvas.number && r.name === centerCanvas.name) : undefined
@@ -308,6 +312,7 @@ export function usePlaySimulation() {
     simulationState.value = 'idle'
   }
 
+  /** Full reset: stop, clear all simulation state. Use when reinitializing. */
   function reset() {
     stop()
     currentTime = 0
@@ -319,6 +324,14 @@ export function usePlaySimulation() {
     animatedPositions.value = new Map()
     animatedBall.value = { x: 0.5, y: 0.5, visible: false, inFlight: false }
     players = []
+  }
+
+  /** Clear overlay only: hide simulated positions and return to formation view. Does NOT reset canvas state (selection, etc.). */
+  function clearOverlay() {
+    pause()
+    simulationState.value = 'idle'
+    animatedPositions.value = new Map()
+    animatedBall.value = { x: 0.5, y: 0.5, visible: false, inFlight: false }
   }
 
   // ── Main tick ──────────────────────────────────────────────────────────
@@ -373,9 +386,10 @@ export function usePlaySimulation() {
       return
     }
 
-    // Receivers run their routes immediately; motion runs during snap
+    // Everyone reacts at the snap: receivers run routes, defense moves
     runMotion(dt)
     runOffenseRoutes(dt)
+    runDefense(dt)
 
     // Animate ball from center to QB — speed derived from snapping ability
     const dx = qb.x - animatedBall.value.x
@@ -403,14 +417,17 @@ export function usePlaySimulation() {
   function tickRoutesDeveloping(dt: number) {
     runMotion(dt)
     runOffenseRoutes(dt)
-    // Defenders wait a beat (reaction delay ~0.3s from snap)
-    if (phaseTime > 0.3) {
+    // Play test: defense already started at snap, no delay needed
+    // Full sim: 0.3s reaction delay before defense moves
+    if (isPlayTestMode || phaseTime > 0.3) {
       runDefense(dt)
     }
     followQBWithBall()
 
-    // Transition to qb_reading after routes have developed a bit
-    if (phaseTime >= PHASE_MAX.routes_developing) {
+    // Play test: 0.5s for defense to set up zones, then QB reads
+    // Full sim: 1.8s for full route development
+    const developMax = isPlayTestMode ? 0.5 : PHASE_MAX.routes_developing
+    if (phaseTime >= developMax) {
       transitionTo('qb_reading')
     }
   }
@@ -425,6 +442,72 @@ export function usePlaySimulation() {
     const qb = getPlayer(qbId)
     if (!qb) { endPlay('scramble', 'No QB'); return }
 
+    // QB attributes
+    const decisionMaking = attr(qb.roster, 'decision_making')
+    const throwTiming = attr(qb.roster, 'throw_timing')
+
+    // ─── Play test mode: anticipation-based throw timing ─────────────
+    if (isPlayTestMode) {
+      const target = findThrowTarget(qb)
+      if (!target) { endPlay('scramble', 'No target'); return }
+
+      // If receiver route is done, throw immediately to their position
+      if (target.routeDone) {
+        startThrow(qb, target)
+        return
+      }
+
+      // Calculate receiver speed (same formula as advanceAlongRoute)
+      const recSpeedAttr = attr(target.roster, 'speed')
+      const routeRunningAttr = attr(target.roster, 'route_running')
+      const recBaseYPS = speedToYPS(recSpeedAttr)
+      const recRouteMul = 0.9 + (routeRunningAttr / 10) * 0.1
+      const recNormSpeed = ypsToNorm(recBaseYPS * recRouteMul)
+
+      // Ball speed from QB throwing power
+      const throwPowerAttr = attr(qb.roster, 'throwing_power')
+      const throwYPS = 20 + (throwPowerAttr / 10) * 30
+
+      // Predict where receiver will be if we throw NOW
+      // (same iterative solver as startThrow — find the meeting point)
+      let T = 0.3
+      for (let iter = 0; iter < 10; iter++) {
+        const futureDist = Math.min(target.distanceTraveled + recNormSpeed * T, target.totalRouteDist)
+        const meetPos = samplePolyline(target.polyline, target.cumulativeDist, futureDist)
+        const throwDistYards = dist2d(qb.x, qb.y, meetPos.x, meetPos.y) * fieldTotalLength
+        const newT = Math.max(0.1, throwDistYards / throwYPS)
+        if (Math.abs(newT - T) < 0.01) break
+        T = newT
+      }
+
+      // Where along the route will the catch happen?
+      const predictedCatchDist = Math.min(target.distanceTraveled + recNormSpeed * T, target.totalRouteDist)
+      const predictedCatchFraction = target.totalRouteDist > 0
+        ? predictedCatchDist / target.totalRouteDist
+        : 1
+
+      // Catch should always happen near the END of the route (where the arrow is).
+      // throw_timing just fine-tunes how close to the tip:
+      // High throw_timing (10) → catch at ~88% (QB threw with anticipation, still in stride)
+      // Low throw_timing (1)  → catch at ~97% (QB waited, receiver nearly at the end)
+      const targetCatchFraction = 0.88 + (10 - throwTiming) * 0.01 // 0.88–0.97
+
+      // Throw when the predicted catch point is at or past our target fraction
+      // i.e. "if I throw now, the receiver will catch it at the right spot"
+      if (predictedCatchFraction >= targetCatchFraction) {
+        startThrow(qb, target)
+        return
+      }
+
+      // Safety: throw before phase timeout
+      if (phaseTime >= PHASE_MAX.qb_reading) {
+        startThrow(qb, target)
+      }
+      return
+    }
+
+    // ─── Full simulation mode ────────────────────────────────────────
+
     // Check sack
     const sacker = checkSack(qb)
     if (sacker) {
@@ -436,31 +519,16 @@ export function usePlaySimulation() {
     const closestRusherDist = getClosestRusherDist(qb)
     const pressureLevel = closestRusherDist < 0.06 ? 'high' : closestRusherDist < 0.12 ? 'medium' : 'low'
 
-    // QB decision timing based on attributes
-    const decisionMaking = attr(qb.roster, 'decision_making')
-    const throwTiming = attr(qb.roster, 'throw_timing')
-    const pocketAwareness = attr(qb.roster, 'pocket_awareness')
-
     // Base time before throw: faster decision-makers throw sooner
     const baseReadTime = 0.6 + (10 - decisionMaking) * 0.15 // 0.6s to 2.1s
-
-    // Under pressure: throw earlier
     const pressureAdjust = pressureLevel === 'high' ? -0.5 : pressureLevel === 'medium' ? -0.2 : 0
-
-    // Play test: use throw_timing (anticipation) — high = throw sooner to hit receiver in stride
-    const target = findThrowTarget(qb)
-    let readyToThrow = phaseTime >= (baseReadTime + pressureAdjust)
-    if (readyToThrow && isPlayTestMode && target) {
-      const routeProgress = target.totalRouteDist > 0 ? target.distanceTraveled / target.totalRouteDist : 1
-      const minProgress = 0.15 + (10 - throwTiming) * 0.025 // 15%–40%: high timing = throw earlier
-      readyToThrow = routeProgress >= minProgress
-    }
+    const readyToThrow = phaseTime >= (baseReadTime + pressureAdjust)
 
     if (readyToThrow || phaseTime >= PHASE_MAX.qb_reading) {
+      const target = findThrowTarget(qb)
       if (target) {
         startThrow(qb, target)
       } else if (pressureLevel === 'high' || phaseTime >= PHASE_MAX.qb_reading) {
-        // No one open, scramble
         endPlay('scramble', `${qb.canvas.name || 'QB'} scrambles — no open receiver`)
       }
     }
@@ -637,9 +705,36 @@ export function usePlaySimulation() {
     pursueTarget(rusher, qb, dt, 1.0, normSpeed)
   }
 
+  /** Check if another zone defender is in position to pick up a receiver. */
+  function canHandOff(receiverId: string, currentDefId: string): boolean {
+    const receiver = players.find(p => p.id === receiverId)
+    if (!receiver) return true // receiver gone, safe to release
+
+    for (const other of players) {
+      if (other.side !== 'defense') continue
+      if (other.id === currentDefId) continue
+      if (other.isRusher) continue
+
+      const otherRadiusYards = other.canvas.coverageRadius ?? 5
+      const otherRadiusNorm = otherRadiusYards * yardsToNorm
+      const distToOtherZone = dist2d(receiver.x, receiver.y, other.zoneX, other.zoneY)
+
+      // Is the receiver in (or near) another defender's zone?
+      // And is that defender free (not already committed to someone else)?
+      const otherIsFree = !other.trackedReceiverId || other.trackedReceiverId === receiverId
+      if (distToOtherZone < otherRadiusNorm * 1.1 && otherIsFree) {
+        return true
+      }
+    }
+    return false
+  }
+
   function coverZone(def: InternalPlayer, dt: number) {
     const speedAttr = attr(def.roster, 'speed')
     const baseSpeed = ypsToNorm(speedToYPS(speedAttr))
+    const coverage = attr(def.roster, 'coverage')
+    const closingBurst = attr(def.roster, 'closing_burst')
+    const footballIQ = attr(def.roster, 'football_iq')
 
     // First move to zone
     if (!def.reachedZone) {
@@ -656,29 +751,105 @@ export function usePlaySimulation() {
       }
     }
 
-    // Once in zone, track nearest receiver in zone radius
     const coverageRadiusYards = def.canvas.coverageRadius ?? 5
     const coverageRadiusNorm = coverageRadiusYards * yardsToNorm
+    const qb = getPlayer(qbId)
+
+    // Find all receivers in the zone
     const receivers = players.filter(p =>
       p.side === 'offense' && p.id !== qbId && p.id !== centerId
     )
 
-    let closest: InternalPlayer | null = null
-    let closestDist = Infinity
+    const inZone: { player: InternalPlayer; dist: number; threat: number }[] = []
     for (const r of receivers) {
       const d = dist2d(r.x, r.y, def.zoneX, def.zoneY)
-      if (d < coverageRadiusNorm && d < closestDist) {
-        closest = r
-        closestDist = d
+      if (d < coverageRadiusNorm) {
+        // Threat: deeper routes (lower y) are more dangerous, deeper in zone = more urgent
+        const depthThreat = 1 - r.y
+        const zonePenetration = 1 - (d / coverageRadiusNorm)
+        inZone.push({ player: r, dist: d, threat: depthThreat * 0.6 + zonePenetration * 0.4 })
       }
     }
 
-    if (closest) {
-      const coverage = attr(def.roster, 'coverage')
-      const closingBurst = attr(def.roster, 'closing_burst')
+    // Release tracked receiver only if they left the zone AND another defender can pick them up.
+    // If no one is there to take over, carry the receiver (follow them out of the zone).
+    if (def.trackedReceiverId) {
+      const stillInZone = inZone.find(r => r.player.id === def.trackedReceiverId)
+      if (!stillInZone) {
+        const tracked = players.find(p => p.id === def.trackedReceiverId)
+        const outsideZone = !tracked || dist2d(tracked.x, tracked.y, def.zoneX, def.zoneY) > coverageRadiusNorm * 1.2
+        if (outsideZone) {
+          // Check if another zone defender can pick them up
+          if (canHandOff(def.trackedReceiverId, def.id)) {
+            def.trackedReceiverId = null
+          }
+          // Otherwise keep tracking — carry the receiver outside the zone
+        }
+      }
+    }
+
+    // No receivers in zone and not carrying anyone: drift back to zone center
+    if (inZone.length === 0 && !def.trackedReceiverId) {
+      const d = dist2d(def.x, def.y, def.zoneX, def.zoneY)
+      if (d > 0.008) {
+        const step = baseSpeed * 0.5 * dt
+        const dx = def.zoneX - def.x
+        const dy = def.zoneY - def.y
+        def.x += (dx / d) * Math.min(step, d)
+        def.y += (dy / d) * Math.min(step, d)
+      }
+      return
+    }
+
+    // Commit to a receiver
+    if (inZone.length > 0) {
+      if (!def.trackedReceiverId || !inZone.find(r => r.player.id === def.trackedReceiverId)) {
+        // No one tracked (or tracked left): commit to the biggest threat
+        inZone.sort((a, b) => b.threat - a.threat)
+        def.trackedReceiverId = inZone[0].player.id
+      } else if (inZone.length > 1) {
+        // Multiple receivers: stick with current unless another is clearly more dangerous
+        // High football_iq → better at reading the real threat and switching
+        const current = inZone.find(r => r.player.id === def.trackedReceiverId)!
+        const biggest = inZone.filter(r => r.player.id !== def.trackedReceiverId)
+          .sort((a, b) => b.threat - a.threat)[0]
+        const switchThreshold = 0.15 - (footballIQ / 10) * 0.1 // 0.05–0.15
+        if (biggest && biggest.threat > current.threat + switchThreshold) {
+          def.trackedReceiverId = biggest.player.id
+        }
+      }
+    }
+
+    // Shadow the tracked receiver: position between them and the QB
+    const tracked = players.find(p => p.id === def.trackedReceiverId)
+    if (!tracked) return
+
+    let targetX = tracked.x
+    let targetY = tracked.y
+
+    if (qb) {
+      // Sit between receiver and QB at a cushion distance
+      // High coverage = tighter cushion (closer to receiver)
+      const cushionNorm = 0.03 - (coverage / 10) * 0.02 // 0.01–0.03 normalized
+      const dxToQB = qb.x - tracked.x
+      const dyToQB = qb.y - tracked.y
+      const distToQB = Math.sqrt(dxToQB * dxToQB + dyToQB * dyToQB)
+      if (distToQB > 0.01) {
+        targetX = tracked.x + (dxToQB / distToQB) * cushionNorm
+        targetY = tracked.y + (dyToQB / distToQB) * cushionNorm
+      }
+    }
+
+    // Move to shadow position
+    const d = dist2d(def.x, def.y, targetX, targetY)
+    if (d > 0.003) {
       const coverMul = 0.95 + (coverage / 10) * 0.1
       const burstMul = 1.0 + (closingBurst / 10) * 0.1
-      pursueTarget(def, closest, dt, coverMul * burstMul)
+      const step = baseSpeed * coverMul * burstMul * dt
+      const dx = targetX - def.x
+      const dy = targetY - def.y
+      def.x += (dx / d) * Math.min(step, d)
+      def.y += (dy / d) * Math.min(step, d)
     }
   }
 
@@ -837,6 +1008,18 @@ export function usePlaySimulation() {
 
   // ── Catch resolution ───────────────────────────────────────────────────
   function resolveCatch(target: InternalPlayer) {
+    const targetName = target.canvas.name || target.canvas.designation
+
+    // Play test mode: always catch — this is a design tool, not a game
+    if (isPlayTestMode) {
+      target.hasBall = true
+      animatedBall.value = { x: target.x, y: target.y, visible: true, inFlight: false }
+      logEvent('catch', `Caught by ${targetName}!`, target.id)
+      resultYards = Math.round((losY - target.y) * fieldTotalLength)
+      endPlay('completion', `${targetName} catches in stride`)
+      return
+    }
+
     const catching = attr(target.roster, 'catching')
     const hands = attr(target.roster, 'hands_consistency')
 
@@ -877,7 +1060,6 @@ export function usePlaySimulation() {
     }
 
     const roll = Math.random()
-    const targetName = target.canvas.name || target.canvas.designation
 
     if (roll < intProb && nearestDef) {
       // Interception
@@ -897,12 +1079,7 @@ export function usePlaySimulation() {
       animatedBall.value.inFlight = false
       logEvent('catch', `Caught by ${targetName}!`, target.id)
       resultYards = Math.round((losY - target.y) * fieldTotalLength)
-      // Play test: receiver catches and stops; full sim: run after catch
-      if (isPlayTestMode) {
-        endPlay('completion', `${targetName} catches and stops`)
-      } else {
-        transitionTo('after_catch')
-      }
+      transitionTo('after_catch')
     }
   }
 
@@ -948,6 +1125,7 @@ export function usePlaySimulation() {
     start,
     pause,
     reset,
+    clearOverlay,
     /** Get result after play_over */
     getResult: () => outcome ? { outcome, yards: resultYards, events: events.value } : null,
   }

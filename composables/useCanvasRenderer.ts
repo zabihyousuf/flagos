@@ -1147,8 +1147,10 @@ export function useCanvasRenderer() {
     const scale = options.previewScale ?? 1
 
     players.forEach((player) => {
-      const px = player.x * fieldW
-      const py = player.y * fieldH
+      // In simulation mode, use animated position if available
+      const animPos = options.animatedPositions?.get(player.id)
+      const px = (animPos?.x ?? player.x) * fieldW
+      const py = (animPos?.y ?? player.y) * fieldH
       const radius = Math.max(3, Math.max(12, fieldW * 0.035) * scale)
       const color = POSITION_COLORS[player.position] || '#ef4444'
       const isRusher = player.designation === 'R' || player.position === 'RSH'
