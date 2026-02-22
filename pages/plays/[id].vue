@@ -45,7 +45,7 @@
       </div>
 
       <!-- Center: Toolbar -->
-      <div class="flex-1 flex justify-center min-w-0">
+      <div class="flex-1 flex justify-center items-center min-w-0 gap-1.5">
         <CanvasToolbar
           v-if="canvasReady"
           :selected-tool="cSelectedTool"
@@ -64,6 +64,41 @@
           @set-primary-target="onSetPrimaryTarget"
           @toggle-zone-position="onToggleZonePosition"
         />
+        <TooltipProvider v-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value !== 'play_over'">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10"
+                :disabled="loading || playTest.isRunning.value || !anyOffensePlayerHasRoute"
+                @click="runPlayTest"
+              >
+                <Play class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Test play</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider v-else-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value === 'play_over'">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10"
+                @click="playTest.clearOverlay()"
+              >
+                <RotateCcw class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Reset play test</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <!-- Right: Ghost defense (offense only) + View Toggle + Save -->
@@ -158,27 +193,23 @@
           </TooltipProvider>
         </div>
 
-        <Button
-          v-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value !== 'play_over'"
-          size="sm"
-          variant="outline"
-          class="h-8 px-3"
-          :disabled="loading || playTest.isRunning.value || !anyOffensePlayerHasRoute"
-          @click="runPlayTest"
-        >
-          <Play class="w-3.5 h-3.5 mr-1" />
-          Test Play
-        </Button>
-        <Button
-          v-else-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value === 'play_over'"
-          size="sm"
-          variant="outline"
-          class="h-8 px-3"
-          @click="playTest.clearOverlay()"
-        >
-          <RotateCcw class="w-3.5 h-3.5 mr-1" />
-          Reset
-        </Button>
+        <TooltipProvider v-if="playId !== 'new'">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8"
+                @click="shareDialogOpen = true"
+              >
+                <Share2 class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Share play</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         <Button
           size="sm"
@@ -197,6 +228,12 @@
       :default-name="currentPlay?.name"
       :saving="isSaving"
       @save="onConfirmSave"
+    />
+
+    <SharePlayDialog
+      v-model:open="shareDialogOpen"
+      :play="currentPlay"
+      :ghost-players="ghostPlayers"
     />
 
     <!-- Loading State: Only show on initial load (not on save) -->
@@ -301,7 +338,7 @@ import CanvasToolbar from '~/components/canvas/CanvasToolbar.vue'
 import CanvasRosterCard from '~/components/canvas/CanvasRosterCard.vue'
 import CanvasPlayerCard from '~/components/canvas/CanvasPlayerCard.vue'
 import SavePlayDialog from '~/components/play/SavePlayDialog.vue'
-import { Swords, Shield } from 'lucide-vue-next'
+import { Swords, Shield, Share2 } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'canvas',
@@ -564,6 +601,7 @@ async function handleSaveData(data: CanvasData) {
 // ─── Draft Logic ───
 const saveDialogOpen = ref(false)
 const isSaving = ref(false)
+const shareDialogOpen = ref(false)
 
 function handleNameChange() {
   if (playId.value === 'new') return // Local update

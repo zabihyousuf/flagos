@@ -84,6 +84,7 @@
               @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
+              @share="openShareDialog(play)"
             />
           </div>
         </TabsContent>
@@ -97,6 +98,7 @@
               @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
+              @share="openShareDialog(play)"
             />
           </div>
         </TabsContent>
@@ -110,13 +112,13 @@
               @edit="navigateToPlay(play.id)"
               :deleting="deletingId === play.id"
               @delete="handleDelete(play.id)"
+              @share="openShareDialog(play)"
             />
           </div>
         </TabsContent>
       </Tabs>
     </div>
-
-
+    <SharePlayDialog v-model:open="shareDialogOpen" :play="shareDialogPlay" />
   </div>
 </template>
 
@@ -152,6 +154,13 @@ const viewMode = ref<'grid' | 'list'>('grid')
 // We can remove: dialogOpen, editingPlay, openDialog, handleSubmit (for creation part)
 
 const deletingId = ref<string | null>(null)
+const shareDialogOpen = ref(false)
+const shareDialogPlay = ref<Play | null>(null)
+
+function openShareDialog(play: Play) {
+  shareDialogPlay.value = play
+  shareDialogOpen.value = true
+}
 
 function navigateToPlay(id: string) {
   router.push(`/plays/${id}`)

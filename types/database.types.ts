@@ -315,6 +315,63 @@ export type Database = {
           },
         ]
       }
+      shared_plays: {
+        Row: {
+          id: string
+          play_id: string
+          user_id: string
+          share_token: string
+          is_active: boolean
+          play_snapshot: import('~/lib/types').CanvasData
+          play_name: string
+          play_type: string
+          play_formation: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          play_id: string
+          user_id: string
+          share_token?: string
+          is_active?: boolean
+          play_snapshot: import('~/lib/types').CanvasData
+          play_name: string
+          play_type: string
+          play_formation?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          play_id?: string
+          user_id?: string
+          share_token?: string
+          is_active?: boolean
+          play_snapshot?: import('~/lib/types').CanvasData
+          play_name?: string
+          play_type?: string
+          play_formation?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_plays_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "plays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_plays_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_requests: {
         Row: {
           id: string

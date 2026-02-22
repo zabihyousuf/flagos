@@ -228,6 +228,15 @@ export function usePlaySimulation() {
         for (const pt of cp.motionPath) motionPts.push({ x: pt.x, y: pt.y })
       }
 
+      // For QB: build rollout segments into motion polyline (rollout = QB movement post-snap)
+      if (cp.id === qbCanvas?.id && cp.route?.segments?.length) {
+        for (const seg of cp.route.segments) {
+          if (seg.type !== 'rollout') continue
+          if (motionPts.length === 0) motionPts.push({ x: cp.x, y: cp.y })
+          for (const pt of seg.points) motionPts.push({ x: pt.x, y: pt.y })
+        }
+      }
+
       // Route starts at end-of-motion (or player pos if no motion)
       const routeOrigin = motionPts.length > 0
         ? motionPts[motionPts.length - 1]
@@ -236,8 +245,8 @@ export function usePlaySimulation() {
       if (cp.route?.segments?.length) {
         routeStartPts.push(routeOrigin)
         for (const seg of cp.route.segments) {
-          if (seg.type === 'option') continue // Skip option routes in simulation
-          if (seg.type === 'rollout') continue // Rollout is motion, already in motionPolyline
+          if (seg.type === 'option') continue
+          if (seg.type === 'rollout') continue // Handled above as QB motion
           for (const pt of seg.points) routeStartPts.push({ x: pt.x, y: pt.y })
         }
       }
@@ -673,8 +682,24 @@ export function usePlaySimulation() {
   function runMotion(dt: number) {
     for (const p of players) {
       if (p.side !== 'offense' || p.motionDone) continue
+      // QB rollout: only starts after receiving the snap (not during snap animation)
+      if (p.id === qbId && !p.hasBall) continue
+
       const speedAttr = attr(p.roster, 'speed')
-      const motionSpeed = ypsToNorm(speedToYPS(speedAttr) * 0.65) // Motion is controlled
+      let motionSpeed: number
+
+      if (p.id === qbId) {
+        // QB rollout speed: speed + agility + throw_on_run
+        // Mobile QB (high attrs) rolls out near full sprint; pocket QB is sluggish
+        const agility = attr(p.roster, 'agility')
+        const throwOnRun = attr(p.roster, 'throw_on_run')
+        // Range: 0.6 (all 1s) to 1.1 (all 10s) — elite mobile QB is slightly faster than base sprint
+        const rolloutMul = 0.55 + (speedAttr / 10) * 0.15 + (agility / 10) * 0.2 + (throwOnRun / 10) * 0.2
+        motionSpeed = ypsToNorm(speedToYPS(speedAttr) * rolloutMul)
+      } else {
+        motionSpeed = ypsToNorm(speedToYPS(speedAttr) * 0.65) // Receiver motion is controlled
+      }
+
       p.motionDistTraveled += motionSpeed * dt
       if (p.motionDistTraveled >= p.motionTotalDist) {
         p.motionDistTraveled = p.motionTotalDist

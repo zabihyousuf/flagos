@@ -280,8 +280,8 @@ const navGroups: NavGroup[] = [
     label: 'blur.ai',
     badge: 'Coming soon',
     items: [
-      { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
-      { to: '/simulation/scenario', label: 'Play Sim', icon: FlaskConical, disabled: true, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
+      { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
+      { to: '/simulation/scenario', label: 'Play Lab', icon: FlaskConical, disabled: true, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
     ]
   }
 ]

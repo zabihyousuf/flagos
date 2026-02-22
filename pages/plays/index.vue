@@ -105,6 +105,10 @@
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem @click.stop="openShareDialog(play)">
+                  <Share2 class="w-3.5 h-3.5 mr-2" />
+                  Share
+                </DropdownMenuItem>
                 <DropdownMenuItem @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
                   <Trash2 class="w-3.5 h-3.5 mr-2" />
                   Delete
@@ -123,6 +127,8 @@
         </p>
       </div>
     </div>
+
+    <SharePlayDialog v-model:open="shareDialogOpen" :play="shareDialogPlay" />
   </div>
 </template>
 
@@ -132,7 +138,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
-import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2 } from 'lucide-vue-next'
+import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2, Share2 } from 'lucide-vue-next'
 
 const router = useRouter()
 const quickPlay = useQuickPlay()
@@ -203,6 +209,14 @@ function formatDate(dateStr: string) {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d ago`
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const shareDialogOpen = ref(false)
+const shareDialogPlay = ref<PlayWithPlaybook | null>(null)
+
+function openShareDialog(play: PlayWithPlaybook) {
+  shareDialogPlay.value = play
+  shareDialogOpen.value = true
 }
 
 function navigateToPlay(id: string) {

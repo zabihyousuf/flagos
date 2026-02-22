@@ -700,15 +700,15 @@ export function useCanvasRenderer() {
       }
     })
 
-    // Single arrow at the very end of the entire route (only when last segment is not option; option segments get their own arrow above)
-    const lastSeg = player.route.segments[player.route.segments.length - 1]
-    const lastSegIsOption = lastSeg?.type === 'option' && (lastSeg?.points?.length ?? 0) > 0
-    if (!lastSegIsOption) {
+    // Single arrow at the very end of the entire route (skip rollout/option segments)
+    const routeSegs = player.route.segments.filter(s => s.type !== 'rollout' && s.type !== 'option')
+    const lastRouteSeg = routeSegs[routeSegs.length - 1]
+    if (lastRouteSeg && lastRouteSeg.points.length > 0) {
       let arrowEnd: { x: number; y: number } | null = null
       let arrowPrev = { x: routeStart.x, y: routeStart.y }
       let px = routeStart.x
       let py = routeStart.y
-      for (const segment of player.route.segments) {
+      for (const segment of routeSegs) {
         if (segment.points.length === 0) continue
         for (const p of segment.points) {
           const nx = p.x * fieldW
@@ -1110,12 +1110,13 @@ export function useCanvasRenderer() {
       }
     })
 
-    // Single arrow only at the very end of the ghost route
+    // Single arrow only at the very end of the ghost route (skip rollout segments)
+    const ghostRouteSegs = player.route.segments.filter(s => s.type !== 'rollout')
     let gArrowEnd: { x: number; y: number } | null = null
     let gArrowPrev = { x: startX, y: startY }
     let gx = startX
     let gy = startY
-    for (const segment of player.route.segments) {
+    for (const segment of ghostRouteSegs) {
       if (segment.points.length === 0) continue
       for (const p of segment.points) {
         const nx = p.x * fieldW
@@ -1256,7 +1257,7 @@ export function useCanvasRenderer() {
         ctx.beginPath()
         ctx.moveTo(px, py)
         ctx.lineTo(zoneX, zoneY)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.7)'
         ctx.lineWidth = Math.max(0.5, 2 * scale)
         ctx.setLineDash([8, 6])
         ctx.stroke()
@@ -1438,7 +1439,7 @@ export function useCanvasRenderer() {
         ctx.beginPath()
         ctx.moveTo(px, py)
         ctx.lineTo(zx, zy)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.7)'
         ctx.lineWidth = Math.max(0.4, 1.5 * scale)
         ctx.setLineDash([6, 4])
         ctx.stroke()
@@ -1449,14 +1450,14 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.beginPath()
       ctx.arc(zx, zy, radiusPx, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)'
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.08)'
       ctx.fill()
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.55)'
       ctx.lineWidth = Math.max(0.4, 1 * scale)
       ctx.setLineDash([4, 4])
       ctx.stroke()
       if (radiusPx > 20 * scale) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.75)'
         ctx.font = `600 ${Math.max(6, 11 * scale)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'

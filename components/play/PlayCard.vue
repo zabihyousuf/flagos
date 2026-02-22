@@ -27,6 +27,9 @@
             </div>
           </div>
           <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <Button size="icon" variant="ghost" :class="variant === 'list' ? 'h-7 w-7' : 'h-8 w-8'" @click.prevent="$emit('share')">
+              <Share2 :class="variant === 'list' ? 'w-3 h-3' : 'w-3.5 h-3.5'" />
+            </Button>
             <Button size="icon" variant="ghost" :class="variant === 'list' ? 'h-7 w-7' : 'h-8 w-8'" @click.prevent="$emit('edit')">
               <Pencil :class="variant === 'list' ? 'w-3 h-3' : 'w-3.5 h-3.5'" />
             </Button>
@@ -45,7 +48,7 @@
 import type { Play } from '~/lib/types'
 import { Card, CardContent } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
-import { Pencil, Trash2, Swords, ShieldCheck, Loader2 } from 'lucide-vue-next'
+import { Pencil, Trash2, Swords, ShieldCheck, Loader2, Share2 } from 'lucide-vue-next'
 
 withDefaults(
   defineProps<{
@@ -59,5 +62,6 @@ withDefaults(
 defineEmits<{
   edit: []
   delete: []
+  share: []
 }>()
 </script>

@@ -19,6 +19,7 @@
 
 <script setup lang="ts">
 useTheme() // Apply theme and listen for system preference changes
+useHead({ title: 'FlagOS' })
 const { open } = useQuickPlay()
 const { open: openSearch } = useAppSearch()
 

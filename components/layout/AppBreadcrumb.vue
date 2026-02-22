@@ -39,8 +39,8 @@ const segments = computed<BreadcrumbSegment[]>(() => {
     '/squad': 'Squad',
     '/settings': 'Settings',
     '/whats-new': "What's New",
-    '/simulation/game': 'Game Sim',
-    '/simulation/scenario': 'Play Sim',
+    '/simulation/game': 'Match Sim',
+    '/simulation/scenario': 'Play Lab',
     '/simulation/test': 'Test Play',
   }
 

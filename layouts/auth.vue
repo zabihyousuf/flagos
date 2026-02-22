@@ -12,10 +12,10 @@
         <div class="relative z-10 flex-1 flex items-center justify-center text-center lg:text-left">
           <div>
             <p class="font-display font-semibold text-3xl lg:text-4xl xl:text-5xl leading-tight max-w-md">
-              The play designer for flag football
+              Your one platform for all things flag football!
             </p>
             <p class="mt-4 text-white/80 text-sm lg:text-base max-w-sm mx-auto lg:mx-0">
-              Diagram offensive routes and defensive coverages. Build playbooks, manage your roster, and share plays with your team—all in one place.
+              Draw offensive plays and defensive coverages. Build playbooks, manage your roster, and share plays with your team all in one place.
             </p>
           </div>
         </div>
