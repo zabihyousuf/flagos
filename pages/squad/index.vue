@@ -27,13 +27,12 @@
         >
           <div class="space-y-1">
             <div class="flex items-center justify-between">
-              <NuxtLink
-                :to="`/teams?id=${team.id}`"
-                class="font-semibold text-sm hover:underline"
+              <span
+                class="font-semibold text-sm"
                 :style="{ color: teamColorMap.get(team.id) ?? '#888' }"
               >
                 {{ team.name }}
-              </NuxtLink>
+              </span>
               <Button size="icon" variant="ghost" class="h-6 w-6" @click="removeTrackedTeam(team.id)">
                 <X class="w-3 h-3" />
               </Button>

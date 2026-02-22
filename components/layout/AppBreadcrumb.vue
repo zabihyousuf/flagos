@@ -1,63 +1,85 @@
 <template>
-  <div v-if="crumb" class="flex items-center gap-1.5 mb-4">
-    <NuxtLink
-      :to="crumb.parentTo"
-      class="text-muted-foreground hover:text-foreground transition-colors text-sm flex items-center gap-1"
-    >
-      <ArrowLeft class="w-3.5 h-3.5" />
-      <span>{{ crumb.parentLabel }}</span>
-    </NuxtLink>
-    <ChevronRight class="w-3 h-3 text-muted-foreground/50" />
-    <span class="text-sm font-medium">{{ crumb.currentLabel }}</span>
-  </div>
+  <nav v-if="segments.length > 0" class="flex items-center gap-1.5 mb-4 text-sm" aria-label="Breadcrumb">
+    <template v-for="(seg, i) in segments" :key="i">
+      <template v-if="i > 0">
+        <ChevronRight class="w-3 h-3 text-muted-foreground/50 shrink-0" aria-hidden="true" />
+      </template>
+      <NuxtLink
+        v-if="seg.to"
+        :to="seg.to"
+        class="text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {{ seg.label }}
+      </NuxtLink>
+      <span v-else class="font-medium text-foreground">{{ seg.label }}</span>
+    </template>
+  </nav>
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, ChevronRight } from 'lucide-vue-next'
+import { ChevronRight } from 'lucide-vue-next'
 
 const route = useRoute()
 const { breadcrumbTitle } = useBreadcrumbs()
 
-interface Crumb {
-  parentTo: string
-  parentLabel: string
-  currentLabel: string
+interface BreadcrumbSegment {
+  label: string
+  to?: string
 }
 
-const routeMap: Record<string, { parentTo: string; parentLabel: string; currentLabel: string }> = {
-  '/playbooks': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Playbooks' },
-  '/plays': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'All Plays' },
-  '/lockerroom': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Locker Room' },
-  '/teams': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Teams' },
-  '/settings': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Settings' },
-  '/simulation/game': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Game Sim' },
-  '/simulation/test': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Test Play' },
-  '/simulation/scenario': { parentTo: '/', parentLabel: 'Dashboard', currentLabel: 'Scenarios' },
-}
-
-const crumb = computed<Crumb | null>(() => {
+const segments = computed<BreadcrumbSegment[]>(() => {
   const path = route.path
 
-  // Dashboard — no breadcrumb
-  if (path === '/') return null
+  if (path === '/') return []
 
-  // Exact match in route map
-  if (routeMap[path]) return routeMap[path]
-
-  // Dynamic: /playbooks/[id]
-  if (path.startsWith('/playbooks/')) {
-    return {
-      parentTo: '/playbooks',
-      parentLabel: 'Playbooks',
-      currentLabel: breadcrumbTitle.value || 'Playbook',
-    }
+  // Top-level pages: Dashboard > Page
+  const topLevel: Record<string, string> = {
+    '/playbooks': 'Playbooks',
+    '/plays': 'All Plays',
+    '/squad': 'Squad',
+    '/settings': 'Settings',
+    '/whats-new': "What's New",
+    '/simulation/game': 'Game Sim',
+    '/simulation/scenario': 'Play Sim',
+    '/simulation/test': 'Test Play',
   }
 
-  // Fallback for any unknown route under default layout
-  return {
-    parentTo: '/',
-    parentLabel: 'Dashboard',
-    currentLabel: path.split('/').pop() || 'Page',
+  if (topLevel[path]) {
+    return [
+      { label: 'Dashboard', to: '/' },
+      { label: topLevel[path] },
+    ]
   }
+
+  // /playbooks/[id]: Dashboard > Playbooks > [Playbook Name]
+  if (path.match(/^\/playbooks\/[^/]+$/)) {
+    return [
+      { label: 'Dashboard', to: '/' },
+      { label: 'Playbooks', to: '/playbooks' },
+      { label: breadcrumbTitle.value || 'Playbook' },
+    ]
+  }
+
+  // Fallback: try to derive from path
+  const parts = path.split('/').filter(Boolean)
+  if (parts.length === 0) return []
+
+  const result: BreadcrumbSegment[] = [{ label: 'Dashboard', to: '/' }]
+  let runningPath = ''
+  for (let i = 0; i < parts.length; i++) {
+    runningPath += '/' + parts[i]
+    const isLast = i === parts.length - 1
+    const label = isLast && breadcrumbTitle.value
+      ? breadcrumbTitle.value
+      : formatSegmentLabel(parts[i])
+    result.push(isLast ? { label } : { label, to: runningPath })
+  }
+  return result
 })
+
+function formatSegmentLabel(part: string): string {
+  if (part === 'new') return 'New'
+  if (/^[0-9a-f-]{36}$/i.test(part)) return 'Details'
+  return part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' ')
+}
 </script>

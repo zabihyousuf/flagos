@@ -86,8 +86,9 @@
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </span>
             </TooltipTrigger>
-            <TooltipContent side="right" :side-offset="10" v-if="collapsed">
-              {{ item.label }} <span v-if="item.disabled">(Coming Soon)</span>
+            <TooltipContent side="right" :side-offset="10" v-if="collapsed || item.tooltipDescription" :class="{ 'max-w-xs': item.tooltipDescription }">
+              <span v-if="item.tooltipDescription" class="block whitespace-pre-line text-left">{{ item.tooltipDescription }}</span>
+              <template v-else>{{ item.label }} <span v-if="item.disabled">(Coming Soon)</span></template>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -130,6 +131,14 @@
               <Sparkles class="w-4 h-4" />
               <span>What's New</span>
             </NuxtLink>
+            <button type="button" class="user-menu-item w-full text-left" @click="reportBugOpen = true; userMenuOpen = false">
+              <Bug class="w-4 h-4" />
+              <span>Report a Bug</span>
+            </button>
+            <button type="button" class="user-menu-item w-full text-left" @click="requestFeatureOpen = true; userMenuOpen = false">
+              <MessageSquarePlus class="w-4 h-4" />
+              <span>Request a feature / Give feedback</span>
+            </button>
             <div class="user-menu-divider" />
             <button class="user-menu-item text-destructive" @click="handleLogout">
               <LogOut class="w-4 h-4" />
@@ -139,6 +148,9 @@
         </Transition>
       </div>
     </div>
+
+    <ReportBugDialog v-model:open="reportBugOpen" />
+    <RequestFeatureDialog v-model:open="requestFeatureOpen" />
   </aside>
 </template>
 
@@ -160,6 +172,8 @@ import {
   FlaskConical,
   Search,
   Sparkles,
+  Bug,
+  MessageSquarePlus,
 } from 'lucide-vue-next'
 import {
   Tooltip,
@@ -177,6 +191,8 @@ const collapsed = ref(false)
 const hovering = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
+const reportBugOpen = ref(false)
+const requestFeatureOpen = ref(false)
 
 onMounted(() => {
   const saved = localStorage.getItem('flagos-sidebar-collapsed')
@@ -237,6 +253,7 @@ interface NavItem {
   badge?: string
   disabled?: boolean
   devOnly?: boolean
+  tooltipDescription?: string
 }
 
 interface NavGroup {
@@ -263,8 +280,8 @@ const navGroups: NavGroup[] = [
     label: 'blur.ai',
     badge: 'Coming soon',
     items: [
-      { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true },
-      { to: '/simulation/scenario', label: 'Play Simulation', icon: FlaskConical, disabled: true },
+      { to: '/simulation/game', label: 'Game Sim', icon: Gamepad2, disabled: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
+      { to: '/simulation/scenario', label: 'Play Sim', icon: FlaskConical, disabled: true, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
     ]
   }
 ]

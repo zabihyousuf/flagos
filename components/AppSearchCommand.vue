@@ -90,7 +90,6 @@ const staticPages: SearchItem[] = [
   { id: 'page-playbooks', type: 'page', label: 'Playbooks', to: '/playbooks', icon: BookOpen },
   { id: 'page-plays', type: 'page', label: 'Plays', to: '/plays', icon: Swords },
   { id: 'page-squad', type: 'page', label: 'Squad', to: '/squad', icon: Users },
-  { id: 'page-teams', type: 'page', label: 'Teams', to: '/teams', icon: Users },
   { id: 'page-settings', type: 'page', label: 'Settings', to: '/settings', icon: SettingsIcon },
   { id: 'page-whats-new', type: 'page', label: "What's New", to: '/whats-new', icon: Sparkles },
 ]

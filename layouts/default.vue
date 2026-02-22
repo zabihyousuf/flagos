@@ -9,6 +9,7 @@
           <slot />
         </div>
       </main>
+      <AppFooter />
     </div>
     <QuickPlayDialog />
     <ConfirmDialog />

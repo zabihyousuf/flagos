@@ -280,6 +280,79 @@ export type Database = {
         }
         Relationships: []
       }
+      bug_reports: {
+        Row: {
+          id: string
+          user_id: string
+          description: string
+          image_urls: string[]
+          page_url: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          description: string
+          image_urls?: string[]
+          page_url?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          description?: string
+          image_urls?: string[]
+          page_url?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bug_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_requests: {
+        Row: {
+          id: string
+          user_id: string
+          type: string
+          content: string
+          image_urls: string[]
+          page_url: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: string
+          content: string
+          image_urls?: string[]
+          page_url?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: string
+          content?: string
+          image_urls?: string[]
+          page_url?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

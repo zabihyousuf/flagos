@@ -15,7 +15,8 @@
     </nav>
 
     <!-- Content Area (left-align all tabs except Field; no scroll on Field tab) -->
-    <div class="settings-content" :class="{ 'settings-content--left': activeTab !== 'field', 'settings-content--field': activeTab === 'field' }">
+    <div class="flex-1 flex flex-col min-w-0 min-h-0">
+    <div class="settings-content flex-1" :class="{ 'settings-content--left': activeTab !== 'field', 'settings-content--field': activeTab === 'field' }">
       <!-- Loading (only on initial fetch when we don't have settings yet) -->
       <div v-if="loading && activeTab === 'field' && !settings" class="settings-placeholder">
         <div class="flex flex-col items-center gap-2">
@@ -557,6 +558,8 @@
           </div>
         </div>
       </template>
+    </div>
+    <p class="shrink-0 py-3 px-4 xl:px-6 text-xs text-muted-foreground border-t border-border">v0.1.0</p>
     </div>
   </div>
 </template>

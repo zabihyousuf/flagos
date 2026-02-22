@@ -101,7 +101,6 @@
       <div class="min-w-0">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold font-display">Team</h3>
-          <NuxtLink v-if="primaryTeam" to="/teams" class="text-sm text-primary hover:underline">Manage</NuxtLink>
         </div>
 
         <div v-if="!primaryTeam" class="empty-state">

@@ -1,38 +1,41 @@
 <template>
-  <div class="auth-layout min-h-screen flex flex-col lg:flex-row">
-    <!-- Left: Brand + visual -->
-    <div class="auth-brand flex-1 flex flex-col p-8 lg:p-12 text-white relative overflow-hidden">
-      <div class="auth-brand-pattern" aria-hidden="true" />
-      <div class="relative z-10 shrink-0">
-        <NuxtLink to="/" class="inline-flex items-center gap-3 group">
-          <span class="font-copernicus font-bold text-xl tracking-tight">FlagOS</span>
-        </NuxtLink>
-      </div>
-      <div class="relative z-10 flex-1 flex items-center justify-center text-center lg:text-left">
-        <div>
-          <p class="font-display font-semibold text-3xl lg:text-4xl xl:text-5xl leading-tight max-w-md">
-            The play designer for flag football
-          </p>
-          <p class="mt-4 text-white/80 text-sm lg:text-base max-w-sm mx-auto lg:mx-0">
-            Diagram offensive routes and defensive coverages. Build playbooks, manage your roster, and share plays with your team—all in one place.
-          </p>
+  <div class="auth-layout min-h-screen flex flex-col">
+    <div class="flex flex-1 min-h-0 flex-col lg:flex-row">
+      <!-- Left: Brand + visual -->
+      <div class="auth-brand flex-1 flex flex-col p-8 lg:p-12 text-white relative overflow-hidden">
+        <div class="auth-brand-pattern" aria-hidden="true" />
+        <div class="relative z-10 shrink-0">
+          <NuxtLink to="/" class="inline-flex items-center gap-3 group">
+            <span class="font-copernicus font-bold text-xl tracking-tight">FlagOS</span>
+          </NuxtLink>
+        </div>
+        <div class="relative z-10 flex-1 flex items-center justify-center text-center lg:text-left">
+          <div>
+            <p class="font-display font-semibold text-3xl lg:text-4xl xl:text-5xl leading-tight max-w-md">
+              The play designer for flag football
+            </p>
+            <p class="mt-4 text-white/80 text-sm lg:text-base max-w-sm mx-auto lg:mx-0">
+              Diagram offensive routes and defensive coverages. Build playbooks, manage your roster, and share plays with your team—all in one place.
+            </p>
+          </div>
+        </div>
+        <div class="relative z-10 shrink-0 hidden lg:block">
+          <div class="flex gap-6 text-xs text-white/60 uppercase tracking-widest">
+            <span>Plays</span>
+            <span>Teams</span>
+            <span>Playbooks</span>
+          </div>
         </div>
       </div>
-      <div class="relative z-10 shrink-0 hidden lg:block">
-        <div class="flex gap-6 text-xs text-white/60 uppercase tracking-widest">
-          <span>Plays</span>
-          <span>Teams</span>
-          <span>Playbooks</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- Right: Form area (scrollable when content overflows, centered when short) -->
-    <div class="auth-form flex-1 min-h-0 overflow-y-auto flex items-center justify-center">
-      <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 lg:py-16 shrink-0">
-        <slot />
+      <!-- Right: Form area (scrollable when content overflows, centered when short) -->
+      <div class="auth-form flex-1 min-h-0 overflow-y-auto flex items-center justify-center">
+        <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 lg:py-16 shrink-0">
+          <slot />
+        </div>
       </div>
     </div>
+    <AppFooter />
   </div>
 </template>
 

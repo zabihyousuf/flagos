@@ -15,7 +15,6 @@ const pageTitle = computed(() => {
   if (path.startsWith('/playbooks')) return 'Playbooks'
   if (path.startsWith('/plays')) return 'Play Designer'
   if (path.startsWith('/players')) return 'Locker Room'
-  if (path.startsWith('/teams')) return 'Teams'
   if (path === '/settings') return 'Settings'
   return 'FlagOS'
 })
