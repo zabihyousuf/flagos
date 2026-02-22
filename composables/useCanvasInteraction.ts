@@ -158,7 +158,7 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
 
   /** Find player whose route path is near the given field coords (for delete chip) */
   function findRouteAt(coords: { x: number; y: number }): CanvasPlayer | null {
-    const threshold = 0.04
+    const threshold = 0.02
     for (const player of [...options.canvasData.value.players].reverse()) {
       if (!player.route?.segments?.length) continue
       let lastX = player.x

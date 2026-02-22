@@ -152,6 +152,7 @@ export function usePlaySimulation() {
   let qbId: string | null = null
   let centerId: string | null = null
   let throwTargetId: string | null = null
+  let isPlayTestMode = false // No defense — always throw to primary
   let ballStartX = 0
   let ballStartY = 0
   let ballTargetX = 0
@@ -160,6 +161,8 @@ export function usePlaySimulation() {
   let ballFlightElapsed = 0
   let outcome: PlayOutcome | null = null
   let resultYards = 0
+  let snapStartTime = 0
+  let centerSnapDuration = 0.3 // seconds before center can run route (from snapping attribute)
 
   // ── Phase timeouts (prevent hang) ──────────────────────────────────────
   const PHASE_MAX: Record<string, number> = {
@@ -264,6 +267,14 @@ export function usePlaySimulation() {
       players.push(ip)
     }
 
+    isPlayTestMode = defensePlayers.length === 0
+
+    // Center snap duration from snapping attribute (1–10): higher = faster
+    const centerRoster = centerCanvas ? roster.find(r => r.number === centerCanvas.number && r.name === centerCanvas.name) : undefined
+    const snappingAttr = attr(centerRoster, 'snapping', 5)
+    const snapSpeedAttr = attr(centerRoster, 'snap_speed', 5)
+    centerSnapDuration = Math.max(0.12, 0.55 - 0.4 * (snappingAttr / 10) - 0.08 * (snapSpeedAttr / 10))
+
     // Ball at center
     if (centerCanvas) {
       animatedBall.value = { x: centerCanvas.x, y: centerCanvas.y, visible: true, inFlight: false }
@@ -338,6 +349,7 @@ export function usePlaySimulation() {
   // ── Phase: Pre-snap ────────────────────────────────────────────────────
   function tickPreSnap(_dt: number) {
     if (phaseTime >= PHASE_MAX.pre_snap) {
+      snapStartTime = currentTime
       transitionTo('snap')
       logEvent('snap', 'Ball snapped!')
     }
@@ -347,24 +359,36 @@ export function usePlaySimulation() {
   function tickSnap(dt: number) {
     const qb = getPlayer(qbId)
     const center = getPlayer(centerId)
-    if (!qb || !center) {
+    if (!qb) {
+      transitionTo('routes_developing')
+      return
+    }
+    if (!center) {
+      snapStartTime = currentTime
+      // No center (e.g. play test): give ball to QB immediately so routes can run
+      animatedBall.value.x = qb.x
+      animatedBall.value.y = qb.y
+      qb.hasBall = true
       transitionTo('routes_developing')
       return
     }
 
-    // Animate ball from center to QB
-    const ballSpeed = 0.4 // very fast snap in normalized coords
+    // Receivers run their routes immediately; motion runs during snap
+    runMotion(dt)
+    runOffenseRoutes(dt)
+
+    // Animate ball from center to QB — speed derived from snapping ability
     const dx = qb.x - animatedBall.value.x
     const dy = qb.y - animatedBall.value.y
     const d = Math.sqrt(dx * dx + dy * dy)
+    const ballSpeed = d > 0.001 ? d / centerSnapDuration : 1
+    const phaseMax = Math.max(centerSnapDuration + 0.1, PHASE_MAX.snap)
 
-    if (d < 0.005 || phaseTime >= PHASE_MAX.snap) {
+    if (d < 0.005 || phaseTime >= phaseMax) {
       animatedBall.value.x = qb.x
       animatedBall.value.y = qb.y
       qb.hasBall = true
 
-      // Run motion for players that have it — start routes_developing even if motion exists
-      // (motion runs concurrently with early route development)
       transitionTo('routes_developing')
       const hasMotion = players.some(p => p.side === 'offense' && !p.motionDone)
       if (hasMotion) logEvent('motion', 'Pre-snap motion')
@@ -423,10 +447,16 @@ export function usePlaySimulation() {
     // Under pressure: throw earlier
     const pressureAdjust = pressureLevel === 'high' ? -0.5 : pressureLevel === 'medium' ? -0.2 : 0
 
-    const readyToThrow = phaseTime >= (baseReadTime + pressureAdjust)
+    // Play test: use throw_timing (anticipation) — high = throw sooner to hit receiver in stride
+    const target = findThrowTarget(qb)
+    let readyToThrow = phaseTime >= (baseReadTime + pressureAdjust)
+    if (readyToThrow && isPlayTestMode && target) {
+      const routeProgress = target.totalRouteDist > 0 ? target.distanceTraveled / target.totalRouteDist : 1
+      const minProgress = 0.15 + (10 - throwTiming) * 0.025 // 15%–40%: high timing = throw earlier
+      readyToThrow = routeProgress >= minProgress
+    }
 
     if (readyToThrow || phaseTime >= PHASE_MAX.qb_reading) {
-      const target = findThrowTarget(qb)
       if (target) {
         startThrow(qb, target)
       } else if (pressureLevel === 'high' || phaseTime >= PHASE_MAX.qb_reading) {
@@ -557,9 +587,13 @@ export function usePlaySimulation() {
   function runOffenseRoutes(dt: number) {
     for (const p of players) {
       if (p.side !== 'offense') continue
-      if (p.id === qbId || p.id === centerId) continue
+      if (p.id === qbId) continue
       if (!p.motionDone) continue // Wait for motion to complete before running route
       if (p.routeDone) continue
+      // Center: delay before running route based on snapping ability
+      if (p.id === centerId) {
+        if (currentTime - snapStartTime < centerSnapDuration) continue
+      }
       advanceAlongRoute(p, dt)
     }
   }
@@ -691,11 +725,17 @@ export function usePlaySimulation() {
   // ── QB throw decision ──────────────────────────────────────────────────
   function findThrowTarget(qb: InternalPlayer): InternalPlayer | null {
     const receivers = players.filter(p =>
-      p.side === 'offense' && p.id !== qbId && p.id !== centerId && p.totalRouteDist > 0
+      p.side === 'offense' && p.id !== qbId && p.id !== centerId && p.totalRouteDist > 0 && p.motionDone
     )
     if (receivers.length === 0) return null
 
-    // Calculate separation for each receiver
+    // Play test mode (no defense): always throw to primary target
+    if (isPlayTestMode) {
+      const primary = receivers.find(r => r.canvas.primaryTarget)
+      return primary ?? receivers[0]
+    }
+
+    // With defense: calculate separation and follow progression
     const defenders = players.filter(p => p.side === 'defense')
     const receiverScores: { receiver: InternalPlayer; separation: number; readOrder: number }[] = []
 
@@ -704,37 +744,31 @@ export function usePlaySimulation() {
       for (const d of defenders) {
         minDefDist = Math.min(minDefDist, dist2d(r.x, r.y, d.x, d.y))
       }
-      // Separation in yards
       const sepYards = minDefDist * fieldTotalLength
 
-      // Read order (lower = earlier in progression)
       let readOrder = 999
       if (r.canvas.route?.segments) {
         for (const seg of r.canvas.route.segments) {
           if (seg.readOrder != null && seg.readOrder < readOrder) readOrder = seg.readOrder
         }
       }
-      // Primary target gets highest priority
       if (r.canvas.primaryTarget) readOrder = 0
 
       receiverScores.push({ receiver: r, separation: sepYards, readOrder })
     }
 
-    // Sort by read order, then by separation
     receiverScores.sort((a, b) => {
       if (a.readOrder !== b.readOrder) return a.readOrder - b.readOrder
       return b.separation - a.separation
     })
 
     const footballIQ = attr(qb.roster, 'football_iq')
-    const openThreshold = 2.0 + (footballIQ / 10) * 1.5 // Better IQ = can see tighter windows
+    const openThreshold = 2.0 + (footballIQ / 10) * 1.5
 
-    // Follow progression
     for (const { receiver, separation } of receiverScores) {
       if (separation >= openThreshold) return receiver
     }
 
-    // Under pressure: throw to most open receiver even if not super open
     const closestRusherDist = getClosestRusherDist(qb)
     if (closestRusherDist < 0.08) {
       const best = receiverScores.reduce((a, b) => a.separation > b.separation ? a : b)
@@ -747,35 +781,48 @@ export function usePlaySimulation() {
   function startThrow(qb: InternalPlayer, target: InternalPlayer) {
     const throwPower = attr(qb.roster, 'throwing_power')
     const accuracy = attr(qb.roster, 'accuracy')
+    const throwYPS = 20 + (throwPower / 10) * 30 // 20-50 yd/s ball speed
 
-    // Lead the throw: predict where receiver will be
-    const throwDistance = dist2d(qb.x, qb.y, target.x, target.y) * fieldTotalLength
-    const throwYPS = 20 + (throwPower / 10) * 30 // 20-50 yd/s throw speed
-    ballFlightTime = Math.max(0.15, throwDistance / throwYPS)
+    const recSpeedAttr = attr(target.roster, 'speed')
+    const routeRunning = attr(target.roster, 'route_running')
+    const baseYPS = speedToYPS(recSpeedAttr)
+    const routeMul = 0.9 + (routeRunning / 10) * 0.1
+    const recNormSpeed = ypsToNorm(baseYPS * routeMul) // normalized dist/sec along route
 
-    // Predict receiver position
-    const recSpeed = speedToYPS(attr(target.roster, 'speed'))
-    const leadDist = recSpeed * ballFlightTime * yardsToNorm * 0.6 // 60% lead
+    // Solve for meeting point: ball and receiver arrive at same spot
+    let tx = target.x
+    let ty = target.y
+    let flightTime = 0.15
 
-    // Target position: receiver's current position + lead along their route direction
-    let leadX = target.x
-    let leadY = target.y
     if (!target.routeDone && target.totalRouteDist > 0) {
-      const futurePos = samplePolyline(target.polyline, target.cumulativeDist,
-        Math.min(target.distanceTraveled + leadDist, target.totalRouteDist))
-      leadX = futurePos.x
-      leadY = futurePos.y
+      // Iterative solver: ball arrives where receiver will be — receiver runs into the catch
+      let T = 0.2
+      for (let iter = 0; iter < 15; iter++) {
+        const futureDist = Math.min(target.distanceTraveled + recNormSpeed * T, target.totalRouteDist)
+        const meetingPos = samplePolyline(target.polyline, target.cumulativeDist, futureDist)
+        const throwDistYards = dist2d(qb.x, qb.y, meetingPos.x, meetingPos.y) * fieldTotalLength
+        const newT = Math.max(0.1, throwDistYards / throwYPS)
+        if (Math.abs(newT - T) < 0.01) break
+        T = newT
+        tx = meetingPos.x
+        ty = meetingPos.y
+      }
+      flightTime = T
+    } else {
+      const throwDistYards = dist2d(qb.x, qb.y, target.x, target.y) * fieldTotalLength
+      flightTime = Math.max(0.15, throwDistYards / throwYPS)
     }
 
-    // Add inaccuracy
-    const inaccuracy = (10 - accuracy) * 0.003
-    leadX += (Math.random() - 0.5) * inaccuracy
-    leadY += (Math.random() - 0.5) * inaccuracy
+    // Accuracy: scatter based on QB accuracy (1-10)
+    const inaccuracy = (10 - accuracy) * 0.004
+    tx += (Math.random() - 0.5) * inaccuracy
+    ty += (Math.random() - 0.5) * inaccuracy
 
     ballStartX = qb.x
     ballStartY = qb.y
-    ballTargetX = leadX
-    ballTargetY = leadY
+    ballTargetX = tx
+    ballTargetY = ty
+    ballFlightTime = flightTime
     ballFlightElapsed = 0
     throwTargetId = target.id
     qb.hasBall = false
@@ -848,9 +895,14 @@ export function usePlaySimulation() {
       animatedBall.value.x = target.x
       animatedBall.value.y = target.y
       animatedBall.value.inFlight = false
-      transitionTo('after_catch')
       logEvent('catch', `Caught by ${targetName}!`, target.id)
       resultYards = Math.round((losY - target.y) * fieldTotalLength)
+      // Play test: receiver catches and stops; full sim: run after catch
+      if (isPlayTestMode) {
+        endPlay('completion', `${targetName} catches and stops`)
+      } else {
+        transitionTo('after_catch')
+      }
     }
   }
 

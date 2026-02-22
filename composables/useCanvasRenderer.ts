@@ -31,25 +31,32 @@ export interface RenderOptions {
   animatedBall?: { x: number; y: number; visible: boolean; inFlight: boolean }
   /** When true, hides selection ring and route-delete chip UI; disables interactive overlays */
   simulationMode?: boolean
+  /** When true, dark mode is active (affects selection-focus fade opacity) */
+  darkMode?: boolean
 }
 
 const PADDING = 12
 
+/** When a player is selected, non-selected content is faded to this opacity. Dark mode uses lower alpha for stronger fade. */
+function getFadedAlpha(darkMode: boolean): number {
+  return darkMode ? 0.12 : 0.22
+}
+
 const COLORS = {
   background: 'transparent',
-  fieldFill: '#2d7a2d',
-  fieldBorder: '#1e6b1e',
-  yardLine: 'rgba(255,255,255,0.6)',
-  yardLineLight: 'rgba(255,255,255,0.25)',
-  yardNumber: 'rgba(255,255,255,0.7)',
-  hashMark: 'rgba(255,255,255,0.3)',
-  endzoneFill: '#245e24',
-  endzoneBorder: 'rgba(255,255,255,0.4)',
-  endzoneText: 'rgba(255,255,255,0.25)',
-  los: '#22d3ee',
-  firstDown: '#fbbf24',
-  nrz: 'rgba(251, 191, 36, 0.08)',
-  nrzBorder: 'rgba(251, 191, 36, 0.3)',
+  fieldFill: '#fafbfc',
+  fieldBorder: 'rgba(59, 130, 246, 0.22)',
+  yardLine: 'rgba(59, 130, 246, 0.35)',
+  yardLineLight: 'rgba(59, 130, 246, 0.18)',
+  yardNumber: 'rgba(59, 130, 246, 0.45)',
+  hashMark: 'rgba(59, 130, 246, 0.15)',
+  endzoneFill: '#f5f6f8',
+  endzoneBorder: 'rgba(59, 130, 246, 0.22)',
+  endzoneText: 'rgba(59, 130, 246, 0.28)',
+  los: 'rgba(59, 130, 246, 0.65)',
+  firstDown: 'rgba(59, 130, 246, 0.55)',
+  nrz: 'rgba(59, 130, 246, 0.06)',
+  nrzBorder: 'rgba(59, 130, 246, 0.2)',
 }
 
 /**
@@ -308,23 +315,58 @@ export function useCanvasRenderer() {
     ctx.save()
     ctx.translate(offsetX, offsetY)
 
-    drawField(ctx, fieldW, fieldH, options)
+    const hasSelectionFocus = !options.simulationMode && !!options.selectedPlayerId
+    const fadedAlpha = getFadedAlpha(options.darkMode ?? false)
+
+    // Field — faded when a player is selected so focus stays on the active player
+    if (hasSelectionFocus) {
+      ctx.save()
+      ctx.globalAlpha = fadedAlpha
+      drawField(ctx, fieldW, fieldH, options)
+      ctx.restore()
+    } else {
+      drawField(ctx, fieldW, fieldH, options)
+    }
+
     // Draw routes behind players (use suggested route preview when set for this player)
     data.players.forEach((player) => {
       const preview = options.suggestedRoutePreview?.playerId === player.id ? options.suggestedRoutePreview : null
       const routeToDraw = preview ? preview.route : player.route
       const effectivePlayer = routeToDraw ? { ...player, route: routeToDraw } : player
-      drawPlayerRoute(ctx, effectivePlayer, fieldW, fieldH, options, !!preview)
-      drawMotionPath(ctx, player, fieldW, fieldH, options)
+      if (hasSelectionFocus && player.id !== options.selectedPlayerId) {
+        ctx.save()
+        ctx.globalAlpha = fadedAlpha
+        drawPlayerRoute(ctx, effectivePlayer, fieldW, fieldH, options, !!preview)
+        drawMotionPath(ctx, player, fieldW, fieldH, options)
+        ctx.restore()
+      } else {
+        drawPlayerRoute(ctx, effectivePlayer, fieldW, fieldH, options, !!preview)
+        drawMotionPath(ctx, player, fieldW, fieldH, options)
+      }
     })
 
     if (options.playType === 'offense') {
-      drawPrimaryTargetThrowLine(ctx, data.players, fieldW, fieldH, options)
+      if (hasSelectionFocus) {
+        ctx.save()
+        ctx.globalAlpha = fadedAlpha
+        drawPrimaryTargetThrowLine(ctx, data.players, fieldW, fieldH, options)
+        ctx.restore()
+      } else {
+        drawPrimaryTargetThrowLine(ctx, data.players, fieldW, fieldH, options)
+      }
     }
-    
+
     if (options.playType === 'defense') {
-      drawGhostQB(ctx, fieldW, fieldH, options)
-      drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
+      if (hasSelectionFocus) {
+        ctx.save()
+        ctx.globalAlpha = fadedAlpha
+        drawGhostQB(ctx, fieldW, fieldH, options)
+        drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
+        ctx.restore()
+      } else {
+        drawGhostQB(ctx, fieldW, fieldH, options)
+        drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
+      }
     }
 
     // Ghost defense overlay (from another play): routes first, then players
@@ -333,17 +375,31 @@ export function useCanvasRenderer() {
         (p) => p.side === 'offense' && (p.position === 'QB' || p.designation === 'Q')
       )
       const qbPosition = qb ? { x: qb.x, y: qb.y } : null
-      options.ghostPlayers.forEach((player) => {
-        const isRusher = player.designation === 'R' || player.position === 'RSH'
-        const hasRoute = player.route?.segments?.length
-        if (hasRoute || (isRusher && qbPosition)) {
-          drawGhostPlayerRoute(ctx, player, fieldW, fieldH, qbPosition, options)
-        }
-      })
-      drawGhostPlayers(ctx, options.ghostPlayers, fieldW, fieldH, options)
+      if (hasSelectionFocus) {
+        ctx.save()
+        ctx.globalAlpha = fadedAlpha
+        options.ghostPlayers.forEach((player) => {
+          const isRusher = player.designation === 'R' || player.position === 'RSH'
+          const hasRoute = player.route?.segments?.length
+          if (hasRoute || (isRusher && qbPosition)) {
+            drawGhostPlayerRoute(ctx, player, fieldW, fieldH, qbPosition, options)
+          }
+        })
+        drawGhostPlayers(ctx, options.ghostPlayers, fieldW, fieldH, options)
+        ctx.restore()
+      } else {
+        options.ghostPlayers.forEach((player) => {
+          const isRusher = player.designation === 'R' || player.position === 'RSH'
+          const hasRoute = player.route?.segments?.length
+          if (hasRoute || (isRusher && qbPosition)) {
+            drawGhostPlayerRoute(ctx, player, fieldW, fieldH, qbPosition, options)
+          }
+        })
+        drawGhostPlayers(ctx, options.ghostPlayers, fieldW, fieldH, options)
+      }
     }
 
-    // Draw players on top
+    // Draw players on top — non-selected faded when a player is selected
     drawPlayers(ctx, data.players, fieldW, fieldH, options)
 
     // Draw animated ball (simulation)
@@ -473,7 +529,7 @@ export function useCanvasRenderer() {
       const pillPy = 3
       const pillR = 4
 
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.12)'
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
       ctx.beginPath()
       ctx.roundRect(5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
       ctx.fill()
@@ -509,7 +565,7 @@ export function useCanvasRenderer() {
       const pillR = 4
       const fdText = '1ST DOWN'
       const fdTextW = ctx.measureText(fdText).width
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.1)'
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
       ctx.beginPath()
       ctx.roundRect(fieldW - fdTextW - pillPx * 2 - 5, midY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
       ctx.fill()
@@ -599,19 +655,21 @@ export function useCanvasRenderer() {
       ctx.moveTo(lastEndPoint.x, lastEndPoint.y)
 
       const isLastSegment = segIndex === segCount - 1
+      const arrowHeadLen = Math.max(3, 10 * scale)
+      const trimForArrow = isLastSegment && (segment.type !== 'option' || segCount === 1) ? lineWidth / 2 + arrowHeadLen : 0
       if (segment.type === 'curve') {
-        drawCurveSegment(ctx, lastEndPoint, points)
+        drawCurveSegment(ctx, lastEndPoint, points, trimForArrow)
       } else {
-        // For straight/option: stop line short by half lineWidth at the very end so round cap meets arrow tip
+        // For straight/option: stop line short at the very end so it doesn't pass through the arrow
+        const endInset = trimForArrow || (isLastSegment ? lineWidth / 2 : 0)
         for (let i = 0; i < points.length; i++) {
           const p = points[i]
-          if (isLastSegment && segment.type !== 'option' && i === points.length - 1) {
+          if (isLastSegment && i === points.length - 1 && endInset > 0) {
             const prev = i > 0 ? points[i - 1] : lastEndPoint
             const dx = p.x - prev.x
             const dy = p.y - prev.y
             const len = Math.sqrt(dx * dx + dy * dy) || 1
-            const inset = lineWidth / 2
-            ctx.lineTo(p.x - (dx / len) * inset, p.y - (dy / len) * inset)
+            ctx.lineTo(p.x - (dx / len) * endInset, p.y - (dy / len) * endInset)
           } else {
             ctx.lineTo(p.x, p.y)
           }
@@ -708,17 +766,25 @@ export function useCanvasRenderer() {
   }
 
   /**
-   * Draw a smooth curve through points using Catmull-Rom → Cubic Bezier conversion
+   * Draw a smooth curve through points using Catmull-Rom → Cubic Bezier conversion.
+   * @param trimEndPx - When set, stop the curve short of the last point by this amount (so the route line doesn't pass through the arrow)
    */
   function drawCurveSegment(
     ctx: CanvasRenderingContext2D,
     start: { x: number; y: number },
     points: { x: number; y: number }[],
+    trimEndPx = 0,
   ) {
     if (points.length === 1) {
-      // Just one point — quadratic curve
-      const mid = { x: (start.x + points[0].x) / 2, y: (start.y + points[0].y) / 2 }
-      ctx.quadraticCurveTo(mid.x, mid.y, points[0].x, points[0].y)
+      const p = points[0]
+      const dx = p.x - start.x
+      const dy = p.y - start.y
+      const len = Math.sqrt(dx * dx + dy * dy) || 1
+      const inset = Math.min(trimEndPx, len * 0.5)
+      const endX = p.x - (dx / len) * inset
+      const endY = p.y - (dy / len) * inset
+      const mid = { x: (start.x + endX) / 2, y: (start.y + endY) / 2 }
+      ctx.quadraticCurveTo(mid.x, mid.y, endX, endY)
       return
     }
 
@@ -737,12 +803,28 @@ export function useCanvasRenderer() {
       const d2 = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2) ** alpha || 1
       const d3 = Math.sqrt((p3.x - p2.x) ** 2 + (p3.y - p2.y) ** 2) ** alpha || 1
 
-      const cp1x = p1.x + (p2.x - p0.x) / (3 * d1 / d2 + 3)
-      const cp1y = p1.y + (p2.y - p0.y) / (3 * d1 / d2 + 3)
-      const cp2x = p2.x - (p3.x - p1.x) / (3 * d3 / d2 + 3)
-      const cp2y = p2.y - (p3.y - p1.y) / (3 * d3 / d2 + 3)
+      let cp1x = p1.x + (p2.x - p0.x) / (3 * d1 / d2 + 3)
+      let cp1y = p1.y + (p2.y - p0.y) / (3 * d1 / d2 + 3)
+      let cp2x = p2.x - (p3.x - p1.x) / (3 * d3 / d2 + 3)
+      let cp2y = p2.y - (p3.y - p1.y) / (3 * d3 / d2 + 3)
+      let endX = p2.x
+      let endY = p2.y
 
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y)
+      // Trim the last segment so the line stops before the arrow
+      if (trimEndPx > 0 && i === allPts.length - 2) {
+        const dx = p2.x - p1.x
+        const dy = p2.y - p1.y
+        const len = Math.sqrt(dx * dx + dy * dy) || 1
+        const inset = Math.min(trimEndPx, len * 0.9)
+        const ux = dx / len
+        const uy = dy / len
+        endX = p2.x - ux * inset
+        endY = p2.y - uy * inset
+        cp2x -= ux * inset
+        cp2y -= uy * inset
+      }
+
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY)
     }
   }
 
@@ -1134,6 +1216,8 @@ export function useCanvasRenderer() {
     let playerRadius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
     playerRadius = Math.max(3, playerRadius * scale)
 
+    const hasSelectionFocus = !options.simulationMode && !!options.selectedPlayerId
+
     players.forEach((player) => {
       // In simulation mode, use animated position if available
       const animPos = options.animatedPositions?.get(player.id)
@@ -1141,7 +1225,21 @@ export function useCanvasRenderer() {
       const py = (animPos?.y ?? player.y) * fieldH
       const radius = playerRadius
       const isSelected = !options.simulationMode && player.id === options.selectedPlayerId
+      const shouldFade = hasSelectionFocus && !isSelected
       const isRusher = player.designation === 'R' || player.position === 'RSH'
+
+      if (shouldFade) {
+        ctx.save()
+        // Draw opaque circle in field color so the player occludes the LOS (keeps player shape above the dashed line)
+        const inTopEndzone = py < yardHeight * endzoneSize
+        const inBottomEndzone = py > fieldH - yardHeight * endzoneSize
+        const occludeColor = inTopEndzone || inBottomEndzone ? COLORS.endzoneFill : COLORS.fieldFill
+        ctx.beginPath()
+        ctx.arc(px, py, radius + 2, 0, Math.PI * 2)
+        ctx.fillStyle = occludeColor
+        ctx.fill()
+        ctx.globalAlpha = getFadedAlpha(options.darkMode ?? false)
+      }
 
       // Coverage zone center (unlocked = run-to zone; locked = on player)
       const zoneX = (player.coverageZoneUnlocked && player.coverageZoneX != null ? player.coverageZoneX : player.x) * fieldW
@@ -1251,9 +1349,9 @@ export function useCanvasRenderer() {
       // Name text (respects options.showPlayerNames, default true)
       if (player.name && options.showPlayerNames !== false) {
         ctx.save()
-        ctx.fillStyle = '#ffffff' // White text
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)' // Strong shadow for contrast against grass
-        ctx.shadowBlur = 3
+        ctx.fillStyle = '#1e293b' // Dark text for contrast on light field
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.9)' // Light shadow for subtle depth
+        ctx.shadowBlur = 2
         ctx.font = `600 ${Math.max(10, radius * 0.45)}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
@@ -1261,6 +1359,7 @@ export function useCanvasRenderer() {
         ctx.restore()
       }
 
+      if (shouldFade) ctx.restore()
     })
   }
 

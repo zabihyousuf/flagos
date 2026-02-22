@@ -89,11 +89,24 @@
             <button
               v-for="shape in (['circle', 'square', 'triangle'] as const)"
               :key="shape"
-              class="flex-1 px-2 py-1.5 text-[12px] rounded border transition-colors capitalize"
+              class="flex-1 px-2 py-1.5 rounded border transition-colors flex items-center justify-center gap-1.5"
               :class="(selectedPlayer.markerShape ?? 'circle') === shape ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'"
+              :title="shape"
               @click="$emit('update-attribute', selectedPlayer.id, { markerShape: shape })"
             >
-              {{ shape }}
+              <span
+                v-if="shape === 'circle'"
+                class="w-3.5 h-3.5 rounded-full border-2 border-current shrink-0"
+              />
+              <span
+                v-else-if="shape === 'square'"
+                class="w-3.5 h-3.5 border-2 border-current shrink-0"
+              />
+              <span
+                v-else-if="shape === 'triangle'"
+                class="w-3.5 h-3 shrink-0 block"
+                style="clip-path: polygon(50% 0, 100% 100%, 0 100%); background: currentColor"
+              />
             </button>
           </div>
         </div>
@@ -562,8 +575,7 @@ function handleSuggestRoute() {
       ? suggestRouteForPlayer(props.selectedPlayer, props.allRoster, props.fieldSettings)
       : generateRandomRoute(props.selectedPlayer, props.fieldSettings)
   if (route) {
-    pendingRoute.value = route
-    emit('suggest-route-preview', { playerId: props.selectedPlayer.id, route })
+    emit('update-attribute', props.selectedPlayer.id, { route })
   }
 }
 

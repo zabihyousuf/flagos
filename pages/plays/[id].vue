@@ -51,7 +51,7 @@
           :selected-tool="cSelectedTool"
           :can-set-primary-target="canSetPrimaryTarget"
           :selected-player-is-primary="selectedPlayerIsPrimary"
-          :suggest-play-disabled="currentPlay?.play_type === 'defense'"
+          :suggest-play-disabled="true"
           :motion-tool-disabled="motionToolDisabled"
           :read-order-disabled="readOrderDisabled"
           :route-tools-disabled="currentPlay?.play_type === 'defense'"
@@ -126,11 +126,11 @@
             <Tooltip>
               <TooltipTrigger as-child>
                 <button
-                  class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors"
+                  class="px-2 py-0.5 text-[11px] font-medium rounded transition-colors"
                   :class="viewMode === 'fit' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
                   @click="viewMode = 'fit'"
                 >
-                  <Maximize2 class="w-3 h-3 inline-block mr-1" />
+                  <Maximize2 class="w-2.5 h-2.5 inline-block mr-0.5" />
                   Fit
                 </button>
               </TooltipTrigger>
@@ -143,11 +143,11 @@
             <Tooltip>
               <TooltipTrigger as-child>
                 <button
-                  class="px-2.5 py-1 text-[12px] font-medium rounded transition-colors"
+                  class="px-2 py-0.5 text-[11px] font-medium rounded transition-colors"
                   :class="viewMode === 'full' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
                   @click="viewMode = 'full'"
                 >
-                  <Fullscreen class="w-3 h-3 inline-block mr-1" />
+                  <Fullscreen class="w-2.5 h-2.5 inline-block mr-0.5" />
                   Full
                 </button>
               </TooltipTrigger>
@@ -159,15 +159,25 @@
         </div>
 
         <Button
-          v-if="currentPlay?.play_type === 'offense'"
+          v-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value !== 'play_over'"
           size="sm"
           variant="outline"
           class="h-8 px-3"
-          :disabled="loading || playTest.isRunning.value"
+          :disabled="loading || playTest.isRunning.value || !anyOffensePlayerHasRoute"
           @click="runPlayTest"
         >
           <Play class="w-3.5 h-3.5 mr-1" />
           Test Play
+        </Button>
+        <Button
+          v-else-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value === 'play_over'"
+          size="sm"
+          variant="outline"
+          class="h-8 px-3"
+          @click="playTest.reset()"
+        >
+          <RotateCcw class="w-3.5 h-3.5 mr-1" />
+          Reset
         </Button>
 
         <Button
@@ -271,7 +281,7 @@
 <script setup lang="ts">
 import type { CanvasData, CanvasPlayer, CanvasTool, Player, RouteSegment } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
-import { Check, Maximize2, Fullscreen, ChevronDown, Play } from 'lucide-vue-next'
+import { Check, Maximize2, Fullscreen, ChevronDown, Play, RotateCcw } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
@@ -361,6 +371,7 @@ const canSetPrimaryTarget = computed(() => {
   if (!p) return false
   if (p.side !== 'offense') return false
   if ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q') return false
+  if (!p.route?.segments?.length) return false
   return true
 })
 
@@ -374,8 +385,13 @@ const motionToolDisabled = computed(() => {
   return pos === 'C' || des === 'C'
 })
 
-/** Read progression (1, 2, 3…) is offense only */
-const readOrderDisabled = computed(() => currentPlay.value?.play_type === 'defense')
+/** Read progression (1, 2, 3…) is offense only; also disable when no offense players have routes */
+const anyOffensePlayerHasRoute = computed(() =>
+  cPlayers.value.some((p) => p.side === 'offense' && (p.route?.segments?.length ?? 0) > 0)
+)
+const readOrderDisabled = computed(
+  () => currentPlay.value?.play_type === 'defense' || !anyOffensePlayerHasRoute.value
+)
 const selectedPlayerIsPrimary = computed(() => !!cSelectedPlayer.value?.primaryTarget)
 
 /** Defense only: show zone position button when a coverage player (non-rusher) is selected */

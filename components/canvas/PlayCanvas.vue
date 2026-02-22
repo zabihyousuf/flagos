@@ -35,7 +35,10 @@ import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
 import type { ViewTransform } from '~/composables/useCanvasRenderer'
 import { computeFitContentBounds, useCanvasRenderer } from '~/composables/useCanvasRenderer'
 import { useRouteAnalysis } from '~/composables/useRouteAnalysis'
+import { useTheme } from '~/composables/useTheme'
 import { Trash2 } from 'lucide-vue-next'
+
+const theme = useTheme()
 
 const props = defineProps<{
   initialData?: CanvasData
@@ -214,6 +217,7 @@ function requestRender() {
     animatedPositions: props.animatedPositions,
     animatedBall: props.animatedBall,
     simulationMode: props.simulationMode,
+    darkMode: theme.resolvedDark.value,
   })
   lastViewTransform.value = view ?? null
 }
@@ -373,7 +377,7 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview, () => props.simulationMode], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview, () => props.simulationMode, () => theme.resolvedDark.value], () => {
   requestRender()
 }, { deep: true })
 

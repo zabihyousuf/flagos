@@ -204,11 +204,34 @@ export function useCanvas() {
 
   function updatePlayerPosition(id: string, x: number, y: number) {
     const player = canvasData.value.players.find((p) => p.id === id)
-    if (player) {
-      player.x = x
-      player.y = y
-      isDirty.value = true
+    if (!player) return
+
+    const dx = x - player.x
+    const dy = y - player.y
+    player.x = x
+    player.y = y
+
+    const clamp = (v: number) => Math.max(0, Math.min(1, v))
+
+    if (dx !== 0 || dy !== 0) {
+      if (player.route?.segments?.length) {
+        player.route.segments = player.route.segments.map((seg) => ({
+          ...seg,
+          points: seg.points.map((pt) => ({
+            x: clamp(pt.x + dx),
+            y: clamp(pt.y + dy),
+          })),
+        }))
+      }
+      if (player.motionPath?.length) {
+        player.motionPath = player.motionPath.map((pt) => ({
+          x: clamp(pt.x + dx),
+          y: clamp(pt.y + dy),
+        }))
+      }
     }
+
+    isDirty.value = true
   }
 
   /** Call before starting a drag so we have state to undo to (playerId = which player/zone is being dragged) */
