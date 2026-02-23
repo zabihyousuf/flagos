@@ -290,6 +290,8 @@ export const DEFAULT_FIELD_SETTINGS = {
   sidebar_start_collapsed: false,
   show_player_names_on_canvas: true,
   default_player_label_on_canvas: 'position' as const,
+  default_offense_starter_count: 5,
+  default_defense_starter_count: 5,
   theme: 'system' as const,
 }
 
@@ -306,23 +308,93 @@ export const FIELD_COLORS = {
   yardNumbers: 'rgba(255, 255, 255, 0.35)',
 }
 
-// Default positions for offense formation slots
-const OFFENSE_SLOTS: { position: string; designation: string; x: number; y: number }[] = [
-  { position: 'QB', designation: 'QB', x: 0.5, y: 0.62 },
-  { position: 'C', designation: 'C', x: 0.5, y: 0.57 },
-  { position: 'WR', designation: 'WR', x: 0.15, y: 0.57 },
-  { position: 'WR', designation: 'WR', x: 0.85, y: 0.57 },
-  { position: 'WR', designation: 'WR', x: 0.7, y: 0.57 },
-]
+/** Offense formation slots by player count (5–8). First 5: QB,C,WR,WR,WR. 6–8 add WRs. */
+const OFFENSE_SLOTS_BY_COUNT: Record<number, { position: string; x: number; yOffset: number }[]> = {
+  5: [
+    { position: 'QB', x: 0.5, yOffset: 5 },
+    { position: 'C', x: 0.5, yOffset: 0 },
+    { position: 'WR', x: 0.2, yOffset: 0 },
+    { position: 'WR', x: 0.8, yOffset: 0 },
+    { position: 'WR', x: 0.65, yOffset: 0 },
+  ],
+  6: [
+    { position: 'QB', x: 0.5, yOffset: 5 },
+    { position: 'C', x: 0.5, yOffset: 0 },
+    { position: 'WR', x: 0.2, yOffset: 0 },
+    { position: 'WR', x: 0.8, yOffset: 0 },
+    { position: 'WR', x: 0.65, yOffset: 0 },
+    { position: 'WR', x: 0.35, yOffset: 0 },
+  ],
+  7: [
+    { position: 'QB', x: 0.5, yOffset: 5 },
+    { position: 'C', x: 0.5, yOffset: 0 },
+    { position: 'WR', x: 0.2, yOffset: 0 },
+    { position: 'WR', x: 0.8, yOffset: 0 },
+    { position: 'WR', x: 0.65, yOffset: 0 },
+    { position: 'WR', x: 0.35, yOffset: 0 },
+    { position: 'WR', x: 0.5, yOffset: 0 },
+  ],
+  8: [
+    { position: 'QB', x: 0.5, yOffset: 5 },
+    { position: 'C', x: 0.5, yOffset: 0 },
+    { position: 'WR', x: 0.2, yOffset: 0 },
+    { position: 'WR', x: 0.8, yOffset: 0 },
+    { position: 'WR', x: 0.65, yOffset: 0 },
+    { position: 'WR', x: 0.35, yOffset: 0 },
+    { position: 'WR', x: 0.5, yOffset: 0 },
+    { position: 'WR', x: 0.15, yOffset: 0 },
+  ],
+}
 
-// Default positions for defense formation slots
-const DEFENSE_SLOTS: { position: string; designation: string; x: number; y: number }[] = [
-  { position: 'RSH', designation: 'RSH', x: 0.5, y: 0.55 },
-  { position: 'DB', designation: 'DB', x: 0.3, y: 0.48 },
-  { position: 'DB', designation: 'DB', x: 0.7, y: 0.48 },
-  { position: 'DB', designation: 'DB', x: 0.25, y: 0.35 },
-  { position: 'DB', designation: 'DB', x: 0.75, y: 0.35 },
-]
+/** Defense formation slots by player count (5–8). First 5: RSH,MLB,DB,DB,DB. 6–8 add DBs. */
+const DEFENSE_SLOTS_BY_COUNT: Record<number, { position: string; x: number; yOffset: number }[]> = {
+  5: [
+    { position: 'RSH', x: 0.5, yOffset: -7 },
+    { position: 'MLB', x: 0.5, yOffset: -5 },
+    { position: 'DB', x: 0.2, yOffset: -5 },
+    { position: 'DB', x: 0.8, yOffset: -5 },
+    { position: 'DB', x: 0.5, yOffset: -10 },
+  ],
+  6: [
+    { position: 'RSH', x: 0.5, yOffset: -7 },
+    { position: 'MLB', x: 0.5, yOffset: -5 },
+    { position: 'DB', x: 0.2, yOffset: -5 },
+    { position: 'DB', x: 0.8, yOffset: -5 },
+    { position: 'DB', x: 0.5, yOffset: -10 },
+    { position: 'DB', x: 0.35, yOffset: -7 },
+  ],
+  7: [
+    { position: 'RSH', x: 0.5, yOffset: -7 },
+    { position: 'MLB', x: 0.5, yOffset: -5 },
+    { position: 'DB', x: 0.2, yOffset: -5 },
+    { position: 'DB', x: 0.8, yOffset: -5 },
+    { position: 'DB', x: 0.5, yOffset: -10 },
+    { position: 'DB', x: 0.35, yOffset: -7 },
+    { position: 'DB', x: 0.65, yOffset: -7 },
+  ],
+  8: [
+    { position: 'RSH', x: 0.5, yOffset: -7 },
+    { position: 'MLB', x: 0.5, yOffset: -5 },
+    { position: 'DB', x: 0.2, yOffset: -5 },
+    { position: 'DB', x: 0.8, yOffset: -5 },
+    { position: 'DB', x: 0.5, yOffset: -10 },
+    { position: 'DB', x: 0.35, yOffset: -7 },
+    { position: 'DB', x: 0.65, yOffset: -7 },
+    { position: 'DB', x: 0.25, yOffset: -12 },
+  ],
+}
+
+/** Get offense slot positions for auto-assign (e.g. ['QB','C','WR','WR','WR']) */
+export function getOffenseSlotsForCount(count: number): string[] {
+  const slots = OFFENSE_SLOTS_BY_COUNT[Math.min(8, Math.max(5, count))] ?? OFFENSE_SLOTS_BY_COUNT[5]
+  return slots.map((s) => s.position)
+}
+
+/** Get defense slot positions for auto-assign */
+export function getDefenseSlotsForCount(count: number): string[] {
+  const slots = DEFENSE_SLOTS_BY_COUNT[Math.min(8, Math.max(5, count))] ?? DEFENSE_SLOTS_BY_COUNT[5]
+  return slots.map((s) => s.position)
+}
 
 export const OFFENSE_DESIGNATIONS = ['QB', 'WR', 'C'] as const
 export const DEFENSE_DESIGNATIONS = ['RSH', 'DB'] as const
@@ -332,47 +404,35 @@ export const DEFENSE_DESIGNATIONS = ['RSH', 'DB'] as const
 export function getDefaultFormation(
   side: 'offense' | 'defense',
   starters?: Player[],
-  options?: { los: number, length: number, endzone: number },
+  options?: {
+    los?: number
+    length?: number
+    endzone?: number
+    line_of_scrimmage?: number
+    field_length?: number
+    endzone_size?: number
+    default_offense_starter_count?: number
+    default_defense_starter_count?: number
+  },
   positionMap?: Record<string, string>,
 ): CanvasData {
   const s = options || DEFAULT_FIELD_SETTINGS
   const los = (s as any).los ?? (s as any).line_of_scrimmage
   const length = (s as any).length ?? (s as any).field_length
   const ez = (s as any).endzone ?? (s as any).endzone_size
+  const count = side === 'offense'
+    ? Math.min(8, Math.max(5, (s as any).default_offense_starter_count ?? 5))
+    : Math.min(8, Math.max(5, (s as any).default_defense_starter_count ?? 5))
   const totalLength = length + (ez * 2)
-  
-  // Calculate LOS Y-coordinate (0 is top, 1 is bottom)
-  // Field Structure: [EZ 1 (Top)] -- [Field] -- [EZ 2 (Bottom)]
-  // If Offense at Bottom driving Up:
-  // LOS is measured from "Goal Line" (where field meets EZ 2).
-  // So if LOS=5. It is 5 yards "Up" from Bottom Goal Line.
-  // Bottom GL Y = (ez + length).
-  // 5 yards Up = (ez + length) - 5.
   
   const oneYard = 1 / totalLength
   const losY = (ez + length - los) * oneYard
 
   const players: CanvasPlayer[] = []
-  
-  // Create a pool of available starters
   const starterPool = starters ? [...starters] : []
   
-  // Define slots relative to LOS
-  const slots = side === 'offense' 
-    ? [
-        { position: 'QB', x: 0.5, yOffset: 5 }, // 5 yds back (towards bottom)
-        { position: 'C', x: 0.5, yOffset: 0 },   
-        { position: 'WR', x: 0.2, yOffset: 0 },
-        { position: 'WR', x: 0.8, yOffset: 0 },
-        { position: 'WR', x: 0.65, yOffset: 0 },
-      ]
-    : [
-        { position: 'RSH', x: 0.5, yOffset: -7 }, // 7 yds off ball (towards top/defense side)
-        { position: 'MLB', x: 0.5, yOffset: -5 },
-        { position: 'DB', x: 0.2, yOffset: -5 },
-        { position: 'DB', x: 0.8, yOffset: -5 },
-        { position: 'DB', x: 0.5, yOffset: -10 },
-      ]
+  const slotMap = side === 'offense' ? OFFENSE_SLOTS_BY_COUNT : DEFENSE_SLOTS_BY_COUNT
+  const slots = slotMap[count] ?? slotMap[5]
 
   slots.forEach((slot, index) => {
     let starter: Player | undefined

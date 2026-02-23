@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="open" class="fixed inset-0 z-50 flex flex-col bg-white">
+      <div v-if="open" class="fixed inset-0 z-50 flex flex-col bg-background">
         <!-- Header -->
-        <div class="flex-none flex items-center justify-between px-6 py-4 border-b bg-white/95 backdrop-blur-sm">
+        <div class="flex-none flex items-center justify-between px-6 py-4 border-b border-border bg-background/95 backdrop-blur-sm">
           <div>
             <h2 class="text-lg font-semibold font-display">Add Players</h2>
             <p class="text-sm text-muted-foreground mt-0.5">Add multiple players with full attribute control. Defaults to 5 for all attributes.</p>
@@ -23,10 +23,10 @@
         <!-- Post-import result overlay -->
         <div v-if="importResult" class="flex-1 flex items-center justify-center">
           <div class="text-center space-y-4">
-            <CheckCircle2 v-if="importResult.failed === 0" class="w-12 h-12 text-green-400 mx-auto" />
-            <AlertTriangle v-else class="w-12 h-12 text-yellow-400 mx-auto" />
-            <p class="text-base">
-              <span class="font-semibold text-green-400">{{ importResult.created }}</span> player{{ importResult.created !== 1 ? 's' : '' }} imported
+            <CheckCircle2 v-if="importResult.failed === 0" class="w-12 h-12 text-green-500 dark:text-green-400 mx-auto" />
+            <AlertTriangle v-else class="w-12 h-12 text-amber-500 dark:text-amber-400 mx-auto" />
+            <p class="text-base text-foreground">
+              <span class="font-semibold text-green-600 dark:text-green-400">{{ importResult.created }}</span> player{{ importResult.created !== 1 ? 's' : '' }} imported
               <template v-if="importResult.failed > 0">,
                 <span class="font-semibold text-destructive">{{ importResult.failed }}</span> failed
               </template>
@@ -41,7 +41,7 @@
         <!-- Main content -->
         <template v-else>
           <!-- Tabs -->
-          <div class="flex-none px-6 pt-3 pb-0 flex items-center gap-4 border-b">
+          <div class="flex-none px-6 pt-3 pb-0 flex items-center gap-4 border-b border-border">
             <button
               class="px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px"
               :class="activeTab === 'quick' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
@@ -58,15 +58,15 @@
             </button>
             <div class="flex-1" />
             <div v-if="activeTab === 'quick'" class="flex items-center gap-2 pb-2">
-              <Button variant="outline" size="sm" @click="addEmptyRow">
+              <Button variant="outline" size="sm" @click="addEmptyRow(freeAgentTeamId || undefined)">
                 <Plus class="w-3.5 h-3.5 mr-1" />
                 Add Row
               </Button>
-              <Button variant="outline" size="sm" @click="addSampleRow">
+              <Button variant="outline" size="sm" @click="addSampleRow(freeAgentTeamId || undefined)">
                 <Wand2 class="w-3.5 h-3.5 mr-1" />
                 Add Sample
               </Button>
-              <span v-if="rowWarnings.length > 0" class="text-xs text-yellow-400">
+              <span v-if="rowWarnings.length > 0" class="text-xs text-amber-600 dark:text-amber-400">
                 <AlertTriangle class="w-3 h-3 inline mr-1" />{{ rowWarnings[0] }}
               </span>
             </div>
@@ -79,7 +79,7 @@
               <p class="text-sm font-medium text-foreground">
                 {{ rowsFromCsvCount }} row{{ rowsFromCsvCount !== 1 ? 's' : '' }} parsed from CSV
               </p>
-              <div v-if="duplicateNamesInRoster.length > 0" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
+              <div v-if="duplicateNamesInRoster.length > 0" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
                 <p class="font-medium">Names already in your roster</p>
                 <p class="mt-1 text-muted-foreground">
                   The following {{ duplicateNamesInRoster.length }} name{{ duplicateNamesInRoster.length !== 1 ? 's' : '' }} already exist in your roster and will be skipped if you add without changing them:
@@ -92,9 +92,9 @@
             <!-- Table -->
             <div class="flex-1 min-h-0 quick-add-table-wrapper">
               <Table class="min-w-[1800px]">
-                <TableHeader class="sticky top-0 z-20 bg-white">
+                <TableHeader class="sticky top-0 z-20 bg-background">
                   <TableRow>
-                    <TableHead class="sticky left-0 z-30 bg-white min-w-[240px]">Name</TableHead>
+                    <TableHead class="sticky left-0 z-30 bg-background min-w-[240px]">Name</TableHead>
                     <TableHead class="w-[140px]">Team</TableHead>
                     <TableHead class="w-16">#</TableHead>
                     <TableHead class="w-20">HT</TableHead>
@@ -155,7 +155,7 @@
                 <TableBody>
                   <TableRow v-for="(row, i) in rows" :key="i">
                     <!-- Name (sticky) + Remove -->
-                    <TableCell class="sticky left-0 z-10 bg-white px-2 py-1 min-w-[240px]">
+                    <TableCell class="sticky left-0 z-10 bg-background px-2 py-1 min-w-[240px]">
                       <div class="flex items-center gap-1">
                         <button
                           @click="removeRow(i)"
@@ -180,7 +180,6 @@
                           <SelectValue placeholder="Team" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="unassigned">Free Agents</SelectItem>
                           <SelectItem v-for="team in teams" :key="team.id" :value="team.id">
                             {{ team.name }}
                           </SelectItem>
@@ -422,9 +421,9 @@
                   Re-upload
                 </Button>
               </div>
-              <div class="rounded border overflow-auto max-h-[70vh]">
+              <div class="rounded border border-border overflow-auto max-h-[70vh]">
                 <Table>
-                  <TableHeader class="sticky top-0 bg-white z-10">
+                  <TableHeader class="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead class="w-16">#</TableHead>
@@ -467,8 +466,8 @@
                       </TableCell>
                       <TableCell>
                         <span v-if="row.errors.length > 0" class="text-[10px] text-destructive">{{ row.errors[0] }}</span>
-                        <span v-else-if="row.warnings.length > 0" class="text-[10px] text-yellow-400">{{ row.warnings[0] }}</span>
-                        <span v-else class="text-[10px] text-green-400">OK</span>
+                        <span v-else-if="row.warnings.length > 0" class="text-[10px] text-amber-600 dark:text-amber-400">{{ row.warnings[0] }}</span>
+                        <span v-else class="text-[10px] text-green-600 dark:text-green-400">OK</span>
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -535,6 +534,7 @@ import { useTeams } from '@/composables/useTeams'
 
 const props = defineProps<{
   open: boolean
+  teams?: { id: string; name: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -543,7 +543,9 @@ const emit = defineEmits<{
   (e: 'imported'): void
 }>()
 
-const { teams, addPlayerToTeam } = useTeams()
+const { addPlayerToTeam } = useTeams()
+const teams = computed(() => props.teams ?? [])
+const freeAgentTeamId = computed(() => teams.value.find((t) => t.name === 'Free Agent')?.id ?? '')
 const { players, bulkCreatePlayers } = usePlayers()
 const {
   activeTab,
@@ -575,7 +577,7 @@ const rowsFromCsvCount = ref(0)
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
     clearAll()
-    addEmptyRow()
+    addEmptyRow(freeAgentTeamId.value || undefined)
     activeTab.value = 'quick'
     pasteText.value = ''
     csvMode.value = 'upload'
@@ -752,13 +754,16 @@ async function handleImport() {
         const player = item.player
         const row = validRows.value[item.index]
 
-        if (row && row.team_id && row.team_id !== 'unassigned') {
-          await addPlayerToTeam(
-            row.team_id,
-            player.id,
-            player.offense_positions[0] ?? null,
-            player.defense_positions[0] ?? null
-          )
+        if (row && row.team_id) {
+          const teamId = row.team_id === 'unassigned' ? freeAgentTeamId.value : row.team_id
+          if (teamId) {
+            await addPlayerToTeam(
+              teamId,
+              player.id,
+              player.offense_positions[0] ?? null,
+              player.defense_positions[0] ?? null
+            )
+          }
         }
       }
       emit('import-done')
@@ -791,9 +796,9 @@ function handleDone() {
   height: 100%;
 }
 
-/* Shadow for sticky name column */
+/* Shadow for sticky name column (theme-aware) */
 :deep(td.sticky),
 :deep(th.sticky) {
-  box-shadow: 2px 0 8px -2px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 0 8px -2px hsl(var(--border) / 0.5);
 }
 </style>

@@ -2,7 +2,7 @@ import type { Profile } from '~/lib/types'
 
 export function useProfile() {
   const client = useSupabaseDB()
-  const profile = ref<Profile | null>(null)
+  const profile = useState<Profile | null>('profile', () => null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 

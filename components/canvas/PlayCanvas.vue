@@ -136,6 +136,7 @@ const {
   setZoom,
   getExportData,
   addPlayerToCanvasData,
+  addPlaceholderPlayerToCanvas,
   removePlayerFromCanvasData,
   updatePlayerAttribute,
   updateCoverageZonePosition,
@@ -314,11 +315,11 @@ async function handleAiAction(action: string) {
       const qb = players.find((p) => p.side === 'offense' && ((p.position || '').toUpperCase() === 'QB' || (p.designation || '').toUpperCase() === 'Q'))
       if (qb) {
         const dx = qbMotion.includes('right') ? 0.06 : qbMotion.includes('left') ? -0.06 : 0
-        if (dx !== 0) {
-          // QB rollout: left or right only, never past the LOS (keep same y as QB)
+        const dy = (qbMotion.includes('boot') ? 0.04 : 0) // Boot adds drop-back
+        if (dx !== 0 || dy !== 0) {
           const pts = [
-            { x: qb.x + dx, y: qb.y },
-            { x: qb.x + dx * 2, y: qb.y },
+            { x: qb.x + dx, y: qb.y + dy },
+            { x: qb.x + dx * 2, y: qb.y + dy * 2 },
           ]
           qb.motionPath = [...pts]
           if (!qb.route) qb.route = { segments: [] }
@@ -352,7 +353,7 @@ async function handleAiAction(action: string) {
 }
 
 function addPlayerToField(player: Player) {
-  if (canvasData.value.players.length >= 5) return
+  if (canvasData.value.players.length >= 8) return
   // Use team-assigned position if available, otherwise fall back to player's first listed position
   const assigned = props.starterPositionMap?.[player.id]
   const posField = props.playType === 'offense' ? 'offense_positions' : 'defense_positions'
@@ -371,13 +372,24 @@ function removePlayerFromField(playerId: string) {
   requestRender()
 }
 
+function addPlaceholderWrToField() {
+  if (canvasData.value.players.length >= 8) return
+  const position = props.playType === 'offense' ? 'WR' : 'DB'
+  addPlaceholderPlayerToCanvas(position, props.playType, {
+    los: fieldSettings.value.line_of_scrimmage,
+    length: fieldSettings.value.field_length,
+    endzone: fieldSettings.value.endzone_size,
+  })
+  requestRender()
+}
+
 function handleDrop(e: DragEvent) {
   e.preventDefault()
   const playerId = e.dataTransfer?.getData('text/player-id')
   if (!playerId) return
   const player = allRoster.value.find((p) => p.id === playerId)
   if (!player) return
-  if (canvasData.value.players.length >= 5) return
+  if (canvasData.value.players.length >= 8) return
   addPlayerToField(player)
 }
 
@@ -447,6 +459,8 @@ onMounted(() => {
         los: fieldSettings.value.line_of_scrimmage,
         length: fieldSettings.value.field_length,
         endzone: fieldSettings.value.endzone_size,
+        default_offense_starter_count: (fieldSettings.value as any).default_offense_starter_count ?? 5,
+        default_defense_starter_count: (fieldSettings.value as any).default_defense_starter_count ?? 5,
       }, props.starterPositionMap)
       nextTick(() => seedHistory())
     }
@@ -483,6 +497,7 @@ defineExpose({
   setPlayerDesignation,
   updatePlayerAttribute,
   addPlayerToField,
+  addPlaceholderWrToField,
   removePlayerFromField,
   getExportData,
   resetFormation,

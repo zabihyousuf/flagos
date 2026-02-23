@@ -11,6 +11,11 @@ export default defineNuxtConfig({
       '@tailwindcss/postcss': {},
     },
   },
+  runtimeConfig: {
+    supabase: {
+      serviceKey: process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+    },
+  },
   supabase: {
     redirect: false,
   },

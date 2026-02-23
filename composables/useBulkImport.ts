@@ -318,13 +318,13 @@ export function useBulkImport() {
     // Caller should call checkDuplicateNamesInDb(existingPlayerNames) after parse to mark DB duplicates
   }
 
-  function addEmptyRow() {
+  function addEmptyRow(defaultTeamId?: string) {
     rows.value.push({
       name: '',
       number: null,
       height: null,
       weight: null,
-      team_id: 'unassigned',
+      team_id: defaultTeamId ?? 'unassigned',
       offense_positions: [],
       defense_positions: [],
       universal_attributes: (UNIVERSAL_ATTRIBUTE_GROUP.attrs as unknown as any[]).reduce((acc: any, a: any) => ({ ...acc, [a.key]: 5 }), {}),
@@ -335,7 +335,7 @@ export function useBulkImport() {
     })
   }
 
-  function addSampleRow() {
+  function addSampleRow(defaultTeamId?: string) {
     const firstNames = ['James', 'John', 'Robert', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Christopher', 'Daniel', 'Matthew', 'Anthony', 'Donald', 'Mark', 'Paul', 'Steven', 'Andrew', 'Kenneth', 'George', 'Joshua', 'Kevin', 'Brian', 'Edward', 'Ronald', 'Timothy', 'Jason', 'Jeffrey', 'Ryan', 'Jacob', 'Gary', 'Nicholas', 'Eric', 'Stephen', 'Jonathan', 'Larry', 'Justin', 'Scott', 'Brandon', 'Frank', 'Benjamin', 'Gregory', 'Samuel', 'Raymond', 'Patrick', 'Alexander', 'Jack', 'Dennis', 'Jerry']
     const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green', 'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts']
     
@@ -372,7 +372,7 @@ export function useBulkImport() {
       number,
       height,
       weight,
-      team_id: 'unassigned',
+      team_id: defaultTeamId ?? 'unassigned',
       offense_positions: [...new Set(offense_positions)],
       defense_positions: [...new Set(defense_positions)],
       universal_attributes: uniAttrs.reduce((acc: any, a: any) => ({ ...acc, [a.key]: Math.floor(Math.random() * 5) + 3 }), {}),

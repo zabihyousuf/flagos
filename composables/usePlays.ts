@@ -1,4 +1,5 @@
 import type { Play, CanvasData, Player } from '~/lib/types'
+import type { FieldSettings } from '~/lib/types'
 import { getDefaultFormation } from '~/lib/constants'
 
 export function usePlays(playbookId?: Ref<string | undefined>) {
@@ -8,7 +9,16 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  function initDraftPlay(playType: 'offense' | 'defense' = 'offense') {
+  function initDraftPlay(playType: 'offense' | 'defense' = 'offense', fieldSettings?: Partial<FieldSettings> | null) {
+    const opts = fieldSettings
+      ? {
+          line_of_scrimmage: fieldSettings.line_of_scrimmage,
+          field_length: fieldSettings.field_length,
+          endzone_size: fieldSettings.endzone_size,
+          default_offense_starter_count: fieldSettings.default_offense_starter_count ?? 5,
+          default_defense_starter_count: fieldSettings.default_defense_starter_count ?? 5,
+        }
+      : undefined
     currentPlay.value = {
       id: 'new',
       playbook_id: '',
@@ -16,7 +26,7 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
       name: 'Untitled Play',
       play_type: playType,
       formation: '',
-      canvas_data: getDefaultFormation(playType) as any,
+      canvas_data: getDefaultFormation(playType, undefined, opts) as any,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -69,11 +79,21 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
     playType: 'offense' | 'defense',
     formation: string,
     starters?: Player[],
+    fieldSettings?: Partial<FieldSettings> | null,
   ) {
     loading.value = true
     error.value = null
     try {
-      const canvasData = getDefaultFormation(playType, starters)
+      const opts = fieldSettings
+        ? {
+            line_of_scrimmage: fieldSettings.line_of_scrimmage,
+            field_length: fieldSettings.field_length,
+            endzone_size: fieldSettings.endzone_size,
+            default_offense_starter_count: fieldSettings.default_offense_starter_count ?? 5,
+            default_defense_starter_count: fieldSettings.default_defense_starter_count ?? 5,
+          }
+        : undefined
+      const canvasData = getDefaultFormation(playType, starters, opts)
       const user = useSupabaseUser()
       if (!user.value) throw new Error('Not authenticated')
 

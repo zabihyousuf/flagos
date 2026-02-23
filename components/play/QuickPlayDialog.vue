@@ -80,6 +80,7 @@ const { playbooks, fetchPlaybooks } = usePlaybooks()
 const { createPlay } = usePlays()
 const { profile, fetchProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
+const { settings: fieldSettings, fetchSettings: fetchFieldSettings } = useFieldSettings()
 
 const creating = ref(false)
 
@@ -110,7 +111,7 @@ const teamStarters = computed<Player[]>(() => {
 // Fetch data when dialog opens
 watch(isOpen, async (open) => {
   if (open) {
-    await Promise.all([fetchPlaybooks(), fetchProfile(), fetchTeams()])
+    await Promise.all([fetchPlaybooks(), fetchProfile(), fetchTeams(), fetchFieldSettings()])
     // Pre-select the first playbook if none selected
     if (!form.playbookId && playbooks.value.length > 0) {
       form.playbookId = playbooks.value[0].id
@@ -139,6 +140,7 @@ async function handleSubmit() {
       form.playType,
       '',
       starters,
+      fieldSettings.value
     )
     if (newPlay) {
       close()

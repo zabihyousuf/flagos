@@ -254,6 +254,7 @@
           @select-player="onSelectPlayer"
           @remove-player="onRemovePlayer"
           @add-player="onAddPlayer"
+          @add-placeholder-player="onAddPlaceholderPlayer"
         />
       </div>
 
@@ -462,6 +463,7 @@ const cCanRedo = computed(() => {
 function onSelectPlayer(id: string) { canvasRef.value?.selectPlayer(id) }
 function onRemovePlayer(id: string) { canvasRef.value?.removePlayerFromField(id) }
 function onAddPlayer(player: Player) { canvasRef.value?.addPlayerToField(player) }
+function onAddPlaceholderPlayer() { canvasRef.value?.addPlaceholderWrToField() }
 function onSetTool(tool: CanvasTool) { canvasRef.value?.setTool(tool) }
 function onClearAllRoutes() {
   if (!canvasRef.value || !currentPlay.value) return
@@ -472,6 +474,8 @@ function onClearAllRoutes() {
       los: fieldSettingsData.value.line_of_scrimmage,
       length: fieldSettingsData.value.field_length,
       endzone: fieldSettingsData.value.endzone_size,
+      default_offense_starter_count: (fieldSettingsData.value as any).default_offense_starter_count ?? 5,
+      default_defense_starter_count: (fieldSettingsData.value as any).default_defense_starter_count ?? 5,
     },
     starterPositionMap.value
   )
@@ -565,6 +569,8 @@ const fieldSettingsData = computed(() => {
     endzone_size: fs.endzone_size,
     line_of_scrimmage: fs.line_of_scrimmage,
     first_down: fs.first_down ?? Math.floor(fs.field_length / 2),
+    default_offense_starter_count: fs.default_offense_starter_count ?? 5,
+    default_defense_starter_count: fs.default_defense_starter_count ?? 5,
   }
 })
 
@@ -650,6 +656,8 @@ async function handleTypeChange(type: 'offense' | 'defense') {
       los: fieldSettingsData.value.line_of_scrimmage,
       length: fieldSettingsData.value.field_length,
       endzone: fieldSettingsData.value.endzone_size,
+      default_offense_starter_count: (fieldSettingsData.value as any).default_offense_starter_count ?? 5,
+      default_defense_starter_count: (fieldSettingsData.value as any).default_defense_starter_count ?? 5,
     }, starterPositionMap.value)
   })
 
@@ -683,8 +691,9 @@ async function onConfirmSave(data: { playbookId: string, name: string }) {
       data.playbookId,
       data.name,
       currentPlay.value.play_type,
-      currentPlay.value.formation, 
-      starters.value
+      currentPlay.value.formation,
+      starters.value,
+      fieldSettings.value
     )
     
     if (newPlay) {
@@ -800,7 +809,7 @@ watch(ghostDropdownOpen, (open) => {
 watch(playId, async (id) => {
   if (id === 'new') {
     const defaultType = fieldSettings.value?.default_play_type ?? 'offense'
-    initDraftPlay(defaultType)
+    initDraftPlay(defaultType, fieldSettings.value)
     ghostPlayers.value = []
     ghostPlayId.value = null
     playbookName.value = null
@@ -813,6 +822,8 @@ watch(playId, async (id) => {
           los: fieldSettingsData.value.line_of_scrimmage,
           length: fieldSettingsData.value.field_length,
           endzone: fieldSettingsData.value.endzone_size,
+          default_offense_starter_count: (fieldSettingsData.value as any).default_offense_starter_count ?? 5,
+          default_defense_starter_count: (fieldSettingsData.value as any).default_defense_starter_count ?? 5,
         },
         starterPositionMap.value
       )
@@ -827,7 +838,7 @@ onMounted(async () => {
   const defaultType = fieldSettings.value?.default_play_type ?? 'offense'
 
   if (playId.value === 'new') {
-    initDraftPlay(defaultType)
+    initDraftPlay(defaultType, fieldSettings.value)
   } else {
     await fetchPlay(playId.value)
   }
@@ -863,6 +874,8 @@ onMounted(async () => {
         los: fieldSettingsData.value.line_of_scrimmage,
         length: fieldSettingsData.value.field_length,
         endzone: fieldSettingsData.value.endzone_size,
+        default_offense_starter_count: (fieldSettingsData.value as any).default_offense_starter_count ?? 5,
+        default_defense_starter_count: (fieldSettingsData.value as any).default_defense_starter_count ?? 5,
       },
       starterPositionMap.value
     )

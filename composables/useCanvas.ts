@@ -407,9 +407,8 @@ export function useCanvas() {
     if (!player.motionPath) {
       player.motionPath = []
     }
-    // QB rollout: keep same Y (horizontal rollout only, not forward motion)
     const isQB = pos === 'QB' || des === 'Q'
-    const motionPoint = isQB ? { x, y: player.y } : { x, y }
+    const motionPoint = { x, y }
     player.motionPath.push(motionPoint)
     // QB rollout: sync to route segment so it shows in route segments UI
     if (isQB) {
@@ -560,13 +559,15 @@ export function useCanvas() {
     return JSON.parse(JSON.stringify(canvasData.value))
   }
 
+  const MAX_PLAYERS_ON_FIELD = 8
+
   function addPlayerToCanvasData(
     player: Player, 
     position: string, 
     side: 'offense' | 'defense',
     settings?: { los: number, length: number, endzone: number }
   ) {
-    if (canvasData.value.players.length >= 5) return
+    if (canvasData.value.players.length >= MAX_PLAYERS_ON_FIELD) return
     const alreadyOnField = canvasData.value.players.some(
       (p) => p.name === player.name && p.number === player.number,
     )
@@ -599,6 +600,45 @@ export function useCanvas() {
       motionPath: null,
       number: player.number,
       name: player.name,
+      coverageRadius: side === 'defense' ? 5 : undefined,
+      alignment: side === 'defense' ? 'normal' : undefined,
+    })
+    const snap = getPlayerSnapshot(id)
+    if (snap) {
+      playerHistoryStacks.value = { ...playerHistoryStacks.value, [id]: [snap] }
+      playerHistoryIndices.value = { ...playerHistoryIndices.value, [id]: 0 }
+    }
+    isDirty.value = true
+    pushHistory()
+  }
+
+  function addPlaceholderPlayerToCanvas(
+    position: string,
+    side: 'offense' | 'defense',
+    settings?: { los: number, length: number, endzone: number }
+  ) {
+    if (canvasData.value.players.length >= MAX_PLAYERS_ON_FIELD) return
+
+    const id = `p${Date.now()}`
+    let yPos = side === 'offense' ? 0.6 : 0.4
+    if (settings) {
+      const total = settings.length + settings.endzone * 2
+      const losY = (settings.endzone + settings.length - settings.los) / total
+      yPos = losY
+    }
+    const xPos = 0.2 + Math.random() * 0.6
+
+    canvasData.value.players.push({
+      id,
+      x: xPos,
+      y: yPos,
+      position,
+      designation: position,
+      side,
+      route: null,
+      motionPath: null,
+      number: 0,
+      name: position,
       coverageRadius: side === 'defense' ? 5 : undefined,
       alignment: side === 'defense' ? 'normal' : undefined,
     })
@@ -668,6 +708,7 @@ export function useCanvas() {
     setZoom,
     getExportData,
     addPlayerToCanvasData,
+    addPlaceholderPlayerToCanvas,
     removePlayerFromCanvasData,
   }
 }

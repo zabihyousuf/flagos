@@ -37,9 +37,9 @@ export interface RenderOptions {
 
 const PADDING = 12
 
-/** When a player is selected, non-selected content is faded to this opacity. Dark mode uses lower alpha for stronger fade. */
-function getFadedAlpha(darkMode: boolean): number {
-  return darkMode ? 0.12 : 0.22
+/** When a player is selected, non-selected content is faded to this opacity. Same in light and dark mode for consistency. */
+function getFadedAlpha(_darkMode: boolean): number {
+  return 0.4
 }
 
 const COLORS = {
@@ -306,6 +306,12 @@ export function useCanvasRenderer() {
     const effectivePanY = view.panY + options.panOffset.y
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const hasSelectionFocus = !options.simulationMode && !!options.selectedPlayerId
+    // When a player is selected, use a light background so the fade looks the same in light and dark mode
+    if (hasSelectionFocus) {
+      ctx.fillStyle = COLORS.fieldFill
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
     ctx.save()
 
     ctx.scale(dpr, dpr)
@@ -315,7 +321,6 @@ export function useCanvasRenderer() {
     ctx.save()
     ctx.translate(offsetX, offsetY)
 
-    const hasSelectionFocus = !options.simulationMode && !!options.selectedPlayerId
     const fadedAlpha = getFadedAlpha(options.darkMode ?? false)
 
     // Field — faded when a player is selected so focus stays on the active player
@@ -916,7 +921,7 @@ export function useCanvasRenderer() {
 
     // Players: small black circles + white number
     data.players.forEach((player) => {
-      const label = player.number != null ? String(player.number) : (player.designation ?? player.position ?? '?')
+      const label = player.number != null ? String(player.number) : (player.position ?? player.designation ?? '?')
       ctx.fillStyle = playerFill
       ctx.strokeStyle = playerStroke
       ctx.lineWidth = Math.max(0.001, onePx * 0.4)
@@ -1190,7 +1195,7 @@ export function useCanvasRenderer() {
       ctx.globalAlpha = 1
       ctx.restore()
 
-      const label = player.designation ?? player.position ?? '?'
+      const label = player.position ?? player.designation ?? '?'
       ctx.save()
       ctx.globalAlpha = 0.85
       ctx.fillStyle = '#ffffff'
@@ -1336,7 +1341,8 @@ export function useCanvasRenderer() {
       const showLabel = player.showLabel ?? options.defaultPlayerLabelOnCanvas ?? 'position'
       if (showLabel !== 'none') {
         const numStr = player.number != null ? String(player.number) : ''
-        const posStr = player.designation ?? player.position
+        // Use position (QB, C, WR) for consistent labels; designation (Q, X, Y, Z) is scheme-specific
+        const posStr = player.position
         const label =
           showLabel === 'number' ? (numStr || posStr)
           : showLabel === 'position' ? posStr

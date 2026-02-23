@@ -28,6 +28,10 @@ export interface FieldSettings {
   show_player_names_on_canvas?: boolean
   /** Default for new players: what to show inside marker (number / position / both / none) */
   default_player_label_on_canvas?: 'number' | 'position' | 'both' | 'none'
+  /** Default number of offensive starters (5-8). Affects play designer formation and squad Auto Start. */
+  default_offense_starter_count?: number
+  /** Default number of defensive starters (5-8). Affects play designer formation and squad Auto Start. */
+  default_defense_starter_count?: number
   /** Appearance: light, dark, or system (follow OS) */
   theme?: 'light' | 'dark' | 'system'
   created_at: string

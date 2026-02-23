@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "update-confirmation-email": "node scripts/update-confirmation-email.js",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",

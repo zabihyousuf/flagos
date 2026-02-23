@@ -73,22 +73,22 @@ const dragYard = ref<number | null>(null)
 
 const HIT_THRESHOLD = 10
 
-// Match play designer field (grass green)
+// Match play designer (useCanvasRenderer) exactly
 const COLORS = {
   background: 'transparent',
-  fieldFill: '#2d7a2d',
-  fieldBorder: '#1e6b1e',
-  yardLine: 'rgba(255,255,255,0.6)',
-  yardLineLight: 'rgba(255,255,255,0.25)',
-  yardNumber: 'rgba(255,255,255,0.7)',
-  hashMark: 'rgba(255,255,255,0.3)',
-  endzoneFill: '#245e24',
-  endzoneBorder: 'rgba(255,255,255,0.4)',
-  endzoneText: 'rgba(255,255,255,0.25)',
-  los: '#22d3ee',
-  firstDown: '#fbbf24',
-  nrz: 'rgba(251, 191, 36, 0.08)',
-  nrzBorder: 'rgba(251, 191, 36, 0.3)',
+  fieldFill: '#fafbfc',
+  fieldBorder: 'rgba(59, 130, 246, 0.22)',
+  yardLine: 'rgba(59, 130, 246, 0.35)',
+  yardLineLight: 'rgba(59, 130, 246, 0.18)',
+  yardNumber: 'rgba(59, 130, 246, 0.45)',
+  hashMark: 'rgba(59, 130, 246, 0.15)',
+  endzoneFill: '#f5f6f8',
+  endzoneBorder: 'rgba(59, 130, 246, 0.22)',
+  endzoneText: 'rgba(59, 130, 246, 0.28)',
+  los: 'rgba(59, 130, 246, 0.65)',
+  firstDown: 'rgba(59, 130, 246, 0.55)',
+  nrz: 'rgba(59, 130, 246, 0.06)',
+  nrzBorder: 'rgba(59, 130, 246, 0.2)',
   dimensionLine: '#000',
   dimensionText: '#000',
 }
@@ -186,7 +186,7 @@ function renderField() {
   // Endzone text
   ctx.fillStyle = COLORS.endzoneText
   const ezFontSize = Math.max(14, fieldW * 0.06)
-  ctx.font = `700 ${ezFontSize}px Inter, sans-serif`
+  ctx.font = `700 ${ezFontSize}px Oracle Sans, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.letterSpacing = `${ezFontSize * 0.35}px`
@@ -227,7 +227,7 @@ function renderField() {
     if (displayYard > 0 && isMajor) {
       ctx.fillStyle = COLORS.yardNumber
       const numFontSize = Math.max(10, fieldW * 0.032)
-      ctx.font = `600 ${numFontSize}px Inter, sans-serif`
+      ctx.font = `600 ${numFontSize}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(`${displayYard}`, padding + 20, y)
@@ -262,7 +262,7 @@ function renderField() {
   ctx.save()
   ctx.shadowColor = COLORS.los
   ctx.shadowBlur = losHover ? 6 : 4
-  ctx.strokeStyle = losHover ? '#2dd4e0' : COLORS.los
+  ctx.strokeStyle = losHover ? 'rgba(59, 130, 246, 0.85)' : COLORS.los
   ctx.lineWidth = losHover ? 3 : 2
   ctx.setLineDash([8, 4])
   ctx.beginPath()
@@ -274,14 +274,14 @@ function renderField() {
 
   // LOS pill label
   const labelFontSize = Math.max(9, fieldW * 0.022)
-  ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
+  ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
   const losText = `LOS · ${effectiveLOS}yd`
   const losTextW = ctx.measureText(losText).width
   const pillPx = 7
   const pillPy = 3
   const pillR = 4
 
-  ctx.fillStyle = 'rgba(6, 182, 212, 0.12)'
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
   ctx.beginPath()
   ctx.roundRect(padding + 5, losY + 5, losTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
   ctx.fill()
@@ -299,7 +299,7 @@ function renderField() {
     ctx.save()
     ctx.shadowColor = COLORS.firstDown
     ctx.shadowBlur = fdHover ? 5 : 3
-    ctx.strokeStyle = fdHover ? '#f59e0b' : COLORS.firstDown
+    ctx.strokeStyle = fdHover ? 'rgba(59, 130, 246, 0.8)' : COLORS.firstDown
     ctx.lineWidth = fdHover ? 2.5 : 1.5
     ctx.setLineDash([6, 3])
     ctx.beginPath()
@@ -312,12 +312,12 @@ function renderField() {
     // 1st down pill label
     const fdText = '1ST DOWN'
     const fdTextW = ctx.measureText(fdText).width
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.1)'
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
     ctx.beginPath()
     ctx.roundRect(padding + fieldW - fdTextW - pillPx * 2 - 5, fdY + 5, fdTextW + pillPx * 2, labelFontSize + pillPy * 2, pillR)
     ctx.fill()
     ctx.fillStyle = COLORS.firstDown
-    ctx.font = `600 ${labelFontSize}px Inter, sans-serif`
+    ctx.font = `600 ${labelFontSize}px Oracle Sans, sans-serif`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
     ctx.fillText(fdText, padding + fieldW - fdTextW - pillPx - 5, fdY + 5 + pillPy)
@@ -403,14 +403,14 @@ function drawPlayersAtLOS(
 
     // Colored label inside
     ctx.fillStyle = color
-    ctx.font = `700 ${Math.max(9, radius * 0.7)}px Inter, sans-serif`
+    ctx.font = `700 ${Math.max(9, radius * 0.7)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(player.label, px, py)
 
     // Position label below
     ctx.fillStyle = '#adb5bd'
-    ctx.font = `500 ${Math.max(7, radius * 0.45)}px Inter, sans-serif`
+    ctx.font = `500 ${Math.max(7, radius * 0.45)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
     ctx.fillText(player.position, px, py + radius + 3)
@@ -441,7 +441,7 @@ function drawDimensionAnnotations(
   drawSmallArrow(ctx, padding + fieldW, annoY, 'left')
 
   ctx.fillStyle = dimColors.dimensionText
-  ctx.font = `500 ${fontSize}px Inter, sans-serif`
+  ctx.font = `500 ${fontSize}px Oracle Sans, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   ctx.fillText(`${props.fieldWidth} yards`, padding + fieldW / 2, annoY + 4)
@@ -463,7 +463,7 @@ function drawDimensionAnnotations(
 
   ctx.save()
   ctx.fillStyle = dimColors.dimensionText
-  ctx.font = `500 ${fontSize}px Inter, sans-serif`
+  ctx.font = `500 ${fontSize}px Oracle Sans, sans-serif`
   ctx.translate(annoX + 10, (fieldStartY + fieldEndY) / 2)
   ctx.rotate(-Math.PI / 2)
   ctx.textAlign = 'center'

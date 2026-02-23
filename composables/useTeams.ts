@@ -1,4 +1,5 @@
 import type { Team, TeamPlayer, Player } from '~/lib/types'
+import { getOffenseSlotsForCount, getDefenseSlotsForCount } from '~/lib/constants'
 
 // Weight tables (same as usePlayers — kept inline to avoid circular deps)
 const OFF_WEIGHTS: Record<string, { key: string; weight: number }[]> = {
@@ -411,9 +412,15 @@ export function useTeams() {
     }
   }
 
-  async function autoAssignTeamStarters(teamId: string) {
+  async function autoAssignTeamStarters(
+    teamId: string,
+    options?: { offenseCount?: number; defenseCount?: number },
+  ) {
     const team = teams.value.find((t) => t.id === teamId)
     if (!team?.team_players || team.team_players.length === 0) return
+
+    const offenseCount = Math.min(8, Math.max(5, options?.offenseCount ?? 5))
+    const defenseCount = Math.min(8, Math.max(5, options?.defenseCount ?? 5))
 
     // Get the full Player objects from each team_player
     const roster = team.team_players
@@ -440,21 +447,24 @@ export function useTeams() {
     const availableOff = offRoster.filter((p) => !lockedOffIds.has(p.id))
     const availableDef = defRoster.filter((p) => !lockedDefIds.has(p.id))
 
-    // Determine remaining slots to fill
-    const offSlots = ['QB', 'C', 'WR', 'WR', 'WR']
+    // Determine remaining slots to fill (use settings-based slot definitions)
+    const offSlotList = getOffenseSlotsForCount(offenseCount)
+    const defSlotList = getDefenseSlotsForCount(defenseCount)
+
+    const offSlots = [...offSlotList]
     lockedOffStarters.forEach((tp) => {
       const idx = offSlots.indexOf(tp.offense_position || '')
       if (idx !== -1) offSlots.splice(idx, 1)
     })
 
-    const defSlots = ['RSH']
+    const defSlots = [...defSlotList]
     lockedDefStarters.forEach((tp) => {
       const idx = defSlots.indexOf(tp.defense_position || '')
       if (idx !== -1) defSlots.splice(idx, 1)
     })
 
-    const offTarget = Math.max(0, 5 - lockedOffStarters.length)
-    const defTarget = Math.max(0, 5 - lockedDefStarters.length)
+    const offTarget = Math.max(0, offenseCount - lockedOffStarters.length)
+    const defTarget = Math.max(0, defenseCount - lockedDefStarters.length)
 
     const offStarters = pickStarters(offSlots, offTarget, availableOff, offZ, OFF_WEIGHTS, 'offense_positions')
     const defStarters = pickStarters(defSlots, defTarget, availableDef, defZ, DEF_WEIGHTS, 'defense_positions')

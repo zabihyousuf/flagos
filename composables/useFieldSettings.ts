@@ -46,13 +46,26 @@ export function useFieldSettings() {
           updateSettings(clamped)
         }
       } else {
-        // Create default settings for this user
-        // @ts-ignore
+        // Create default settings for this user (only columns that exist in DB)
+        const { field_length, field_width, endzone_size, line_of_scrimmage, first_down, default_play_view, default_play_type, show_ghost_defense_by_default, default_ghost_defense_play_id, sidebar_start_collapsed, show_player_names_on_canvas, default_offense_starter_count, default_defense_starter_count, theme } = DEFAULT_FIELD_SETTINGS
         const { data: newData, error: createErr } = await client
           .from('field_settings')
           .insert({
             user_id: user.value.id,
-            ...DEFAULT_FIELD_SETTINGS,
+            field_length,
+            field_width,
+            endzone_size,
+            line_of_scrimmage,
+            first_down,
+            default_play_view,
+            default_play_type,
+            show_ghost_defense_by_default,
+            default_ghost_defense_play_id,
+            sidebar_start_collapsed,
+            show_player_names_on_canvas,
+            default_offense_starter_count: default_offense_starter_count ?? 5,
+            default_defense_starter_count: default_defense_starter_count ?? 5,
+            theme,
           })
           .select()
           .single()

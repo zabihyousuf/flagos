@@ -92,6 +92,19 @@
         />
         <p class="text-xs text-muted-foreground">Minimum 6 characters.</p>
       </div>
+      <div class="space-y-2">
+        <Label for="password_confirm" class="text-foreground font-medium">Confirm password</Label>
+        <Input
+          id="password_confirm"
+          v-model="passwordConfirm"
+          type="password"
+          placeholder="Re-enter your password"
+          required
+          autocomplete="new-password"
+          minlength="6"
+          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+        />
+      </div>
 
       <div class="space-y-2">
         <Label for="team_name" class="text-foreground font-medium">Team name <span class="text-muted-foreground font-normal">(optional)</span></Label>
@@ -140,12 +153,17 @@ const displayName = ref('')
 const role = ref<string>('')
 const email = ref('')
 const password = ref('')
+const passwordConfirm = ref('')
 const teamName = ref('')
 const errorMsg = ref('')
 const submitting = ref(false)
 const success = ref(false)
 
 async function handleSignup() {
+  if (password.value !== passwordConfirm.value) {
+    errorMsg.value = 'Passwords do not match.'
+    return
+  }
   submitting.value = true
   errorMsg.value = ''
   try {

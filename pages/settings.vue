@@ -129,6 +129,28 @@
               </div>
             </div>
 
+            <!-- Default starting players (one value for both offense and defense) -->
+            <div class="general-row">
+              <Label class="general-label">Default starters</Label>
+              <div class="general-control">
+                <Select
+                  :model-value="String(settings.default_offense_starter_count ?? settings.default_defense_starter_count ?? 5)"
+                  @update:model-value="(v) => {
+                    const n = parseInt(v, 10)
+                    updateSettings({ default_offense_starter_count: n, default_defense_starter_count: n })
+                  }"
+                >
+                  <SelectTrigger class="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="n in [5, 6, 7, 8]" :key="n" :value="String(n)">{{ n }} players</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p class="text-xs text-muted-foreground mt-1.5">Used for both offense and defense: play designer formation and Auto Start on the squad page.</p>
+              </div>
+            </div>
+
             <!-- Ghost defense: radio None | Show with default play (disabled when default type is defense) -->
             <div class="general-row" :class="{ 'general-row--disabled': (settings.default_play_type ?? 'offense') === 'defense' }">
               <Label class="general-label">Offensive plays with ghost defense</Label>
@@ -556,7 +578,54 @@
               Sign Out
             </Button>
           </div>
+
+          <div class="mt-8 pt-6 border-t border-border border-destructive/30">
+            <h3 class="text-sm font-semibold text-destructive mb-2">Danger Zone</h3>
+            <p class="text-xs text-muted-foreground mb-3">Permanently delete your account and all associated data (teams, players, plays, playbooks). This cannot be undone.</p>
+            <Button
+              variant="outline"
+              class="border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
+              :disabled="deleteAccountLoading"
+              @click="deleteAccountDialogOpen = true"
+            >
+              <Trash2 v-if="!deleteAccountLoading" class="w-4 h-4 mr-2" />
+              <span v-else class="animate-pulse">Deleting...</span>
+              Delete account and data
+            </Button>
+          </div>
         </div>
+
+        <AlertDialog :open="deleteAccountDialogOpen" @update:open="deleteAccountDialogOpen = $event">
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete your account and all data: teams, players, plays, and playbooks.
+                This action cannot be undone.
+                <span class="block mt-3 font-medium text-foreground">Type <code class="px-1 py-0.5 rounded bg-muted text-destructive font-mono text-sm">DELETE</code> to confirm.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div class="py-2">
+              <Input
+                v-model="deleteConfirmText"
+                placeholder="Type DELETE to confirm"
+                class="font-mono"
+                :class="deleteConfirmError && 'border-destructive'"
+                @keydown.enter.prevent="handleDeleteAccount"
+              />
+              <p v-if="deleteConfirmError" class="text-xs text-destructive mt-1">{{ deleteConfirmError }}</p>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                @click.prevent="handleDeleteAccount"
+              >
+                Delete account
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </template>
     </div>
     <p class="shrink-0 py-3 px-4 xl:px-6 text-xs text-muted-foreground border-t border-border">v0.1.0</p>
@@ -571,14 +640,24 @@ import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import type { ThemePreference } from '~/composables/useTheme'
-import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor } from 'lucide-vue-next'
+import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor, Trash2 } from 'lucide-vue-next'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog'
 
 const tabs = [
   { id: 'general', label: 'General', icon: Settings2 },
+  { id: 'account', label: 'Account', icon: User },
   { id: 'field', label: 'Field', icon: Ruler },
   { id: 'team', label: 'Team', icon: ShieldIcon },
   { id: 'billing', label: 'Pricing & Billing', icon: CreditCard },
-  { id: 'account', label: 'Account', icon: User },
 ]
 
 const activeTab = ref('general')
@@ -596,6 +675,17 @@ function setTheme(value: ThemePreference) {
 }
 const { teams, fetchTeams } = useTeams()
 const supaClient = useSupabaseClient()
+
+const deleteAccountDialogOpen = ref(false)
+watch(deleteAccountDialogOpen, (open) => {
+  if (open) {
+    deleteConfirmText.value = ''
+    deleteConfirmError.value = ''
+  }
+})
+const deleteAccountLoading = ref(false)
+const deleteConfirmText = ref('')
+const deleteConfirmError = ref('')
 
 const defensePlaysForDefault = ref<{ id: string; name: string }[]>([])
 const defensePlaysLoading = ref(false)
@@ -739,6 +829,26 @@ async function handleTeamChange(teamId: any) {
 async function handleLogout() {
   await supaClient.auth.signOut()
   await navigateTo('/auth/login')
+}
+
+async function handleDeleteAccount() {
+  if (deleteConfirmText.value?.toUpperCase() !== 'DELETE') {
+    deleteConfirmError.value = 'Please type DELETE to confirm'
+    return
+  }
+  deleteConfirmError.value = ''
+  deleteAccountLoading.value = true
+  try {
+    await $fetch('/api/account/delete', { method: 'POST' })
+    deleteAccountDialogOpen.value = false
+    deleteConfirmText.value = ''
+    await supaClient.auth.signOut()
+    await navigateTo('/auth/login')
+  } catch (e: any) {
+    deleteConfirmError.value = e?.data?.statusMessage ?? e?.message ?? 'Failed to delete account. Please try again.'
+  } finally {
+    deleteAccountLoading.value = false
+  }
 }
 
 onMounted(() => {

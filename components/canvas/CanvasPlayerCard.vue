@@ -46,7 +46,7 @@
           class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ring-2 ring-border/20"
           :style="{ background: posColor(selectedPlayer.position) }"
         >
-          {{ selectedPlayer.designation }}
+          {{ selectedPlayer.position ?? selectedPlayer.designation }}
         </div>
         <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between gap-2">

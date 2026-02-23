@@ -119,6 +119,10 @@
               <Download class="w-3 h-3 mr-2" />
               Export
             </Button>
+            <Button variant="outline" size="sm" class="h-8 text-xs" @click="openDialog(null)">
+              <Plus class="w-3 h-3 mr-2" />
+              Add Player
+            </Button>
             <Button size="sm" class="h-8 text-xs" @click="bulkImportOpen = true">
               <Plus class="w-3 h-3 mr-2" />
               Add Players
@@ -228,10 +232,16 @@
       <Users class="w-12 h-12 text-muted-foreground mx-auto mb-3" />
       <h3 class="font-medium text-lg font-display">No players yet</h3>
       <p class="text-muted-foreground text-sm mt-1">Add your first player to get started.</p>
-      <Button class="mt-4" @click="bulkImportOpen = true">
-        <Plus class="w-4 h-4 mr-2" />
-        Add Players
-      </Button>
+      <div class="flex items-center justify-center gap-2 mt-4">
+        <Button @click="openDialog(null)">
+          <Plus class="w-4 h-4 mr-2" />
+          Add Player
+        </Button>
+        <Button variant="outline" @click="bulkImportOpen = true">
+          <Plus class="w-4 h-4 mr-2" />
+          Add Players
+        </Button>
+      </div>
     </div>
 
     <div v-else-if="filteredPlayers.length === 0" class="text-center py-8">
@@ -522,6 +532,7 @@
                                          } else {
                                             inlineEdits!.offense_positions.push(pos)
                                          }
+                                         resetAttributesForPosition('offense', pos, inlineEdits!.offense, inlineEdits!.defense)
                                       }"
                                    >
                                       <div 
@@ -573,6 +584,7 @@
                                          } else {
                                             inlineEdits!.defense_positions.push(pos)
                                          }
+                                         resetAttributesForPosition('defense', pos, inlineEdits!.offense, inlineEdits!.defense)
                                       }"
                                    >
                                       <div 
@@ -845,13 +857,13 @@
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <!-- Offense Attributes -->
-                      <div class="space-y-4 p-4 rounded-lg border bg-background/40">
+                      <!-- Offense Attributes (only when player has offense positions) -->
+                      <div v-if="inlineEdits.offense_positions.length > 0" class="space-y-4 p-4 rounded-lg border bg-background/40">
                         <div class="flex items-center gap-2 border-b pb-2 mb-2">
                            <Badge variant="secondary" class="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20">OFFENSE</Badge>
                         </div>
                         <div class="space-y-5">
-                          <div v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
+                          <div v-for="group in getVisibleOffenseGroups(inlineEdits.offense_positions)" :key="group.label" class="space-y-2">
                             <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div v-for="attr in group.attrs" :key="attr.key" class="space-y-1">
@@ -877,13 +889,13 @@
 
 
 
-                      <!-- Defense Attributes -->
-                      <div class="space-y-4 p-4 rounded-lg border bg-background/40">
+                      <!-- Defense Attributes (only when player has defense positions) -->
+                      <div v-if="inlineEdits.defense_positions.length > 0" class="space-y-4 p-4 rounded-lg border bg-background/40">
                         <div class="flex items-center gap-2 border-b pb-2 mb-2">
                            <Badge variant="secondary" class="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20">DEFENSE</Badge>
                         </div>
                         <div class="space-y-5">
-                          <div v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="group.label" class="space-y-2">
+                          <div v-for="group in getVisibleDefenseGroups(inlineEdits.defense_positions)" :key="group.label" class="space-y-2">
                             <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{{ group.label }}</span>
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div v-for="attr in group.attrs" :key="attr.key" class="space-y-1">
@@ -921,6 +933,7 @@
       :player="editingPlayer"
       :teams="teams"
       :player-team-ids="editingPlayer ? getPlayerTeamIds(editingPlayer.id) : []"
+      :all-players="players"
       @update:open="dialogOpen = $event"
       @submit="handleSubmit"
     />
@@ -934,6 +947,7 @@
 
     <BulkImportDialog
       :open="bulkImportOpen"
+      :teams="teams"
       @update:open="bulkImportOpen = $event"
       @imported="handleBulkImported"
     />
@@ -954,6 +968,7 @@ import {
   DEFAULT_OFFENSE_ATTRIBUTES,
   DEFAULT_DEFENSE_ATTRIBUTES,
 } from '~/lib/constants'
+import { getVisibleOffenseGroups, getVisibleDefenseGroups, resetAttributesForPosition, sanitizeAttributesForPositions } from '~/lib/playerAttributes'
 import { Button } from '~/components/ui/button'
 import { Badge } from '~/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
@@ -993,6 +1008,7 @@ const ALL_POSITIONS = ['QB', 'WR', 'C', 'DB', 'RSH', 'MLB'] // Keep for filter c
 
 const { players, loading, fetchPlayers, createPlayer, updatePlayer, deletePlayer, teamScore } = usePlayers()
 const { teams, fetchTeams, createTeam, addPlayerToTeam, removePlayerFromTeam, removePlayerFromTeamByPlayerId, autoAssignTeamStarters, resetTeamStarters, updateTeamPlayer } = useTeams()
+const { settings: fieldSettings, fetchSettings: fetchFieldSettings } = useFieldSettings()
 const { exportPlayers } = usePlayerExport()
 const { confirm } = useConfirm()
 
@@ -1177,11 +1193,18 @@ function toggleExpand(p: Player) {
     isEditing.value = false
     const teamIds = getPlayerTeamIds(p.id)
     
-    // Initialize edits with current data (merge defaults so new attribute keys show)
+    // Initialize edits with sanitized attributes (non-position attrs default to 5)
+    const sanitized = sanitizeAttributesForPositions(
+      p.offense_positions,
+      p.defense_positions,
+      p.universal_attributes ?? {},
+      p.offense_attributes ?? {},
+      p.defense_attributes ?? {},
+    )
     inlineEdits.value = {
-      universal: { ...DEFAULT_UNIVERSAL_ATTRIBUTES, ...p.universal_attributes },
-      offense: { ...DEFAULT_OFFENSE_ATTRIBUTES, ...p.offense_attributes },
-      defense: { ...DEFAULT_DEFENSE_ATTRIBUTES, ...p.defense_attributes },
+      universal: { ...sanitized.universal_attributes },
+      offense: { ...sanitized.offense_attributes },
+      defense: { ...sanitized.defense_attributes },
       height: p.height ?? null,
       weight: p.weight ?? null,
       team_ids: [...teamIds],
@@ -1191,14 +1214,14 @@ function toggleExpand(p: Player) {
     
     // Snapshot for change detection
     editingPlayerSnapshot.value = {
-      universal: { ...DEFAULT_UNIVERSAL_ATTRIBUTES, ...p.universal_attributes },
-      offense: { ...DEFAULT_OFFENSE_ATTRIBUTES, ...p.offense_attributes },
-      defense: { ...DEFAULT_DEFENSE_ATTRIBUTES, ...p.defense_attributes },
-      height: p.height ?? null,
-      weight: p.weight ?? null,
-      team_ids: [...teamIds],
-      offense_positions: [...p.offense_positions],
-      defense_positions: [...p.defense_positions],
+      universal: { ...inlineEdits.value!.universal },
+      offense: { ...inlineEdits.value!.offense },
+      defense: { ...inlineEdits.value!.defense },
+      height: inlineEdits.value!.height,
+      weight: inlineEdits.value!.weight,
+      team_ids: [...inlineEdits.value!.team_ids],
+      offense_positions: [...inlineEdits.value!.offense_positions],
+      defense_positions: [...inlineEdits.value!.defense_positions],
     }
   }
 }
@@ -1211,11 +1234,18 @@ async function saveInlineEdit() {
   if (!expandedPlayerId.value || !inlineEdits.value) return
   savingInline.value = true
   try {
+    const sanitized = sanitizeAttributesForPositions(
+      inlineEdits.value.offense_positions,
+      inlineEdits.value.defense_positions,
+      inlineEdits.value.universal,
+      inlineEdits.value.offense,
+      inlineEdits.value.defense,
+    )
     // 1. Update Attributes & Positions
     await updatePlayer(expandedPlayerId.value, {
-      universal_attributes: inlineEdits.value.universal,
-      offense_attributes: inlineEdits.value.offense,
-      defense_attributes: inlineEdits.value.defense,
+      universal_attributes: sanitized.universal_attributes,
+      offense_attributes: sanitized.offense_attributes,
+      defense_attributes: sanitized.defense_attributes,
       height: inlineEdits.value.height,
       weight: inlineEdits.value.weight,
       offense_positions: inlineEdits.value.offense_positions,
@@ -1755,8 +1785,11 @@ async function syncPlayerTeams(playerId: string, newTeamIds: string[], playerDat
 async function handleAutoStarters() {
   autoingStarters.value = true
   try {
+    if (!fieldSettings.value) await fetchFieldSettings()
+    const offCount = fieldSettings.value?.default_offense_starter_count ?? 5
+    const defCount = fieldSettings.value?.default_defense_starter_count ?? 5
     for (const team of teams.value) {
-      await autoAssignTeamStarters(team.id)
+      await autoAssignTeamStarters(team.id, { offenseCount: offCount, defenseCount: defCount })
     }
   } finally {
     autoingStarters.value = false
@@ -1819,6 +1852,10 @@ async function handleBulkDelete() {
     bulkDeleting.value = false
   }
 }
+
+watch([dialogOpen, bulkImportOpen], ([dialog, bulk]) => {
+  if (dialog || bulk) fetchTeams() // Ensure teams list is fresh when Add Player or Add Players opens
+}, { immediate: false })
 
 onMounted(() => {
   fetchPlayers()
