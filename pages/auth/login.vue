@@ -80,7 +80,7 @@ async function handleLogin() {
       password: password.value,
     })
     if (error) throw error
-    await navigateTo('/')
+    await navigateTo('/dashboard')
   } catch (e: any) {
     errorMsg.value = e.message ?? 'Something went wrong. Try again.'
   } finally {

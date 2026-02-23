@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /playbooks
+Disallow: /plays
+Disallow: /squad
+Disallow: /settings
+Disallow: /simulation
+
+Sitemap: https://flagos.app/sitemap.xml

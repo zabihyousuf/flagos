@@ -86,7 +86,14 @@ function buildUserPrompt(
   return `${qbLine}Receivers (use this EXACT order for the routes array). Each is listed with yard line and distance from sideline so you can design routes and QB motion to fit the formation:\n${lines.join('\n')}\n\nGenerate one creative flag football play: routes for every receiver above (same order) and optionally qbMotion (none, roll_left, roll_right, boot_left, boot_right). Respond with JSON only.`
 }
 
+import { serverSupabaseUser } from '#supabase/server'
+
 export default defineEventHandler(async (event) => {
+  const user = await serverSupabaseUser(event)
+  if (!user) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  }
+
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey?.trim()) {
     throw createError({ statusCode: 503, statusMessage: 'Suggest Play is not configured (missing OPENAI_API_KEY).' })

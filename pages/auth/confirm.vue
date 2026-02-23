@@ -47,7 +47,7 @@ onMounted(async () => {
     if (error) throw error
     title.value = 'Email confirmed!'
     message.value = 'Your account has been verified. Redirecting...'
-    setTimeout(() => navigateTo('/'), 1500)
+    setTimeout(() => navigateTo('/dashboard'), 1500)
   } catch (e: any) {
     title.value = 'Confirmation failed'
     message.value = e.message ?? 'Something went wrong.'

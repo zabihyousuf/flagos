@@ -455,14 +455,6 @@
                   <Check class="w-4 h-4 shrink-0 text-primary" />
                   <span>Create and manage teams</span>
                 </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>AI assistant coach & all AI features</span>
-                </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Blur.ai</span>
-                </li>
                 <li class="billing-perk billing-perk--no">
                   <X class="w-4 h-4 shrink-0 text-muted-foreground" />
                   <span class="text-muted-foreground">Test plays & run simulations</span>
@@ -486,6 +478,14 @@
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
                   <span>Everything in Free</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>AI assistant coach & all AI features</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Blur.ai</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />

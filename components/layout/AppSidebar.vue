@@ -17,7 +17,7 @@
         <PanelLeftOpen class="w-5 h-5" />
       </button>
 
-      <NuxtLink v-if="!collapsed" to="/" class="sidebar-logo flex items-center gap-2">
+      <NuxtLink v-if="!collapsed" to="/dashboard" class="sidebar-logo flex items-center gap-2">
         <span class="sidebar-logo-text font-copernicus">FlagOS</span>
         <span class="px-2 py-1 rounded text-xs font-bold bg-primary/10 text-primary tracking-normal shrink-0">Beta</span>
       </NuxtLink>
@@ -131,13 +131,9 @@
               <Sparkles class="w-4 h-4" />
               <span>What's New</span>
             </NuxtLink>
-            <button type="button" class="user-menu-item w-full text-left" @click="reportBugOpen = true; userMenuOpen = false">
-              <Bug class="w-4 h-4" />
-              <span>Report a Bug</span>
-            </button>
-            <button type="button" class="user-menu-item w-full text-left" @click="requestFeatureOpen = true; userMenuOpen = false">
+            <button type="button" class="user-menu-item w-full text-left" @click="feedbackOpen = true; userMenuOpen = false">
               <MessageSquarePlus class="w-4 h-4" />
-              <span>Request a feature / Give feedback</span>
+              <span>Send Feedback</span>
             </button>
             <div class="user-menu-divider" />
             <button class="user-menu-item text-destructive" @click="handleLogout">
@@ -149,8 +145,7 @@
       </div>
     </div>
 
-    <ReportBugDialog v-model:open="reportBugOpen" />
-    <RequestFeatureDialog v-model:open="requestFeatureOpen" />
+    <FeedbackDialog v-model:open="feedbackOpen" />
   </aside>
 </template>
 
@@ -172,7 +167,6 @@ import {
   FlaskConical,
   Search,
   Sparkles,
-  Bug,
   MessageSquarePlus,
 } from 'lucide-vue-next'
 import {
@@ -191,8 +185,7 @@ const collapsed = ref(false)
 const hovering = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
-const reportBugOpen = ref(false)
-const requestFeatureOpen = ref(false)
+const feedbackOpen = ref(false)
 
 onMounted(() => {
   const saved = localStorage.getItem('flagos-sidebar-collapsed')
@@ -266,7 +259,7 @@ const navGroups: NavGroup[] = [
   {
     label: '',
     items: [
-      { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ]
   },
   {
@@ -278,7 +271,6 @@ const navGroups: NavGroup[] = [
   },
   {
     label: 'blur.ai',
-    badge: 'Coming soon',
     items: [
       { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
       { to: '/simulation/scenario', label: 'Play Lab', icon: FlaskConical, disabled: true, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
@@ -287,7 +279,7 @@ const navGroups: NavGroup[] = [
 ]
 
 function isActive(path: string) {
-  if (path === '/') return route.path === '/'
+  if (path === '/dashboard') return route.path === '/dashboard'
   return route.path.startsWith(path)
 }
 

@@ -7,9 +7,9 @@
       @escape-key-down="submitting ? $event.preventDefault() : null"
     >
       <DialogHeader>
-        <DialogTitle>Request a feature / Give feedback</DialogTitle>
+        <DialogTitle>Send Feedback</DialogTitle>
         <DialogDescription>
-          Tell us what you'd like to see or how we can improve FlagOS.
+          Report a bug, request a feature, or share your thoughts on FlagOS.
         </DialogDescription>
       </DialogHeader>
 
@@ -18,30 +18,24 @@
           <Label>Type</Label>
           <div class="flex gap-2">
             <button
+              v-for="opt in typeOptions"
+              :key="opt.value"
               type="button"
               class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              :class="form.type === 'feature' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'"
-              @click="form.type = 'feature'"
+              :class="form.type === opt.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'"
+              @click="form.type = opt.value"
             >
-              Request a feature
-            </button>
-            <button
-              type="button"
-              class="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              :class="form.type === 'feedback' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'"
-              @click="form.type = 'feedback'"
-            >
-              Give feedback
+              {{ opt.label }}
             </button>
           </div>
         </div>
 
         <div class="space-y-2">
-          <Label for="feature-content">{{ form.type === 'feature' ? 'What would you like to add?' : 'Your feedback' }}</Label>
+          <Label for="feedback-content">{{ textareaLabel }}</Label>
           <Textarea
-            id="feature-content"
+            id="feedback-content"
             v-model="form.content"
-            :placeholder="form.type === 'feature' ? 'Describe the feature you want and how it would help you.' : 'Share your thoughts or suggestions.'"
+            :placeholder="textareaPlaceholder"
             :rows="4"
             :disabled="submitting"
             class="resize-none"
@@ -120,6 +114,8 @@ import { Label } from '~/components/ui/label'
 import { Textarea } from '~/components/ui/textarea'
 import { ImagePlus, Loader2, X } from 'lucide-vue-next'
 
+type FeedbackType = 'bug' | 'feature' | 'feedback'
+
 const props = defineProps<{
   open: boolean
 }>()
@@ -135,19 +131,41 @@ const user = useSupabaseUser()
 const submitting = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
+const typeOptions: { value: FeedbackType; label: string }[] = [
+  { value: 'bug', label: 'Bug Report' },
+  { value: 'feature', label: 'Feature Request' },
+  { value: 'feedback', label: 'Feedback' },
+]
+
 interface FileWithPreview {
   file: File
   preview: string
 }
 
 const form = reactive<{
-  type: 'feature' | 'feedback'
+  type: FeedbackType
   content: string
   files: FileWithPreview[]
 }>({
-  type: 'feature',
+  type: 'bug',
   content: '',
   files: [],
+})
+
+const textareaLabel = computed(() => {
+  switch (form.type) {
+    case 'bug': return 'Describe the bug'
+    case 'feature': return 'Describe your request'
+    case 'feedback': return 'Share your feedback'
+  }
+})
+
+const textareaPlaceholder = computed(() => {
+  switch (form.type) {
+    case 'bug': return 'What happened? What were you trying to do?'
+    case 'feature': return 'Describe the feature you want and how it would help you.'
+    case 'feedback': return 'Share your thoughts or suggestions.'
+  }
 })
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
@@ -180,7 +198,7 @@ function removeFile(index: number) {
 }
 
 function resetForm() {
-  form.type = 'feature'
+  form.type = 'bug'
   form.content = ''
   form.files.forEach((f) => URL.revokeObjectURL(f.preview))
   form.files = []
@@ -199,19 +217,22 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    const requestId = crypto.randomUUID()
+    const entryId = crypto.randomUUID()
     const imageUrls: string[] = []
+
+    const isBug = form.type === 'bug'
+    const bucket = isBug ? 'bug-reports' : 'feature-requests'
 
     if (form.files.length > 0) {
       for (let i = 0; i < form.files.length; i++) {
         const f = form.files[i]
         const ext = f.file.name.split('.').pop() || 'png'
-        const path = `${uid}/${requestId}/${i}.${ext}`
-        const { error } = await client.storage.from('feature-requests').upload(path, f.file, {
+        const path = `${uid}/${entryId}/${i}.${ext}`
+        const { error } = await client.storage.from(bucket).upload(path, f.file, {
           upsert: true,
         })
         if (!error) {
-          const { data } = client.storage.from('feature-requests').getPublicUrl(path)
+          const { data } = client.storage.from(bucket).getPublicUrl(path)
           imageUrls.push(data.publicUrl)
         }
       }
@@ -219,22 +240,32 @@ async function handleSubmit() {
 
     const pageUrl = typeof window !== 'undefined' ? window.location.href : null
 
-    const { error } = await client.from('feature_requests').insert({
-      id: requestId,
-      user_id: uid,
-      type: form.type,
-      content,
-      image_urls: imageUrls,
-      page_url: pageUrl,
-    })
-
-    if (error) throw error
+    if (isBug) {
+      const { error } = await client.from('bug_reports').insert({
+        id: entryId,
+        user_id: uid,
+        description: content,
+        image_urls: imageUrls,
+        page_url: pageUrl,
+      })
+      if (error) throw error
+    } else {
+      const { error } = await client.from('feature_requests').insert({
+        id: entryId,
+        user_id: uid,
+        type: form.type,
+        content,
+        image_urls: imageUrls,
+        page_url: pageUrl,
+      })
+      if (error) throw error
+    }
 
     resetForm()
     emit('update:open', false)
     emit('submitted')
   } catch (err) {
-    console.error('Failed to submit feature request:', err)
+    console.error('Failed to submit feedback:', err)
   } finally {
     submitting.value = false
   }

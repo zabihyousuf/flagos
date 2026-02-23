@@ -30,7 +30,7 @@ interface BreadcrumbSegment {
 const segments = computed<BreadcrumbSegment[]>(() => {
   const path = route.path
 
-  if (path === '/') return []
+  if (path === '/' || path === '/dashboard') return []
 
   // Top-level pages: Dashboard > Page
   const topLevel: Record<string, string> = {
@@ -41,12 +41,11 @@ const segments = computed<BreadcrumbSegment[]>(() => {
     '/whats-new': "What's New",
     '/simulation/game': 'Match Sim',
     '/simulation/scenario': 'Play Lab',
-    '/simulation/test': 'Test Play',
   }
 
   if (topLevel[path]) {
     return [
-      { label: 'Dashboard', to: '/' },
+      { label: 'Dashboard', to: '/dashboard' },
       { label: topLevel[path] },
     ]
   }
@@ -54,7 +53,7 @@ const segments = computed<BreadcrumbSegment[]>(() => {
   // /playbooks/[id]: Dashboard > Playbooks > [Playbook Name]
   if (path.match(/^\/playbooks\/[^/]+$/)) {
     return [
-      { label: 'Dashboard', to: '/' },
+      { label: 'Dashboard', to: '/dashboard' },
       { label: 'Playbooks', to: '/playbooks' },
       { label: breadcrumbTitle.value || 'Playbook' },
     ]
@@ -64,7 +63,7 @@ const segments = computed<BreadcrumbSegment[]>(() => {
   const parts = path.split('/').filter(Boolean)
   if (parts.length === 0) return []
 
-  const result: BreadcrumbSegment[] = [{ label: 'Dashboard', to: '/' }]
+  const result: BreadcrumbSegment[] = [{ label: 'Dashboard', to: '/dashboard' }]
   let runningPath = ''
   for (let i = 0; i < parts.length; i++) {
     runningPath += '/' + parts[i]

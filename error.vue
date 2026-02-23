@@ -1,7 +1,7 @@
 <template>
   <div class="error-page">
     <div class="error-content">
-      <NuxtLink to="/" class="error-logo font-copernicus font-bold text-xl tracking-tight text-foreground hover:opacity-80 transition-opacity">
+      <NuxtLink to="/dashboard" class="error-logo font-copernicus font-bold text-xl tracking-tight text-foreground hover:opacity-80 transition-opacity">
         FlagOS
       </NuxtLink>
       <div class="error-icon" aria-hidden="true">
@@ -14,7 +14,7 @@
         {{ statusCode === 404 ? 'The page you\'re looking for doesn\'t exist or has been moved.' : errorMessage }}
       </p>
       <Button as-child>
-        <NuxtLink to="/">
+        <NuxtLink to="/dashboard">
           <Home class="w-4 h-4 mr-2" />
           Back to Dashboard
         </NuxtLink>
