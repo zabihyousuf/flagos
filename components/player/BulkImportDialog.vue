@@ -73,13 +73,13 @@
           </div>
 
           <!-- Quick Add Tab -->
-          <div v-if="activeTab === 'quick'" class="flex-1 min-h-0 relative border-t">
+          <div v-if="activeTab === 'quick'" class="flex-1 min-h-0 flex flex-col">
             <!-- Rows-from-CSV summary and duplicate-name warning -->
-            <div v-if="rowsFromCsvCount > 0" class="px-6 py-3 border-b bg-muted/30 space-y-2">
+            <div v-if="rowsFromCsvCount > 0" class="flex-none px-6 py-3 border-b bg-muted/30 space-y-2">
               <p class="text-sm font-medium text-foreground">
                 {{ rowsFromCsvCount }} row{{ rowsFromCsvCount !== 1 ? 's' : '' }} parsed from CSV
               </p>
-              <div v-if="duplicateNamesInRoster.length > 0" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+              <div v-if="duplicateNamesInRoster.length > 0" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
                 <p class="font-medium">Names already in your roster</p>
                 <p class="mt-1 text-muted-foreground">
                   The following {{ duplicateNamesInRoster.length }} name{{ duplicateNamesInRoster.length !== 1 ? 's' : '' }} already exist in your roster and will be skipped if you add without changing them:
@@ -88,255 +88,270 @@
                 <p class="mt-1 text-xs text-muted-foreground">Edit or remove these rows before adding, or they will fail to import.</p>
               </div>
             </div>
-            <!-- Scroll indicator -->
-            <div class="absolute top-2 right-6 z-40 bg-background/80 backdrop-blur px-2 py-1 rounded-md border shadow-sm pointer-events-none text-xs text-muted-foreground flex items-center gap-1.5 animate-pulse">
-              <ArrowRight class="w-3 h-3" />
-              <span>Scroll for more attributes</span>
+
+            <!-- Table -->
+            <div class="flex-1 min-h-0 quick-add-table-wrapper">
+              <Table class="min-w-[1800px]">
+                <TableHeader class="sticky top-0 z-20 bg-white">
+                  <TableRow>
+                    <TableHead class="sticky left-0 z-30 bg-white min-w-[240px]">Name</TableHead>
+                    <TableHead class="w-[140px]">Team</TableHead>
+                    <TableHead class="w-16">#</TableHead>
+                    <TableHead class="w-20">HT</TableHead>
+                    <TableHead class="w-14">WT</TableHead>
+                    <TableHead class="w-[120px]">OFF</TableHead>
+                    <TableHead class="w-[120px]">DEF</TableHead>
+                    <TableHead
+                      v-for="(attr, ai) in UNIVERSAL_ATTRIBUTE_GROUP.attrs"
+                      :key="attr.key"
+                      class="w-[52px] text-center text-[10px] px-1"
+                      :class="ai === 0 ? 'border-l border-border/40' : ''"
+                    >
+                      <TooltipProvider :delay-duration="150">
+                        <Tooltip>
+                          <TooltipTrigger as-child>
+                            <span class="cursor-default">{{ attrShortLabel(attr.label) }}</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" class="text-xs">{{ attr.label }}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableHead>
+                    <template v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="'oh-' + group.label">
+                      <TableHead
+                        v-for="(attr, ai) in group.attrs"
+                        :key="attr.key"
+                        class="w-[52px] text-center text-[10px] px-1"
+                        :class="ai === 0 ? 'border-l border-border/40' : ''"
+                      >
+                        <TooltipProvider :delay-duration="150">
+                          <Tooltip>
+                            <TooltipTrigger as-child>
+                              <span class="cursor-default">{{ attrShortLabel(attr.label) }}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" class="text-xs">{{ attr.label }}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableHead>
+                    </template>
+                    <template v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="'dh-' + group.label">
+                      <TableHead
+                        v-for="(attr, ai) in group.attrs"
+                        :key="attr.key"
+                        class="w-[52px] text-center text-[10px] px-1"
+                        :class="ai === 0 ? 'border-l border-border/40' : ''"
+                      >
+                        <TooltipProvider :delay-duration="150">
+                          <Tooltip>
+                            <TooltipTrigger as-child>
+                              <span class="cursor-default">{{ attrShortLabel(attr.label) }}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" class="text-xs">{{ attr.label }}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableHead>
+                    </template>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="(row, i) in rows" :key="i">
+                    <!-- Name (sticky) + Remove -->
+                    <TableCell class="sticky left-0 z-10 bg-white px-2 py-1 min-w-[240px]">
+                      <div class="flex items-center gap-1">
+                        <button
+                          @click="removeRow(i)"
+                          class="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors rounded"
+                        >
+                          <X class="w-3.5 h-3.5" />
+                        </button>
+                        <Input
+                          v-model="row.name"
+                          placeholder="Player name"
+                          class="h-8 text-sm flex-1"
+                          :class="row.errors.length > 0 && row.name.trim() === '' ? 'border-destructive' : ''"
+                          @blur="validateRow(i)"
+                          @keydown.enter="handleEnterOnRow(i)"
+                        />
+                      </div>
+                    </TableCell>
+                    <!-- Team -->
+                    <TableCell class="px-2 py-1">
+                      <Select v-model="row.team_id">
+                        <SelectTrigger class="h-8 text-xs">
+                          <SelectValue placeholder="Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Free Agents</SelectItem>
+                          <SelectItem v-for="team in teams" :key="team.id" :value="team.id">
+                            {{ team.name }}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <!-- Number -->
+                    <TableCell class="px-1 py-1">
+                      <input
+                        :value="row.number ?? ''"
+                        inputmode="numeric"
+                        placeholder="#"
+                        class="w-14 h-8 text-center text-sm rounded-md border border-input bg-background px-1"
+                        @input="(e: Event) => row.number = (e.target as HTMLInputElement).value === '' ? null : parseInt((e.target as HTMLInputElement).value, 10) || null"
+                        @blur="validateRow(i)"
+                      />
+                    </TableCell>
+                    <!-- Height -->
+                    <TableCell class="px-1 py-1">
+                      <div class="flex gap-1">
+                        <input
+                          :value="Math.floor((row.height ?? 0) / 12) || ''"
+                          inputmode="numeric"
+                          placeholder="ft"
+                          class="w-8 h-8 text-center text-sm rounded-md border border-input bg-background px-0.5"
+                          @input="(e: Event) => updateHeight(row, (e.target as HTMLInputElement).value, 'ft')"
+                          @blur="validateRow(i)"
+                        />
+                        <input
+                          :value="(row.height ?? 0) % 12 || ''"
+                          inputmode="numeric"
+                          placeholder="in"
+                          class="w-8 h-8 text-center text-sm rounded-md border border-input bg-background px-0.5"
+                          @input="(e: Event) => updateHeight(row, (e.target as HTMLInputElement).value, 'in')"
+                          @blur="validateRow(i)"
+                        />
+                      </div>
+                    </TableCell>
+                    <!-- Weight -->
+                    <TableCell class="px-1 py-1">
+                      <input
+                        :value="row.weight ?? ''"
+                        inputmode="numeric"
+                        placeholder="lbs"
+                        class="w-12 h-8 text-center text-sm rounded-md border border-input bg-background px-1"
+                        @input="(e: Event) => row.weight = (e.target as HTMLInputElement).value === '' ? null : parseInt((e.target as HTMLInputElement).value, 10) || null"
+                        @blur="validateRow(i)"
+                      />
+                    </TableCell>
+                    <!-- Offense positions (dropdown) -->
+                    <TableCell class="px-1 py-1">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                          <button class="inline-flex items-center gap-1 px-2 h-8 w-full rounded-md border border-input bg-background text-xs justify-between">
+                            <span v-if="row.offense_positions.length" class="flex gap-0.5 overflow-hidden">
+                              <span
+                                v-for="p in row.offense_positions"
+                                :key="p"
+                                class="px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium text-[11px]"
+                              >{{ p }}</span>
+                            </span>
+                            <span v-else class="text-muted-foreground">Select</span>
+                            <ChevronDown class="w-3 h-3 shrink-0 text-muted-foreground ml-auto" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" class="min-w-[160px]">
+                          <DropdownMenuItem
+                            v-for="pos in OFFENSE_POSITIONS"
+                            :key="pos"
+                            @select="(e: Event) => { e.preventDefault(); togglePosition(row, 'offense', pos) }"
+                          >
+                            <Check v-if="row.offense_positions.includes(pos)" class="w-3.5 h-3.5 mr-2 text-primary" />
+                            <span v-else class="w-3.5 h-3.5 mr-2 inline-block" />
+                            {{ pos }} &mdash; {{ POSITION_LABELS[pos] }}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                    <!-- Defense positions (dropdown) -->
+                    <TableCell class="px-1 py-1">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                          <button class="inline-flex items-center gap-1 px-2 h-8 w-full rounded-md border border-input bg-background text-xs justify-between">
+                            <span v-if="row.defense_positions.length" class="flex gap-0.5 overflow-hidden">
+                              <span
+                                v-for="p in row.defense_positions"
+                                :key="p"
+                                class="px-1.5 py-0.5 rounded bg-primary/15 text-primary font-medium text-[11px]"
+                              >{{ p }}</span>
+                            </span>
+                            <span v-else class="text-muted-foreground">Select</span>
+                            <ChevronDown class="w-3 h-3 shrink-0 text-muted-foreground ml-auto" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" class="min-w-[180px]">
+                          <DropdownMenuItem
+                            v-for="pos in DEFENSE_POSITIONS"
+                            :key="pos"
+                            @select="(e: Event) => { e.preventDefault(); togglePosition(row, 'defense', pos) }"
+                          >
+                            <Check v-if="row.defense_positions.includes(pos)" class="w-3.5 h-3.5 mr-2 text-primary" />
+                            <span v-else class="w-3.5 h-3.5 mr-2 inline-block" />
+                            {{ pos }} &mdash; {{ POSITION_LABELS[pos] }}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                    <!-- Universal attributes -->
+                    <TableCell
+                      v-for="(attr, ai) in UNIVERSAL_ATTRIBUTE_GROUP.attrs"
+                      :key="'u-' + attr.key + '-' + i"
+                      class="px-0.5 py-1"
+                      :class="ai === 0 ? 'border-l border-border/40' : ''"
+                    >
+                      <input
+                        :value="row.universal_attributes[attr.key]"
+                        inputmode="numeric"
+                        class="w-11 h-7 text-center text-xs rounded border border-input bg-background"
+                        @input="(e: Event) => row.universal_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
+                        @blur="(e: Event) => row.universal_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
+                      />
+                    </TableCell>
+                    <!-- Offense attributes -->
+                    <template v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="'o-' + group.label + '-' + i">
+                      <TableCell
+                        v-for="(attr, ai) in group.attrs"
+                        :key="attr.key"
+                        class="px-0.5 py-1"
+                        :class="ai === 0 ? 'border-l border-border/40' : ''"
+                      >
+                        <input
+                          :value="row.offense_attributes[attr.key]"
+                          inputmode="numeric"
+                          class="w-11 h-7 text-center text-xs rounded border border-input bg-background"
+                          @input="(e: Event) => row.offense_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
+                          @blur="(e: Event) => row.offense_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
+                        />
+                      </TableCell>
+                    </template>
+                    <!-- Defense attributes -->
+                    <template v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="'d-' + group.label + '-' + i">
+                      <TableCell
+                        v-for="(attr, ai) in group.attrs"
+                        :key="attr.key"
+                        class="px-0.5 py-1"
+                        :class="ai === 0 ? 'border-l border-border/40' : ''"
+                      >
+                        <input
+                          :value="row.defense_attributes[attr.key]"
+                          inputmode="numeric"
+                          class="w-11 h-7 text-center text-xs rounded border border-input bg-background"
+                          @input="(e: Event) => row.defense_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
+                          @blur="(e: Event) => row.defense_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
+                        />
+                      </TableCell>
+                    </template>
+                  </TableRow>
+                </TableBody>
+                <tfoot>
+                  <TableRow class="hover:bg-transparent border-0">
+                    <TableCell :colspan="100" class="sticky left-0">
+                      <Button variant="ghost" size="sm" class="text-muted-foreground" @click="addEmptyRow">
+                        <Plus class="w-3.5 h-3.5 mr-1.5" />
+                        Add Row
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                </tfoot>
+              </Table>
             </div>
-
-            <div class="absolute inset-0 overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
-              <table class="relative w-full text-sm border-collapse min-w-[1800px]">
-              <!-- content unchanged, replacing wrapper only in effect, but need to match range -->
-              <thead class="sticky top-0 z-20 bg-white">
-                <!-- Column headers -->
-                <tr class="border-b">
-                  <th class="sticky left-0 z-30 bg-white px-2 py-2 text-center w-8"></th>
-                  <th class="sticky left-8 z-30 bg-white px-3 py-2 text-left font-medium text-muted-foreground w-[200px] min-w-[200px]">Name</th>
-                  <th class="px-2 py-2 text-left font-medium text-muted-foreground w-[140px]">Team</th>
-                  <th class="px-2 py-2 text-left font-medium text-muted-foreground w-16">#</th>
-                  <th class="px-2 py-2 text-left font-medium text-muted-foreground w-14">HT</th>
-                  <th class="px-2 py-2 text-left font-medium text-muted-foreground w-14">WT</th>
-                  <th class="px-2 py-2 text-left font-medium text-muted-foreground w-[100px]">OFF</th>
-                  <th class="px-2 py-2 text-left font-medium text-muted-foreground w-[100px]">DEF</th>
-                  <th
-                    v-for="(attr, ai) in UNIVERSAL_ATTRIBUTE_GROUP.attrs"
-                    :key="attr.key"
-                    class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[10px]"
-                    :class="ai === 0 ? 'border-l border-border/20' : ''"
-                  >
-                    <TooltipProvider :delay-duration="150">
-                      <Tooltip>
-                        <TooltipTrigger as-child>
-                          <span class="cursor-default">{{ attrShortLabel(attr.label) }}</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" class="text-xs">{{ attr.label }}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </th>
-                  <template v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="'oh-' + group.label">
-                    <th
-                      v-for="(attr, ai) in group.attrs"
-                      :key="attr.key"
-                      class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[10px]"
-                      :class="ai === 0 ? 'border-l border-border/20' : ''"
-                    >
-                      <TooltipProvider :delay-duration="150">
-                        <Tooltip>
-                          <TooltipTrigger as-child>
-                            <span class="cursor-default">{{ attrShortLabel(attr.label) }}</span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" class="text-xs">{{ attr.label }}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </th>
-                  </template>
-                  <template v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="'dh-' + group.label">
-                    <th
-                      v-for="(attr, ai) in group.attrs"
-                      :key="attr.key"
-                      class="px-1 py-2 text-center font-medium text-muted-foreground w-[52px] text-[10px]"
-                      :class="ai === 0 ? 'border-l border-border/20' : ''"
-                    >
-                      <TooltipProvider :delay-duration="150">
-                        <Tooltip>
-                          <TooltipTrigger as-child>
-                            <span class="cursor-default">{{ attrShortLabel(attr.label) }}</span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" class="text-xs">{{ attr.label }}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </th>
-                  </template>
-                  <th class="w-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, i) in rows" :key="i" class="border-b border-border/30 hover:bg-muted/20">
-                  <!-- Remove -->
-                  <td class="sticky left-0 z-10 bg-white px-1 py-1 text-center">
-                    <button
-                      @click="removeRow(i)"
-                      class="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <X class="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                  <!-- Name (sticky) -->
-                  <td class="sticky left-8 z-10 bg-white px-2 py-1">
-                    <Input
-                      v-model="row.name"
-                      placeholder="Player name"
-                      class="h-8 text-sm"
-                      :class="row.errors.length > 0 && row.name.trim() === '' ? 'border-destructive' : ''"
-                      @blur="validateRow(i)"
-                      @keydown.enter="handleEnterOnRow(i)"
-                    />
-                  </td>
-                  <!-- Team -->
-                  <td class="px-2 py-1">
-                    <Select v-model="row.team_id">
-                      <SelectTrigger class="h-8 text-xs">
-                        <SelectValue placeholder="Team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Free Agents</SelectItem>
-                        <SelectItem v-for="team in teams" :key="team.id" :value="team.id">
-                          {{ team.name }}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <!-- Number -->
-                  <td class="px-1 py-1">
-                    <input
-                      :value="row.number ?? ''"
-                      inputmode="numeric"
-                      placeholder="#"
-                      class="w-14 h-8 text-center text-sm rounded-md border border-input bg-background px-1"
-                      @input="(e: Event) => row.number = (e.target as HTMLInputElement).value === '' ? null : parseInt((e.target as HTMLInputElement).value, 10) || null"
-                      @blur="validateRow(i)"
-                    />
-                  </td>
-                  <!-- Height -->
-                  <td class="px-1 py-1">
-                    <div class="flex gap-1">
-                      <input
-                        :value="Math.floor((row.height ?? 0) / 12) || ''"
-                        inputmode="numeric"
-                        placeholder="ft"
-                        class="w-8 h-8 text-center text-sm rounded-md border border-input bg-background px-0.5"
-                        @input="(e: Event) => updateHeight(row, (e.target as HTMLInputElement).value, 'ft')"
-                        @blur="validateRow(i)"
-                      />
-                      <input
-                        :value="(row.height ?? 0) % 12 || ''"
-                        inputmode="numeric"
-                        placeholder="in"
-                        class="w-8 h-8 text-center text-sm rounded-md border border-input bg-background px-0.5"
-                        @input="(e: Event) => updateHeight(row, (e.target as HTMLInputElement).value, 'in')"
-                        @blur="validateRow(i)"
-                      />
-                    </div>
-                  </td>
-                  <!-- Weight -->
-                  <td class="px-1 py-1">
-                    <input
-                      :value="row.weight ?? ''"
-                      inputmode="numeric"
-                      placeholder="lbs"
-                      class="w-12 h-8 text-center text-sm rounded-md border border-input bg-background px-1"
-                      @input="(e: Event) => row.weight = (e.target as HTMLInputElement).value === '' ? null : parseInt((e.target as HTMLInputElement).value, 10) || null"
-                      @blur="validateRow(i)"
-                    />
-                  </td>
-                  <!-- Offense positions -->
-                  <td class="px-1 py-1">
-                    <div class="flex gap-0.5">
-                      <button
-                        v-for="pos in OFFENSE_POS"
-                        :key="pos"
-                        @click="togglePosition(row, 'offense', pos)"
-                        class="px-1 py-0.5 text-[10px] font-medium rounded transition-colors"
-                        :class="row.offense_positions.includes(pos)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-secondary-foreground hover:bg-accent'"
-                      >
-                        {{ pos }}
-                      </button>
-                    </div>
-                  </td>
-                  <!-- Defense positions -->
-                  <td class="px-1 py-1">
-                    <div class="flex gap-0.5">
-                      <button
-                        v-for="pos in DEFENSE_POS"
-                        :key="pos"
-                        @click="togglePosition(row, 'defense', pos)"
-                        class="px-1 py-0.5 text-[10px] font-medium rounded transition-colors"
-                        :class="row.defense_positions.includes(pos)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-secondary-foreground hover:bg-accent'"
-                      >
-                        {{ pos }}
-                      </button>
-                    </div>
-                  </td>
-                  <!-- Universal attributes -->
-                  <td
-                    v-for="(attr, ai) in UNIVERSAL_ATTRIBUTE_GROUP.attrs"
-                    :key="'u-' + attr.key + '-' + i"
-                    class="px-0.5 py-1"
-                    :class="ai === 0 ? 'border-l border-border/20' : ''"
-                  >
-                    <input
-                      :value="row.universal_attributes[attr.key]"
-                      inputmode="numeric"
-                      class="w-11 h-7 text-center text-xs rounded border border-input bg-background"
-                      @input="(e: Event) => row.universal_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
-                      @blur="(e: Event) => row.universal_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
-                    />
-                  </td>
-                  <!-- Offense attributes -->
-                  <template v-for="group in OFFENSE_ATTRIBUTE_GROUPS" :key="'o-' + group.label + '-' + i">
-                    <td
-                      v-for="(attr, ai) in group.attrs"
-                      :key="attr.key"
-                      class="px-0.5 py-1"
-                      :class="ai === 0 ? 'border-l border-border/20' : ''"
-                    >
-                      <input
-                        :value="row.offense_attributes[attr.key]"
-                        inputmode="numeric"
-                        class="w-11 h-7 text-center text-xs rounded border border-input bg-background"
-                        @input="(e: Event) => row.offense_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
-                        @blur="(e: Event) => row.offense_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
-                      />
-                    </td>
-                  </template>
-                  <!-- Defense attributes -->
-                  <template v-for="group in DEFENSE_ATTRIBUTE_GROUPS" :key="'d-' + group.label + '-' + i">
-                    <td
-                      v-for="(attr, ai) in group.attrs"
-                      :key="attr.key"
-                      class="px-0.5 py-1"
-                      :class="ai === 0 ? 'border-l border-border/20' : ''"
-                    >
-                      <input
-                        :value="row.defense_attributes[attr.key]"
-                        inputmode="numeric"
-                        class="w-11 h-7 text-center text-xs rounded border border-input bg-background"
-                        @input="(e: Event) => row.defense_attributes[attr.key] = (e.target as HTMLInputElement).value as any"
-                        @blur="(e: Event) => row.defense_attributes[attr.key] = clampAttr((e.target as HTMLInputElement).value)"
-                      />
-                    </td>
-                  </template>
-
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td :colspan="100" class="px-3 py-2">
-                    <Button variant="ghost" size="sm" class="text-muted-foreground" @click="addEmptyRow">
-                      <Plus class="w-3.5 h-3.5 mr-1.5" />
-                      Add Row
-                    </Button>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
           </div>
-
-            </div>
 
           <!-- CSV Upload Tab -->
           <div v-else-if="activeTab === 'csv'" class="flex-1 overflow-auto px-6 py-4">
@@ -400,7 +415,7 @@
               </div>
             </template>
 
-            <!-- Preview table (after parse we switch to Quick Add; this is when user clicks back to CSV tab) -->
+            <!-- Preview table (after CSV parse) -->
             <template v-else>
               <div class="flex items-center justify-end mb-3">
                 <Button variant="ghost" size="sm" class="text-xs" @click="csvMode = 'upload'; rowsFromCsvCount = 0; clearAll()">
@@ -408,30 +423,29 @@
                 </Button>
               </div>
               <div class="rounded border overflow-auto max-h-[70vh]">
-                <table class="w-full text-sm">
-                  <thead class="sticky top-0 bg-white z-10">
-                    <tr class="border-b text-left">
-                      <th class="p-2 font-medium text-muted-foreground">Name</th>
-                      <th class="p-2 font-medium text-muted-foreground w-16">#</th>
-                      <th class="p-2 font-medium text-muted-foreground w-14">Ht</th>
-                      <th class="p-2 font-medium text-muted-foreground w-14">Wt</th>
-                      <th class="p-2 font-medium text-muted-foreground">OFF</th>
-                      <th class="p-2 font-medium text-muted-foreground">DEF</th>
-                      <th class="p-2 font-medium text-muted-foreground w-24">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
+                <Table>
+                  <TableHeader class="sticky top-0 bg-white z-10">
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead class="w-16">#</TableHead>
+                      <TableHead class="w-14">Ht</TableHead>
+                      <TableHead class="w-14">Wt</TableHead>
+                      <TableHead>OFF</TableHead>
+                      <TableHead>DEF</TableHead>
+                      <TableHead class="w-24">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow
                       v-for="(row, i) in rows"
                       :key="i"
-                      class="border-b border-border/50"
                       :class="row.errors.length > 0 ? 'bg-destructive/5' : ''"
                     >
-                      <td class="p-2" :class="row.errors.length > 0 ? 'text-destructive' : ''">{{ row.name || '—' }}</td>
-                      <td class="p-2 tabular-nums">{{ row.number ?? '—' }}</td>
-                      <td class="p-2 tabular-nums">{{ row.height ?? '—' }}</td>
-                      <td class="p-2 tabular-nums">{{ row.weight ?? '—' }}</td>
-                      <td class="p-2">
+                      <TableCell :class="row.errors.length > 0 ? 'text-destructive' : ''">{{ row.name || '—' }}</TableCell>
+                      <TableCell class="tabular-nums">{{ row.number ?? '—' }}</TableCell>
+                      <TableCell class="tabular-nums">{{ row.height ?? '—' }}</TableCell>
+                      <TableCell class="tabular-nums">{{ row.weight ?? '—' }}</TableCell>
+                      <TableCell>
                         <div class="flex gap-1">
                           <span
                             v-for="pos in row.offense_positions"
@@ -440,8 +454,8 @@
                           >{{ pos }}</span>
                           <span v-if="row.offense_positions.length === 0" class="text-muted-foreground/40">—</span>
                         </div>
-                      </td>
-                      <td class="p-2">
+                      </TableCell>
+                      <TableCell>
                         <div class="flex gap-1">
                           <span
                             v-for="pos in row.defense_positions"
@@ -450,17 +464,16 @@
                           >{{ pos }}</span>
                           <span v-if="row.defense_positions.length === 0" class="text-muted-foreground/40">—</span>
                         </div>
-                      </td>
-                      <td class="p-2">
+                      </TableCell>
+                      <TableCell>
                         <span v-if="row.errors.length > 0" class="text-[10px] text-destructive">{{ row.errors[0] }}</span>
                         <span v-else-if="row.warnings.length > 0" class="text-[10px] text-yellow-400">{{ row.warnings[0] }}</span>
                         <span v-else class="text-[10px] text-green-400">OK</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
               </div>
-
             </template>
           </div>
         </template>
@@ -470,31 +483,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import {
   X,
   Upload,
-  Trash2,
   Plus,
   AlertTriangle,
-  FileSpreadsheet,
   CheckCircle2,
   Loader2,
   Wand2,
-  ArrowRight,
+  Check,
+  ChevronDown,
 } from 'lucide-vue-next'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Tooltip,
   TooltipContent,
@@ -509,14 +517,20 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   UNIVERSAL_ATTRIBUTE_GROUP,
   OFFENSE_ATTRIBUTE_GROUPS,
   DEFENSE_ATTRIBUTE_GROUPS,
-  POSITION_COLORS,
   OFFENSE_POSITIONS,
-  DEFENSE_POSITIONS
+  DEFENSE_POSITIONS,
+  POSITION_LABELS,
 } from '@/lib/constants'
-import { useBulkImport } from '@/composables/useBulkImport'
+import { useBulkImport, type ImportRow } from '@/composables/useBulkImport'
 import { useTeams } from '@/composables/useTeams'
 
 const props = defineProps<{
@@ -533,7 +547,6 @@ const { teams, addPlayerToTeam } = useTeams()
 const { players, bulkCreatePlayers } = usePlayers()
 const {
   activeTab,
-  csvInput,
   rows,
   parseError,
   importing,
@@ -546,32 +559,50 @@ const {
   addSampleRow,
   removeRow,
   clearAll,
+  validateRow,
   revalidateAll,
   duplicateNamesInRoster,
 } = useBulkImport()
 
-// Offense/Defense position options
-const OFF_POS = OFFENSE_POSITIONS
-const DEF_POS = DEFENSE_POSITIONS
-
-const selectableTeams = computed(() => {
-  return teams.value.map(t => ({ id: t.id, name: t.name }))
-})
-
-// Local state for UI not covered by composable
+// Local state
 const dragOver = ref(false)
 const pasteText = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 const csvMode = ref<'upload' | 'preview'>('upload')
-/** When set, rows were loaded from CSV; show "X rows from CSV" and duplicate warning on Quick Add. */
 const rowsFromCsvCount = ref(0)
 
-// Helper to shorten attribute labels (e.g. "Throwing Power" -> "THP")
+// Initialize with 1 empty row when dialog opens
+watch(() => props.open, (isOpen) => {
+  if (isOpen) {
+    clearAll()
+    addEmptyRow()
+    activeTab.value = 'quick'
+    pasteText.value = ''
+    csvMode.value = 'upload'
+    rowsFromCsvCount.value = 0
+  }
+})
+
+// Close on Escape
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') emit('update:open', false)
+}
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+
+function togglePosition(row: ImportRow, side: 'offense' | 'defense', pos: string) {
+  const arr = side === 'offense' ? row.offense_positions : row.defense_positions
+  const idx = arr.indexOf(pos)
+  if (idx >= 0) {
+    arr.splice(idx, 1)
+  } else {
+    arr.push(pos)
+  }
+}
+
 function attrShortLabel(label: string) {
   if (label === 'Football IQ') return 'IQ'
   const map: Record<string, string> = {
-    'Heigh': 'HGT',
-    'Weight': 'WGT',
     'Throwing Power': 'THP',
     'Accuracy': 'ACC',
     'Decision Making': 'DEC',
@@ -601,34 +632,16 @@ function clampAttr(v: string | number): number {
   return Math.min(10, Math.max(1, n))
 }
 
-// Initialize with 5 empty rows when sheet opens
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    activeTab.value = 'quick'
-    pasteText.value = ''
-    csvMode.value = 'upload'
-    rowsFromCsvCount.value = 0
-  }
-})
-
-// Close on Escape
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('update:open', false)
-}
-onMounted(() => window.addEventListener('keydown', handleKeydown))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
-
 function updateHeight(row: ImportRow, value: string, unit: 'ft' | 'in') {
   const currentHeight = row.height ?? 0
   let ft = Math.floor(currentHeight / 12)
   let inch = currentHeight % 12
-  
+
   const val = parseInt(value, 10) || 0
-  
+
   if (unit === 'ft') ft = val
   else inch = val
-  
-  // Update total inches
+
   row.height = (ft * 12) + inch
   if (row.height === 0 && value === '') row.height = null
 }
@@ -691,34 +704,15 @@ Justin Jefferson,18,WR,DB`
 }
 
 function downloadTemplate() {
-  // Build headers
   const headers = ['Name', 'Number', 'Height', 'Weight', 'Offense', 'Defense']
-  
-  // Universal
   UNIVERSAL_ATTRIBUTE_GROUP.attrs.forEach(a => headers.push(a.label))
-  
-  // Offense
-  OFFENSE_ATTRIBUTE_GROUPS.forEach(g => {
-    g.attrs.forEach(a => headers.push(a.label))
-  })
-  
-  // Defense
-  DEFENSE_ATTRIBUTE_GROUPS.forEach(g => {
-    g.attrs.forEach(a => headers.push(a.label))
-  })
-  
-  // Build a sample row with 5s for everything
+  OFFENSE_ATTRIBUTE_GROUPS.forEach(g => { g.attrs.forEach(a => headers.push(a.label)) })
+  DEFENSE_ATTRIBUTE_GROUPS.forEach(g => { g.attrs.forEach(a => headers.push(a.label)) })
+
   const sample = ['Example Player', '99', '70', '180', 'WR', 'DB']
-  // Add 5 for every attribute column
-  for (let i = 4; i < headers.length; i++) {
-    sample.push('5')
-  }
-  
-  const csvContent = [
-    headers.join(','),
-    sample.join(',')
-  ].join('\n')
-  
+  for (let i = 4; i < headers.length; i++) sample.push('5')
+
+  const csvContent = [headers.join(','), sample.join(',')].join('\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
@@ -747,17 +741,16 @@ async function handleImport() {
 
   importing.value = true
   try {
-    const result = await bulkCreatePlayers(toImport) // Now returns { created: { player, index }[], ... }
+    const result = await bulkCreatePlayers(toImport)
     importResult.value = {
       created: result.created.length,
       failed: result.errors.length,
       errors: result.errors,
     }
     if (result.created.length > 0) {
-      // Process using the returned index to map back to validRows
       for (const item of result.created) {
         const player = item.player
-        const row = validRows.value[item.index] 
+        const row = validRows.value[item.index]
 
         if (row && row.team_id && row.team_id !== 'unassigned') {
           await addPlayerToTeam(
@@ -793,9 +786,14 @@ function handleDone() {
   transform: translateY(1rem);
 }
 
-/* Sticky name column shadow */
-td.sticky,
-th.sticky {
-  box-shadow: 2px 0 8px -2px rgba(0, 0, 0, 0.15);
+/* Make the Table component's container fill available height */
+.quick-add-table-wrapper :deep([data-slot="table-container"]) {
+  height: 100%;
+}
+
+/* Shadow for sticky name column */
+:deep(td.sticky),
+:deep(th.sticky) {
+  box-shadow: 2px 0 8px -2px rgba(0, 0, 0, 0.1);
 }
 </style>
