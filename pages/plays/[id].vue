@@ -1,7 +1,7 @@
 <template>
-  <div class="h-full w-full flex flex-col overflow-hidden py-4 px-4">
+  <div class="play-designer-page h-full w-full flex flex-col overflow-hidden py-4 px-4">
     <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
-    <div class="h-12 bg-card flex items-center px-4 shrink-0 gap-2 lg:gap-4 rounded-lg shadow-md">
+    <div class="play-designer-header h-12 bg-card flex items-center px-4 shrink-0 gap-2 lg:gap-4 rounded-lg shadow-md">
       <!-- Left: Play name + play type -->
       <div class="flex-1 min-w-0 flex items-center gap-1.5">
         <!-- Editable Play Name -->
@@ -99,6 +99,41 @@
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        <TooltipProvider v-if="playId !== 'new'">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8"
+                @click="shareDialogOpen = true"
+              >
+                <Share2 class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Share play</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8"
+                :disabled="!currentPlay"
+                @click="handlePrint"
+              >
+                <Printer class="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Print play</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <!-- Right: Ghost defense (offense only) + View Toggle + Save -->
@@ -193,24 +228,6 @@
           </TooltipProvider>
         </div>
 
-        <TooltipProvider v-if="playId !== 'new'">
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-8 w-8"
-                @click="shareDialogOpen = true"
-              >
-                <Share2 class="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Share play</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
         <Button
           size="sm"
           class="h-8 px-3"
@@ -242,15 +259,18 @@
     </div>
 
     <!-- Three-column body: spacing below header, rounded shadowed panels -->
-    <div v-else-if="currentPlay" class="flex-1 flex overflow-hidden min-h-0 mt-3 gap-3">
+    <div v-else-if="currentPlay" class="play-designer-body flex-1 flex overflow-hidden min-h-0 mt-3 gap-3">
       <!-- Left: Roster Panel (narrower at 1024px so center canvas fits) -->
-      <div class="min-w-[200px] w-52 lg:w-60 shrink-0 rounded-xl shadow-md overflow-hidden bg-card">
+      <div class="play-designer-roster min-w-[200px] w-52 lg:w-60 shrink-0 rounded-xl shadow-md overflow-hidden bg-card">
         <CanvasRosterCard
           v-if="canvasReady"
           :players="cPlayers"
           :selected-player-id="cSelectedPlayerId"
           :all-roster="roster"
           :play-type="currentPlay.play_type"
+          :max-players="currentPlay.play_type === 'offense'
+            ? (fieldSettingsData.default_offense_starter_count ?? 5)
+            : (fieldSettingsData.default_defense_starter_count ?? 5)"
           @select-player="onSelectPlayer"
           @remove-player="onRemovePlayer"
           @add-player="onAddPlayer"
@@ -294,7 +314,7 @@
       </div>
 
       <!-- Right: Player Details (narrower at 1024px) -->
-      <div class="w-64 xl:w-72 shrink-0 flex flex-col min-w-0">
+      <div class="play-designer-details w-64 xl:w-72 shrink-0 flex flex-col min-w-0">
         <div v-if="cSelectedPlayer" class="rounded-xl shadow-md overflow-hidden bg-card flex-1 min-h-0">
           <CanvasPlayerCard
             :selected-player="cSelectedPlayer"
@@ -339,7 +359,7 @@ import CanvasToolbar from '~/components/canvas/CanvasToolbar.vue'
 import CanvasRosterCard from '~/components/canvas/CanvasRosterCard.vue'
 import CanvasPlayerCard from '~/components/canvas/CanvasPlayerCard.vue'
 import SavePlayDialog from '~/components/play/SavePlayDialog.vue'
-import { Swords, Shield, Share2 } from 'lucide-vue-next'
+import { Swords, Shield, Share2, Printer } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'canvas',
@@ -608,6 +628,10 @@ async function handleSaveData(data: CanvasData) {
 const saveDialogOpen = ref(false)
 const isSaving = ref(false)
 const shareDialogOpen = ref(false)
+
+function handlePrint() {
+  globalThis.print()
+}
 
 function handleNameChange() {
   if (playId.value === 'new') return // Local update

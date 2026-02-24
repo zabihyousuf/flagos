@@ -365,10 +365,12 @@ export function useCanvasRenderer() {
       if (hasSelectionFocus) {
         ctx.save()
         ctx.globalAlpha = fadedAlpha
+        drawDefenseRusherLines(ctx, data.players, fieldW, fieldH, options)
         drawGhostQB(ctx, fieldW, fieldH, options)
         drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
         ctx.restore()
       } else {
+        drawDefenseRusherLines(ctx, data.players, fieldW, fieldH, options)
         drawGhostQB(ctx, fieldW, fieldH, options)
         drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
       }
@@ -616,6 +618,10 @@ export function useCanvasRenderer() {
     options: RenderOptions,
     isPreview = false,
   ) {
+    // Defense rushers: rush line drawn by drawDefenseRusherLines to ghost QB
+    const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
+    if (isRusher && options.playType === 'defense') return
+
     if (!player.route || !player.route.segments || player.route.segments.length === 0) return
 
     const scale = options.previewScale ?? 1
@@ -1373,6 +1379,47 @@ export function useCanvasRenderer() {
     })
   }
 
+  /** Draw rush lines from defense rushers to the ghost QB (so we can see their path). */
+  function drawDefenseRusherLines(
+    ctx: CanvasRenderingContext2D,
+    players: CanvasPlayer[],
+    fieldW: number,
+    fieldH: number,
+    options: RenderOptions,
+  ) {
+    const { fieldLength, endzoneSize, lineOfScrimmage } = options
+    const totalLength = fieldLength + endzoneSize * 2
+    const yardHeight = fieldH / totalLength
+    const losY = yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
+    const qbY = losY + 5 * yardHeight
+    const qbX = fieldW * 0.5
+    const scale = options.previewScale ?? 1
+
+    const rushers = players.filter(
+      (p) => p.side === 'defense' && (p.designation === 'R' || p.position === 'RSH'),
+    )
+    rushers.forEach((player) => {
+      const startX = player.x * fieldW
+      const startY = player.y * fieldH
+      const color = player.markerColor ?? (POSITION_COLORS[player.position] ?? '#ef4444')
+      ctx.save()
+      ctx.globalAlpha = 0.7
+      ctx.strokeStyle = color
+      ctx.lineWidth = Math.max(0.5, 2 * scale)
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.setLineDash([6, 4])
+      ctx.beginPath()
+      ctx.moveTo(startX, startY)
+      ctx.lineTo(qbX, qbY)
+      ctx.stroke()
+      drawArrowHead(ctx, { x: startX, y: startY }, { x: qbX, y: qbY }, color, Math.max(3, 8 * scale))
+      ctx.setLineDash([])
+      ctx.globalAlpha = 1
+      ctx.restore()
+    })
+  }
+
   function drawGhostQB(
     ctx: CanvasRenderingContext2D,
     fieldW: number,
@@ -1393,21 +1440,20 @@ export function useCanvasRenderer() {
     const radius = Math.max(3, Math.max(14, fieldW * 0.04) * scale)
 
     ctx.save()
-    // Ghostly appearance
-    ctx.globalAlpha = 0.5
-    ctx.setLineDash([4, 4])
-    
-    // Draw circle
+    // Solid circle with QB label (rusher target reference)
+    const qbColor = POSITION_COLORS['QB'] ?? '#22c55e'
     ctx.beginPath()
     ctx.arc(qbX, qbY, radius, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
+    ctx.fillStyle = qbColor
+    ctx.globalAlpha = 0.85
     ctx.fill()
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)'
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
     ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.stroke()
+    ctx.globalAlpha = 1
 
     // Label
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+    ctx.fillStyle = '#ffffff'
     ctx.font = `bold ${Math.max(6, radius * 0.7)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

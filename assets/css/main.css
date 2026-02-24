@@ -307,3 +307,32 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted-foreground);
 }
+
+/* Play designer print: hide sidebar, footer, header, panels; show only canvas */
+@media print {
+  .sidebar,
+  .app-footer {
+    display: none !important;
+  }
+  .play-designer-header,
+  .play-designer-roster,
+  .play-designer-details {
+    display: none !important;
+  }
+  .play-designer-page {
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .play-designer-body {
+    gap: 0 !important;
+    margin-top: 0 !important;
+  }
+  .play-canvas-column {
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+  }
+  .play-canvas-wrapper {
+    max-width: 100% !important;
+  }
+}

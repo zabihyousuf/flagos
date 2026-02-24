@@ -3,7 +3,7 @@
     <!-- Panel Header -->
     <div class="h-10 flex items-center justify-between px-3 shrink-0 border-b border-border">
       <span class="text-sm font-semibold text-foreground">Roster</span>
-      <span class="text-[13px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/8</span>
+      <span class="text-[13px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ players.length }}/{{ maxPlayers }}</span>
     </div>
 
     <div class="p-2 overflow-y-auto custom-scrollbar flex flex-col gap-3 min-h-0 flex-1">
@@ -59,7 +59,7 @@
             <Plus class="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
           <button
-            v-if="benchPlayers.length === 0 && players.length < 8"
+            v-if="benchPlayers.length === 0 && players.length < maxPlayers"
             type="button"
             class="w-full flex items-center justify-center gap-2 px-2 py-2 rounded border border-dashed border-border hover:bg-muted/50 hover:border-primary/40 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
             @click="$emit('add-placeholder-player')"
@@ -68,7 +68,7 @@
             Add player
           </button>
           <p v-else-if="benchPlayers.length === 0" class="text-[13px] text-muted-foreground text-center py-2 italic font-medium">
-            {{ players.length >= 8 ? 'Field full' : 'No bench players' }}
+            {{ players.length >= maxPlayers ? 'Field full' : 'No bench players' }}
           </p>
         </div>
       </div>
@@ -81,12 +81,16 @@ import type { CanvasPlayer, Player } from '~/lib/types'
 import { POSITION_COLORS } from '~/lib/constants'
 import { X, Plus } from 'lucide-vue-next'
 
-const props = defineProps<{
-  players: CanvasPlayer[]
-  selectedPlayerId: string | null
-  allRoster: Player[]
-  playType: 'offense' | 'defense'
-}>()
+const props = withDefaults(
+  defineProps<{
+    players: CanvasPlayer[]
+    selectedPlayerId: string | null
+    allRoster: Player[]
+    playType: 'offense' | 'defense'
+    maxPlayers?: number
+  }>(),
+  { maxPlayers: 5 }
+)
 
 const emit = defineEmits<{
   'select-player': [id: string]
@@ -123,7 +127,7 @@ function handleDragStart(e: DragEvent, player: Player) {
 }
 
 function handleBenchClick(player: Player) {
-  if (props.players.length >= 8) return
+  if (props.players.length >= props.maxPlayers) return
   emit('add-player', player)
 }
 </script>

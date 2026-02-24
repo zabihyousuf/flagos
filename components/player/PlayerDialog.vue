@@ -8,7 +8,7 @@
         </DialogDescription>
       </DialogHeader>
 
-      <div class="min-h-0 overflow-y-auto space-y-4 py-4 pr-1">
+      <div class="min-h-0 overflow-x-hidden overflow-y-auto space-y-4 px-6 py-4">
         <AddPlayerBasics
           :form="form"
           :selectable-teams="selectableTeams"

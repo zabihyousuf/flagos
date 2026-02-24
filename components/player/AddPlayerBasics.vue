@@ -2,22 +2,22 @@
   <div class="space-y-4">
     <div class="grid grid-cols-2 gap-4">
       <div class="space-y-2">
-        <Label class="mx-2">Name</Label>
-        <Input v-model="form.name" placeholder="Player name" class="mx-2" />
+        <Label>Name</Label>
+        <Input v-model="form.name" placeholder="Player name" />
       </div>
       <div class="space-y-2">
-        <Label class="mx-2">Number</Label>
-        <Input v-model.number="form.number" type="number" placeholder="#" :min="0" :max="99" class="mx-2" />
+        <Label>Number</Label>
+        <Input v-model.number="form.number" type="number" placeholder="#" :min="0" :max="99" />
       </div>
       <div class="space-y-2">
-        <Label class="mx-2">Height</Label>
+        <Label>Height</Label>
         <div class="flex gap-2">
           <div class="relative flex-1">
             <Input
               type="text"
               inputmode="numeric"
               placeholder="Ft"
-              class="pr-7 mx-2"
+              class="pr-7"
               :model-value="String(Math.floor((form.height ?? 0) / 12) || '')"
               @update:model-value="onHeightFtInput"
             />
@@ -28,7 +28,7 @@
               type="text"
               inputmode="numeric"
               placeholder="In"
-              class="pr-7 mx-2"
+              class="pr-7"
               :model-value="String((form.height ?? 0) % 12 || '')"
               @update:model-value="onHeightInInput"
             />
@@ -37,12 +37,11 @@
         </div>
       </div>
       <div class="space-y-2">
-        <Label class="mx-2">Weight (lbs)</Label>
+        <Label>Weight (lbs)</Label>
         <Input
           type="text"
           inputmode="numeric"
           placeholder="lbs"
-          class="mx-2"
           :model-value="form.weight != null ? String(form.weight) : ''"
           @update:model-value="onWeightInput"
         />
@@ -50,7 +49,7 @@
     </div>
 
     <div class="space-y-2">
-      <Label class="mx-2">Offense Positions</Label>
+      <Label>Offense Positions</Label>
       <div class="flex gap-2">
         <button
           v-for="pos in OFFENSE_POSITIONS"
@@ -68,7 +67,7 @@
     </div>
 
     <div class="space-y-2">
-      <Label class="mx-2">Defense Positions</Label>
+      <Label>Defense Positions</Label>
       <div class="flex gap-2">
         <button
           v-for="pos in DEFENSE_POSITIONS"
@@ -86,8 +85,8 @@
     </div>
 
     <div class="space-y-2">
-      <Label class="mx-2">Teams</Label>
-      <div class="flex gap-2 flex-wrap mx-2">
+      <Label>Teams</Label>
+      <div class="flex gap-2 flex-wrap">
         <button
           v-for="team in selectableTeams"
           :key="team.id"
@@ -101,7 +100,7 @@
           {{ team.name }}
         </button>
       </div>
-      <p v-if="form.team_ids.length === 0" class="text-xs text-muted-foreground mx-2">No teams selected — player will be a Free Agent</p>
+      <p v-if="form.team_ids.length === 0" class="text-xs text-muted-foreground">No teams selected — player will be a Free Agent</p>
     </div>
   </div>
 </template>

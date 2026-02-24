@@ -37,6 +37,17 @@ export function useRouteAnalysis() {
     return 1.0 - ((rr - 1) / 9) * 0.6
   }
 
+  /** Rusher effective speed (yd/s) - uses rush + get_off_burst like simulation. */
+  function getRusherSpeed(attributes?: any): number {
+    const speedAttr = attributes?.speed ?? 5
+    const rushAttr = attributes?.rush ?? 5
+    const getOffAttr = attributes?.get_off_burst ?? 5
+    const baseYPS = 5 + (speedAttr / 10) * 5
+    const rushMul = 1.0 + (rushAttr / 10) * 0.2
+    const burstMul = 1.0 + (getOffAttr / 10) * 0.15
+    return baseYPS * rushMul * burstMul
+  }
+
   function calculateDistance(p1: CanvasPoint, p2: CanvasPoint, fieldWidth: number, fieldLength: number): number {
     const dx = (p2.x - p1.x) * fieldWidth
     const dy = (p2.y - p1.y) * fieldLength
@@ -56,15 +67,53 @@ export function useRouteAnalysis() {
 
   function analyzeRoute(
     player: CanvasPlayer,
-    fieldSettings: { field_length: number; field_width: number; endzone_size: number },
+    fieldSettings: { field_length: number; field_width: number; endzone_size: number; line_of_scrimmage?: number },
     attributes?: any
   ): RouteAnalysis | null {
-    if (!player.route || !player.route.segments || player.route.segments.length === 0) return null
+    const isRusher = player.side === 'defense' && (player.designation === 'R' || player.position === 'RSH')
+    if (!player.route || !player.route.segments || player.route.segments.length === 0) {
+      if (isRusher) {
+        // Rusher with no stored route: compute time from current position to ghost QB
+        const { field_length, field_width, endzone_size } = fieldSettings
+        const lineOfScrimmage = fieldSettings.line_of_scrimmage ?? Math.floor(field_length / 2)
+        const totalLength = field_length + endzone_size * 2
+        const yardH = 1 / totalLength
+        const losY = (endzone_size + field_length - lineOfScrimmage) * yardH
+        const qbY = losY + 5 * yardH
+        const qbPt = { x: 0.5, y: qbY }
+        const dist = calculateDistance({ x: player.x, y: player.y }, qbPt, field_width, totalLength)
+        const rusherSpeed = getRusherSpeed(attributes)
+        const time = dist / rusherSpeed
+        return {
+          totalDistance: dist,
+          totalDuration: time,
+          segments: [{ distance: dist, duration: time, cumulativeTime: time, type: 'straight' as const, isCut: false }],
+        }
+      }
+      return null
+    }
 
     const { field_length, field_width, endzone_size } = fieldSettings
     const totalLength = field_length + endzone_size * 2
-    
-    // Player stats
+
+    // Rusher: use rush attributes and always compute distance from current position to ghost QB
+    if (isRusher) {
+      const lineOfScrimmage = fieldSettings.line_of_scrimmage ?? Math.floor(field_length / 2)
+      const yardH = 1 / totalLength
+      const losY = (endzone_size + field_length - lineOfScrimmage) * yardH
+      const qbY = losY + 5 * yardH
+      const qbPt = { x: 0.5, y: qbY }
+      const dist = calculateDistance({ x: player.x, y: player.y }, qbPt, field_width, totalLength)
+      const rusherSpeed = getRusherSpeed(attributes)
+      const time = dist / rusherSpeed
+      return {
+        totalDistance: dist,
+        totalDuration: time,
+        segments: [{ distance: dist, duration: time, cumulativeTime: time, type: 'straight' as const, isCut: false }],
+      }
+    }
+
+    // Player stats (offense)
     const maxSpeed = getPlayerSpeed(player, attributes)
     const cutEfficiency = getCutEfficiency(attributes)
 
