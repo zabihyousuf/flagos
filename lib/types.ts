@@ -2,6 +2,8 @@ export interface Profile {
   id: string
   display_name: string | null
   default_team_id: string | null
+  /** When set, user has completed the onboarding tutorial */
+  tutorial_completed_at?: string | null
   created_at: string
   updated_at: string
 }

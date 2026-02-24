@@ -14,6 +14,7 @@
     <QuickPlayDialog />
     <ConfirmDialog />
     <AppSearchCommand />
+    <TutorialModal />
   </div>
 </template>
 
@@ -21,10 +22,22 @@
 useTheme() // Apply theme and listen for system preference changes
 useHead({ title: 'FlagOS' })
 const { open } = useQuickPlay()
+const { shouldShowTutorial, showTutorial } = useTutorial()
+const { profile, fetchProfile } = useProfile()
 const { open: openSearch } = useAppSearch()
 
 // Register ⌘N / Ctrl+N and ⌘K / Ctrl+K keyboard shortcuts
+// Show tutorial for first-time users once profile is loaded
+watch(
+  () => [shouldShowTutorial.value, profile.value],
+  ([should, p]) => {
+    if (should && p) showTutorial()
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
+  fetchProfile()
   function handleKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
       e.preventDefault()

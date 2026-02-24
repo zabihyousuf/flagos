@@ -253,7 +253,6 @@ export const ATTRIBUTE_WEIGHTS: Record<string, number> = {
   recovery_agility: 1.0,
   ball_skills_defensive: 1.0,
   flag_pull_technique: 1.0,
-  play_recognition: 1.0,
   // RSH
   rush: 1.2,
   rush_moves: 1.2,
@@ -263,9 +262,9 @@ export const ATTRIBUTE_WEIGHTS: Record<string, number> = {
   rush_angle_efficiency: 1.0,
   rush_discipline: 1.0,
   sack_flag_conversion: 1.0,
-  // MLB
-  field_awareness: 1.2,
+  // MLB (play_recognition shared with DB)
   play_recognition: 1.2,
+  field_awareness: 1.2,
   zone_recognition: 1.1,
   pursuit_angle: 1.1,
   coverage_support: 1.0,

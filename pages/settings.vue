@@ -252,6 +252,18 @@
               </div>
             </div>
 
+            <!-- Show tutorial again -->
+            <div class="general-row">
+              <Label class="general-label">Onboarding</Label>
+              <div class="general-control">
+                <Button variant="outline" size="sm" class="gap-2" @click="showTutorial">
+                  <BookOpen class="w-3.5 h-3.5" />
+                  Show tutorial again
+                </Button>
+                <p class="text-xs text-muted-foreground mt-1.5">Replay the guided tour of FlagOS features.</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </template>
@@ -640,7 +652,7 @@ import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import type { ThemePreference } from '~/composables/useTheme'
-import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor, Trash2 } from 'lucide-vue-next'
+import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor, Trash2, BookOpen } from 'lucide-vue-next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -663,6 +675,7 @@ const tabs = [
 const activeTab = ref('general')
 
 const user = useSupabaseUser()
+const { showTutorial } = useTutorial()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
 const theme = useTheme()

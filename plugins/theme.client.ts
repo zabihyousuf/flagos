@@ -10,4 +10,6 @@ function applyTheme() {
   else document.documentElement.classList.remove('dark')
 }
 
-applyTheme()
+export default defineNuxtPlugin(() => {
+  applyTheme()
+})

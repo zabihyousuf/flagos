@@ -2,46 +2,55 @@
   <div class="space-y-4">
     <div class="grid grid-cols-2 gap-4">
       <div class="space-y-2">
-        <Label>Name</Label>
-        <Input v-model="form.name" placeholder="Player name" />
+        <Label class="mx-2">Name</Label>
+        <Input v-model="form.name" placeholder="Player name" class="mx-2" />
       </div>
       <div class="space-y-2">
-        <Label>Number</Label>
-        <Input v-model.number="form.number" type="number" placeholder="#" :min="0" :max="99" />
+        <Label class="mx-2">Number</Label>
+        <Input v-model.number="form.number" type="number" placeholder="#" :min="0" :max="99" class="mx-2" />
       </div>
       <div class="space-y-2">
-        <Label>Height</Label>
+        <Label class="mx-2">Height</Label>
         <div class="flex gap-2">
           <div class="relative flex-1">
             <Input
-              type="number"
+              type="text"
+              inputmode="numeric"
               placeholder="Ft"
-              class="pr-7"
-              :value="Math.floor((form.height ?? 0) / 12) || ''"
-              @input="onHeightFtInput"
+              class="pr-7 mx-2"
+              :model-value="String(Math.floor((form.height ?? 0) / 12) || '')"
+              @update:model-value="onHeightFtInput"
             />
             <span class="absolute right-2.5 top-2.5 text-xs text-muted-foreground">ft</span>
           </div>
           <div class="relative flex-1">
             <Input
-              type="number"
+              type="text"
+              inputmode="numeric"
               placeholder="In"
-              class="pr-7"
-              :value="(form.height ?? 0) % 12 || ''"
-              @input="onHeightInInput"
+              class="pr-7 mx-2"
+              :model-value="String((form.height ?? 0) % 12 || '')"
+              @update:model-value="onHeightInInput"
             />
             <span class="absolute right-2.5 top-2.5 text-xs text-muted-foreground">in</span>
           </div>
         </div>
       </div>
       <div class="space-y-2">
-        <Label>Weight (lbs)</Label>
-        <Input v-model.number="form.weight" type="number" placeholder="lbs" :min="50" :max="400" />
+        <Label class="mx-2">Weight (lbs)</Label>
+        <Input
+          type="text"
+          inputmode="numeric"
+          placeholder="lbs"
+          class="mx-2"
+          :model-value="form.weight != null ? String(form.weight) : ''"
+          @update:model-value="onWeightInput"
+        />
       </div>
     </div>
 
     <div class="space-y-2">
-      <Label>Offense Positions</Label>
+      <Label class="mx-2">Offense Positions</Label>
       <div class="flex gap-2">
         <button
           v-for="pos in OFFENSE_POSITIONS"
@@ -59,7 +68,7 @@
     </div>
 
     <div class="space-y-2">
-      <Label>Defense Positions</Label>
+      <Label class="mx-2">Defense Positions</Label>
       <div class="flex gap-2">
         <button
           v-for="pos in DEFENSE_POSITIONS"
@@ -77,8 +86,8 @@
     </div>
 
     <div class="space-y-2">
-      <Label>Teams</Label>
-      <div class="flex gap-2 flex-wrap">
+      <Label class="mx-2">Teams</Label>
+      <div class="flex gap-2 flex-wrap mx-2">
         <button
           v-for="team in selectableTeams"
           :key="team.id"
@@ -92,7 +101,7 @@
           {{ team.name }}
         </button>
       </div>
-      <p v-if="form.team_ids.length === 0" class="text-xs text-muted-foreground">No teams selected — player will be a Free Agent</p>
+      <p v-if="form.team_ids.length === 0" class="text-xs text-muted-foreground mx-2">No teams selected — player will be a Free Agent</p>
     </div>
   </div>
 </template>
@@ -121,17 +130,24 @@ defineEmits<{
   'toggle-team': [teamId: string]
 }>()
 
-function onHeightFtInput(e: Event) {
-  const val = parseInt((e.target as HTMLInputElement).value) || 0
+function onHeightFtInput(val: string | number) {
+  const raw = String(val).replace(/\D/g, '')
+  const num = parseInt(raw) || 0
   const currentIn = (props.form.height ?? 0) % 12
-  props.form.height = val * 12 + currentIn
-  if (props.form.height === 0 && (e.target as HTMLInputElement).value === '') props.form.height = null
+  props.form.height = num * 12 + currentIn
+  if (props.form.height === 0 && raw === '') props.form.height = null
 }
 
-function onHeightInInput(e: Event) {
-  const val = parseInt((e.target as HTMLInputElement).value) || 0
+function onHeightInInput(val: string | number) {
+  const raw = String(val).replace(/\D/g, '')
+  const num = parseInt(raw) || 0
   const currentFt = Math.floor((props.form.height ?? 0) / 12)
-  props.form.height = currentFt * 12 + val
-  if (props.form.height === 0 && (e.target as HTMLInputElement).value === '') props.form.height = null
+  props.form.height = currentFt * 12 + num
+  if (props.form.height === 0 && raw === '') props.form.height = null
+}
+
+function onWeightInput(val: string | number) {
+  const raw = String(val).replace(/\D/g, '')
+  props.form.weight = raw === '' ? null : parseInt(raw)
 }
 </script>
