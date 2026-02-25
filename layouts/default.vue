@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 useTheme() // Apply theme and listen for system preference changes
-useHead({ title: 'FlagOS' })
+useHead({ title: 'FlagLab' })
 const { open } = useQuickPlay()
 const { shouldShowTutorial, showTutorial } = useTutorial()
 const { profile, fetchProfile } = useProfile()

@@ -33,7 +33,7 @@
               <!-- Step 0: Welcome -->
               <div v-if="currentStep === 0" class="tutorial-welcome flex flex-col items-center justify-center py-8">
                 <div class="tutorial-logo-box mb-4">
-                  <span class="font-copernicus text-2xl font-bold text-foreground">FlagOS</span>
+                  <span class="font-copernicus text-2xl font-bold text-foreground">FlagLab</span>
                   <span class="px-2 py-0.5 rounded text-xs font-bold bg-primary/20 text-primary ml-2">Beta</span>
                 </div>
                 <div class="flex gap-4 animate-pulse-slow">
@@ -145,8 +145,8 @@ const currentStep = ref(0)
 const steps = [
   {
     id: 'welcome',
-    title: 'Welcome to FlagOS',
-    description: 'FlagOS is your flag football command center. Design plays, manage your roster, and build your playbook — all in one place.',
+    title: 'Welcome to FlagLab',
+    description: 'FlagLab is your flag football command center. Design plays, manage your roster, and build your playbook — all in one place.',
     bullets: [
       'Visual play designer with drag-and-drop routes',
       'Team and player management with smart Auto Start',
@@ -188,7 +188,7 @@ const steps = [
   {
     id: 'settings',
     title: 'Settings',
-    description: 'Tailor FlagOS to your league. Set field dimensions, default starters, theme, and more.',
+    description: 'Tailor FlagLab to your league. Set field dimensions, default starters, theme, and more.',
     bullets: [
       'Field: length, width, endzone, line of scrimmage',
       'General: default starters, play view, theme',

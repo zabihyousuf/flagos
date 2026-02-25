@@ -2,7 +2,7 @@
   <div class="error-page">
     <div class="error-content">
       <NuxtLink to="/dashboard" class="error-logo font-copernicus font-bold text-xl tracking-tight text-foreground hover:opacity-80 transition-opacity">
-        FlagOS
+        FlagLab
       </NuxtLink>
       <div class="error-icon" aria-hidden="true">
         <FileQuestion class="w-16 h-16" />

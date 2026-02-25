@@ -6,7 +6,7 @@
         <div class="auth-brand-pattern" aria-hidden="true" />
         <div class="relative z-10 shrink-0">
           <NuxtLink to="/" class="inline-flex items-center gap-3 group">
-            <span class="font-copernicus font-bold text-xl tracking-tight">FlagOS</span>
+            <span class="font-copernicus font-bold text-xl tracking-tight">FlagLab</span>
           </NuxtLink>
         </div>
         <div class="relative z-10 flex-1 flex items-center justify-center text-center lg:text-left">

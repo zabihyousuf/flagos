@@ -31,10 +31,10 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: 'FlagOS',
+      title: 'FlagLab',
       meta: [
         { name: 'description', content: 'Design flag football plays, build playbooks, manage your roster, and simulate plays — all in one platform.' },
-        { property: 'og:title', content: 'FlagOS' },
+        { property: 'og:title', content: 'FlagLab' },
         { property: 'og:description', content: 'Your one platform for all things flag football.' },
         { property: 'og:type', content: 'website' },
         { name: 'twitter:card', content: 'summary_large_image' },

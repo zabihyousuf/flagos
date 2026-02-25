@@ -2,7 +2,7 @@
   <div class="whats-new-page">
     <div class="whats-new-header">
       <h1 class="text-2xl font-semibold tracking-tight font-display">What's New</h1>
-      <p class="text-muted-foreground mt-1">What you can do in the first release of FlagOS.</p>
+      <p class="text-muted-foreground mt-1">What you can do in the first release of FlagLab.</p>
     </div>
 
     <article class="release-card">

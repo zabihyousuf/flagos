@@ -18,7 +18,7 @@
       </button>
 
       <NuxtLink v-if="!collapsed" to="/dashboard" class="sidebar-logo flex items-center gap-2">
-        <span class="sidebar-logo-text font-copernicus">FlagOS</span>
+        <span class="sidebar-logo-text font-copernicus">FlagLab</span>
         <span class="px-2 py-1 rounded text-xs font-bold bg-primary/10 text-primary tracking-normal shrink-0">Beta</span>
       </NuxtLink>
 

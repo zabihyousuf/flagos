@@ -5,7 +5,7 @@
         Create account
       </h1>
       <p class="mt-2 text-muted-foreground text-sm sm:text-base">
-        Get started with FlagOS. One playbook to rule them all.
+        Get started with FlagLab. One playbook to rule them all.
       </p>
       <p class="mt-3 text-muted-foreground text-xs max-w-[360px]">
         We ask for your name, role, number of players, and optional team so we can personalize your experience and set up your first team if you’d like.

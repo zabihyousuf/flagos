@@ -260,7 +260,7 @@
                   <BookOpen class="w-3.5 h-3.5" />
                   Show tutorial again
                 </Button>
-                <p class="text-xs text-muted-foreground mt-1.5">Replay the guided tour of FlagOS features.</p>
+                <p class="text-xs text-muted-foreground mt-1.5">Replay the guided tour of FlagLab features.</p>
               </div>
             </div>
 

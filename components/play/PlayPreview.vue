@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="play-preview-container rounded-md overflow-hidden bg-[#f0f0f0] dark:bg-[#2a2a2a] border border-border/50">
+  <div ref="containerRef" class="play-preview-container overflow-hidden">
     <canvas v-show="hasData" ref="canvasRef" class="play-preview-canvas block w-full h-full" />
     <div v-if="!hasData" class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No formation</div>
   </div>
@@ -28,7 +28,7 @@ function draw() {
   const data = props.play?.canvas_data
   if (!canvas || !container || !data?.players?.length) return
   const w = Math.max(1, container.clientWidth)
-  const h = Math.max(1, props.height)
+  const h = Math.max(1, container.clientHeight || props.height)
   if (w <= 0 || h <= 0) return
 
   const dpr = Math.min(2, window.devicePixelRatio || 1)
@@ -40,7 +40,6 @@ function draw() {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const fs = DEFAULT_FIELD_SETTINGS
-  // B&W miniature: no field, zoomed to fit play, small circles and numbers only
   render(ctx, canvas, data, {
     fieldLength: fs.field_length,
     fieldWidth: fs.field_width,
@@ -53,13 +52,15 @@ function draw() {
     viewMode: 'fit',
     playType: props.play?.play_type ?? 'offense',
     showPlayerNames: false,
-    thumbnailMode: true,
+    previewScale: 0.2,
+    fitAllContent: true,
+    hideField: true,
+    dotMode: true,
   })
 }
 
 function scheduleDraw() {
   nextTick(() => {
-    // Double rAF so layout is complete and container has real dimensions (avoids 0-width → single dot)
     requestAnimationFrame(() => {
       requestAnimationFrame(draw)
     })
@@ -84,13 +85,11 @@ watch(
 
 <style scoped>
 .play-preview-container {
-  height: v-bind(height + 'px');
-  min-height: 80px;
+  width: 100%;
+  height: 100%;
 }
 .play-preview-canvas {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
 }
 </style>

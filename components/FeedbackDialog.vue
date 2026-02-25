@@ -9,7 +9,7 @@
       <DialogHeader>
         <DialogTitle>Send Feedback</DialogTitle>
         <DialogDescription>
-          Report a bug, request a feature, or share your thoughts on FlagOS.
+          Report a bug, request a feature, or share your thoughts on FlagLab.
         </DialogDescription>
       </DialogHeader>
 

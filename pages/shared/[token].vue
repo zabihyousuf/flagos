@@ -9,7 +9,7 @@
     <!-- Not found -->
     <div v-else-if="error" class="shared-play-error">
       <NuxtLink to="/" class="font-copernicus font-bold text-xl tracking-tight text-foreground hover:opacity-80 transition-opacity mb-6">
-        FlagOS
+        FlagLab
       </NuxtLink>
       <div class="text-muted-foreground/60" aria-hidden="true">
         <Unlink class="w-14 h-14" />
@@ -21,7 +21,7 @@
       <Button as-child variant="outline" size="sm" class="mt-2">
         <NuxtLink to="/">
           <Home class="w-4 h-4 mr-2" />
-          Go to FlagOS
+          Go to FlagLab
         </NuxtLink>
       </Button>
     </div>
@@ -31,7 +31,7 @@
       <!-- Top bar -->
       <header class="shared-play-header">
         <NuxtLink to="/" class="font-copernicus font-bold text-base tracking-tight text-foreground hover:opacity-80 transition-opacity shrink-0">
-          FlagOS
+          FlagLab
         </NuxtLink>
         <div class="flex items-center gap-2 min-w-0 ml-4">
           <div
@@ -62,7 +62,7 @@
       <!-- Footer -->
       <footer class="shared-play-footer">
         <p class="text-xs text-muted-foreground">
-          Created with <NuxtLink to="/" class="underline hover:text-foreground transition-colors">FlagOS</NuxtLink>
+          Created with <NuxtLink to="/" class="underline hover:text-foreground transition-colors">FlagLab</NuxtLink>
            — The play designer for flag football
         </p>
       </footer>
@@ -181,7 +181,7 @@ watch(canvasContainerRef, (container) => {
 onUnmounted(() => ro?.disconnect())
 
 useHead({
-  title: computed(() => sharedPlay.value ? `${sharedPlay.value.play_name} — FlagOS` : 'Shared Play — FlagOS'),
+  title: computed(() => sharedPlay.value ? `${sharedPlay.value.play_name} — FlagLab` : 'Shared Play — FlagLab'),
 })
 </script>
 

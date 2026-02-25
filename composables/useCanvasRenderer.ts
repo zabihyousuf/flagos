@@ -33,6 +33,12 @@ export interface RenderOptions {
   simulationMode?: boolean
   /** When true, dark mode is active (affects selection-focus fade opacity) */
   darkMode?: boolean
+  /** When true (with viewMode 'fit'), zoom to fit ALL player+route content instead of LOS-biased view. Used for card previews. */
+  fitAllContent?: boolean
+  /** When true, skip drawing the field background (endzones, yard lines, LOS, etc). Only draw players and routes. */
+  hideField?: boolean
+  /** When true, draw players as plain colored dots (no labels, shapes, shadows, or coverage lines). */
+  dotMode?: boolean
 }
 
 const PADDING = 12
@@ -263,6 +269,34 @@ function computePlayBbox(data: CanvasData): { minX: number; minY: number; maxX: 
   return { minX, minY, maxX, maxY }
 }
 
+/** Content bounds for fitAllContent mode: includes all players, route points, motion paths, and the LOS. No clamping. */
+function computeAllContentBounds(
+  data: CanvasData,
+  totalLength: number,
+  options: { endzoneSize: number; fieldLength: number; lineOfScrimmage: number },
+): ContentBounds {
+  const bbox = computePlayBbox(data)
+  const pad = 0.06
+
+  const losYNorm = (options.endzoneSize + options.fieldLength - options.lineOfScrimmage) / totalLength
+
+  let minX = bbox ? bbox.minX : 0.25
+  let minY = bbox ? bbox.minY : 0.25
+  let maxX = bbox ? bbox.maxX : 0.75
+  let maxY = bbox ? bbox.maxY : 0.75
+
+  // Always include LOS
+  minY = Math.min(minY, losYNorm)
+  maxY = Math.max(maxY, losYNorm)
+
+  return {
+    minX: Math.max(0, minX - pad),
+    minY: Math.max(0, minY - pad),
+    maxX: Math.min(1, maxX + pad),
+    maxY: Math.min(1, maxY + pad),
+  }
+}
+
 export type ViewTransform = { zoom: number; panX: number; panY: number }
 
 export function useCanvasRenderer() {
@@ -285,15 +319,21 @@ export function useCanvasRenderer() {
     const { offsetX, offsetY, fieldW, fieldH } = fieldRect
 
     const contentBounds =
-      options.viewMode === 'fit' &&
-      (options.ghostPlayers?.length || options.playType === 'defense')
-        ? computeFitContentBounds(data.players, options.ghostPlayers ?? [], fieldRect.totalLength, {
+      options.viewMode === 'fit' && options.fitAllContent
+        ? computeAllContentBounds(data, fieldRect.totalLength, {
             endzoneSize: options.endzoneSize,
             fieldLength: options.fieldLength,
             lineOfScrimmage: options.lineOfScrimmage,
-            playType: options.playType,
           })
-        : undefined
+        : options.viewMode === 'fit' &&
+          (options.ghostPlayers?.length || options.playType === 'defense')
+          ? computeFitContentBounds(data.players, options.ghostPlayers ?? [], fieldRect.totalLength, {
+              endzoneSize: options.endzoneSize,
+              fieldLength: options.fieldLength,
+              lineOfScrimmage: options.lineOfScrimmage,
+              playType: options.playType,
+            })
+          : undefined
 
     const view = computeViewTransform(logicalW, logicalH, fieldRect, {
       ...options,
@@ -324,13 +364,15 @@ export function useCanvasRenderer() {
     const fadedAlpha = getFadedAlpha(options.darkMode ?? false)
 
     // Field — faded when a player is selected so focus stays on the active player
-    if (hasSelectionFocus) {
-      ctx.save()
-      ctx.globalAlpha = fadedAlpha
-      drawField(ctx, fieldW, fieldH, options)
-      ctx.restore()
-    } else {
-      drawField(ctx, fieldW, fieldH, options)
+    if (!options.hideField) {
+      if (hasSelectionFocus) {
+        ctx.save()
+        ctx.globalAlpha = fadedAlpha
+        drawField(ctx, fieldW, fieldH, options)
+        ctx.restore()
+      } else {
+        drawField(ctx, fieldW, fieldH, options)
+      }
     }
 
     // Draw routes behind players (use suggested route preview when set for this player)
@@ -367,12 +409,12 @@ export function useCanvasRenderer() {
         ctx.globalAlpha = fadedAlpha
         drawDefenseRusherLines(ctx, data.players, fieldW, fieldH, options)
         drawGhostQB(ctx, fieldW, fieldH, options)
-        drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
+        if (!options.hideField || options.dotMode) drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
         ctx.restore()
       } else {
         drawDefenseRusherLines(ctx, data.players, fieldW, fieldH, options)
         drawGhostQB(ctx, fieldW, fieldH, options)
-        drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
+        if (!options.hideField || options.dotMode) drawCoverageZones(ctx, data.players, fieldW, fieldH, options)
       }
     }
 
@@ -667,7 +709,7 @@ export function useCanvasRenderer() {
       ctx.moveTo(lastEndPoint.x, lastEndPoint.y)
 
       const isLastSegment = segIndex === segCount - 1
-      const arrowHeadLen = Math.max(3, 10 * scale)
+      const arrowHeadLen = Math.max(scale < 1 ? 1.5 : 3, 10 * scale)
       const trimForArrow = isLastSegment && (segment.type !== 'option' || segCount === 1) ? lineWidth / 2 + arrowHeadLen : 0
       if (segment.type === 'curve') {
         drawCurveSegment(ctx, lastEndPoint, points, trimForArrow)
@@ -701,7 +743,7 @@ export function useCanvasRenderer() {
       if (segment.type === 'option' && points.length > 0) {
         const endPt = points[points.length - 1]
         const prevPt = lastEndPoint
-        drawArrowHead(ctx, prevPt, endPt, color, Math.max(3, 10 * scale))
+        drawArrowHead(ctx, prevPt, endPt, color, Math.max(scale < 1 ? 1.5 : 3, 10 * scale))
       }
 
       ctx.restore()
@@ -731,7 +773,7 @@ export function useCanvasRenderer() {
         }
       }
       if (arrowEnd) {
-        drawArrowHead(ctx, arrowPrev, arrowEnd, color, Math.max(3, 10 * scale))
+        drawArrowHead(ctx, arrowPrev, arrowEnd, color, Math.max(scale < 1 ? 1.5 : 3, 10 * scale))
       }
     }
     if (isPreview) ctx.restore()
@@ -1003,7 +1045,7 @@ export function useCanvasRenderer() {
     order: number,
     scale: number = 1,
   ) {
-    const size = Math.max(4, 12 * scale)
+    const size = Math.max(scale < 1 ? 2 : 4, 12 * scale)
     ctx.save()
 
     // White circle background
@@ -1077,7 +1119,7 @@ export function useCanvasRenderer() {
       ctx.moveTo(startX, startY)
       ctx.lineTo(endX, endY)
       ctx.stroke()
-      drawArrowHead(ctx, { x: startX, y: startY }, { x: endX, y: endY }, color, Math.max(3, 8 * scale))
+      drawArrowHead(ctx, { x: startX, y: startY }, { x: endX, y: endY }, color, Math.max(scale < 1 ? 1.5 : 3, 8 * scale))
       ctx.setLineDash([])
       ctx.globalAlpha = 1
       ctx.restore()
@@ -1139,7 +1181,7 @@ export function useCanvasRenderer() {
       }
     }
     if (gArrowEnd) {
-      drawArrowHead(ctx, gArrowPrev, gArrowEnd, color, Math.max(3, 8 * scale))
+      drawArrowHead(ctx, gArrowPrev, gArrowEnd, color, Math.max(scale < 1 ? 1.5 : 3, 8 * scale))
     }
 
     ctx.setLineDash([])
@@ -1164,7 +1206,7 @@ export function useCanvasRenderer() {
       const animPos = options.animatedPositions?.get(player.id)
       const px = (animPos?.x ?? player.x) * fieldW
       const py = (animPos?.y ?? player.y) * fieldH
-      const radius = Math.max(3, Math.max(12, fieldW * 0.035) * scale)
+      const radius = Math.max(scale < 1 ? 1.5 : 3, Math.max(12, fieldW * 0.035) * scale)
       const color = POSITION_COLORS[player.position] || '#ef4444'
       const isRusher = player.designation === 'R' || player.position === 'RSH'
 
@@ -1205,7 +1247,7 @@ export function useCanvasRenderer() {
       ctx.save()
       ctx.globalAlpha = 0.85
       ctx.fillStyle = '#ffffff'
-      ctx.font = `bold ${Math.max(6, radius * 0.325)}px Oracle Sans, sans-serif`
+      ctx.font = `bold ${Math.max(scale < 1 ? radius * 0.6 : 6, radius * 0.325)}px Oracle Sans, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(label, px, py)
@@ -1229,9 +1271,24 @@ export function useCanvasRenderer() {
 
     const isFitView = options.viewMode === 'fit'
     let playerRadius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
-    playerRadius = Math.max(3, playerRadius * scale)
+    playerRadius = Math.max(scale < 1 ? 1.5 : 3, playerRadius * scale)
 
     const hasSelectionFocus = !options.simulationMode && !!options.selectedPlayerId
+
+    // Dot mode: tiny black filled circles, no labels/shapes/shadows
+    if (options.dotMode) {
+      const dotR = Math.max(1, playerRadius * 0.5)
+      players.forEach((player) => {
+        const animPos = options.animatedPositions?.get(player.id)
+        const px = (animPos?.x ?? player.x) * fieldW
+        const py = (animPos?.y ?? player.y) * fieldH
+        ctx.beginPath()
+        ctx.arc(px, py, dotR, 0, Math.PI * 2)
+        ctx.fillStyle = '#000000'
+        ctx.fill()
+      })
+      return
+    }
 
     players.forEach((player) => {
       // In simulation mode, use animated position if available
@@ -1355,7 +1412,8 @@ export function useCanvasRenderer() {
           : showLabel === 'both' ? (numStr ? `${numStr} ${posStr}` : posStr)
           : ''
         if (label) {
-          ctx.font = `bold ${Math.max(6, radius * 0.35)}px Oracle Sans, sans-serif`
+          const labelMinFont = scale < 1 ? radius * 0.65 : 6
+          ctx.font = `bold ${Math.max(labelMinFont, radius * 0.35)}px Oracle Sans, sans-serif`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText(label, px, py)
@@ -1413,7 +1471,7 @@ export function useCanvasRenderer() {
       ctx.moveTo(startX, startY)
       ctx.lineTo(qbX, qbY)
       ctx.stroke()
-      drawArrowHead(ctx, { x: startX, y: startY }, { x: qbX, y: qbY }, color, Math.max(3, 8 * scale))
+      drawArrowHead(ctx, { x: startX, y: startY }, { x: qbX, y: qbY }, color, Math.max(scale < 1 ? 1.5 : 3, 8 * scale))
       ctx.setLineDash([])
       ctx.globalAlpha = 1
       ctx.restore()
@@ -1437,7 +1495,7 @@ export function useCanvasRenderer() {
     // QA is 5 yards back (down/higher Y) from LOS
     const qbY = losY + (5 * yardHeight)
     const qbX = fieldW * 0.5
-    const radius = Math.max(3, Math.max(14, fieldW * 0.04) * scale)
+    const radius = Math.max(scale < 1 ? 1.5 : 3, Math.max(14, fieldW * 0.04) * scale)
 
     ctx.save()
     // Solid circle with QB label (rusher target reference)
@@ -1454,7 +1512,7 @@ export function useCanvasRenderer() {
 
     // Label
     ctx.fillStyle = '#ffffff'
-    ctx.font = `bold ${Math.max(6, radius * 0.7)}px Oracle Sans, sans-serif`
+    ctx.font = `bold ${Math.max(scale < 1 ? radius * 0.65 : 6, radius * 0.7)}px Oracle Sans, sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('QB', qbX, qbY)
@@ -1508,12 +1566,13 @@ export function useCanvasRenderer() {
       ctx.lineWidth = Math.max(0.4, 1 * scale)
       ctx.setLineDash([4, 4])
       ctx.stroke()
-      if (radiusPx > 20 * scale) {
+      if (radiusPx > 20) {
+        const zoneFontSize = Math.max(4 * scale, 11 * scale)
         ctx.fillStyle = 'rgba(59, 130, 246, 0.75)'
-        ctx.font = `600 ${Math.max(6, 11 * scale)}px Oracle Sans, sans-serif`
+        ctx.font = `600 ${zoneFontSize}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillText(`${player.coverageRadius}y`, zx, zy - radiusPx + 12)
+        ctx.fillText(`${player.coverageRadius}y`, zx, zy - radiusPx + 12 * scale)
       }
       ctx.restore()
     })

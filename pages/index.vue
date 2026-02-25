@@ -3,7 +3,7 @@
     <!-- 1. Sticky Glassmorphic Navbar -->
     <header class="landing-nav">
       <div class="landing-container flex items-center justify-between h-16">
-        <NuxtLink to="/" class="font-copernicus font-bold text-xl tracking-tight text-foreground">FlagOS</NuxtLink>
+        <NuxtLink to="/" class="font-copernicus font-bold text-xl tracking-tight text-foreground">FlagLab</NuxtLink>
         <div class="flex items-center gap-3">
           <NuxtLink to="/auth/login" class="nav-link">Log In</NuxtLink>
           <NuxtLink to="/auth/signup" class="nav-cta">Sign Up</NuxtLink>
@@ -198,8 +198,8 @@
     <!-- 8. Footer -->
     <footer class="landing-footer">
       <div class="landing-container footer-inner">
-        <span class="font-copernicus font-bold text-sm tracking-tight text-foreground">FlagOS</span>
-        <p class="text-sm text-muted-foreground">&copy; {{ new Date().getFullYear() }} FlagOS. All rights reserved.</p>
+        <span class="font-copernicus font-bold text-sm tracking-tight text-foreground">FlagLab</span>
+        <p class="text-sm text-muted-foreground">&copy; {{ new Date().getFullYear() }} FlagLab. All rights reserved.</p>
       </div>
     </footer>
   </div>
@@ -214,7 +214,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'FlagOS — Your Flag Football Platform',
+  title: 'FlagLab — Your Flag Football Platform',
   meta: [
     { name: 'description', content: 'Design flag football plays, build playbooks, manage your roster, and simulate plays with AI — all in one platform.' },
   ],
