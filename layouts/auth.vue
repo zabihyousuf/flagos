@@ -28,16 +28,23 @@
         </div>
       </div>
 
-      <!-- Right: Form area (scrollable when content overflows, centered when short) -->
-      <div class="auth-form flex-1 min-h-0 overflow-y-auto flex items-center justify-center">
-        <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 lg:py-16 shrink-0">
+      <!-- Right: Form area (scrollable; centered for login, top-aligned for longer forms like signup) -->
+      <div
+        class="auth-form flex-1 min-h-0 overflow-y-auto flex justify-center"
+        :class="isLogin ? 'items-center' : 'items-start'"
+      >
+        <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 py-8 sm:py-10 lg:py-12 shrink-0">
           <slot />
         </div>
       </div>
     </div>
-    <AppFooter />
   </div>
 </template>
+
+<script setup lang="ts">
+const route = useRoute()
+const isLogin = computed(() => route.path === '/auth/login')
+</script>
 
 <style scoped>
 .auth-layout {

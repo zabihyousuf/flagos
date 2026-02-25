@@ -310,9 +310,17 @@
 
 /* Play designer print: hide sidebar, footer, header, panels; show only canvas */
 @media print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
   .sidebar,
   .app-footer {
     display: none !important;
+  }
+  main {
+    overflow: visible !important;
+    min-height: 0 !important;
   }
   .play-designer-header,
   .play-designer-roster,
@@ -322,17 +330,42 @@
   .play-designer-page {
     padding: 0 !important;
     height: auto !important;
+    min-height: 100vh !important;
     overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
   }
   .play-designer-body {
     gap: 0 !important;
     margin-top: 0 !important;
+    overflow: visible !important;
+    min-height: 0 !important;
+    flex: none !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
   }
   .play-canvas-column {
-    flex: 1 1 100% !important;
+    flex: none !important;
+    width: 100% !important;
+    display: flex !important;
     justify-content: center !important;
+    align-items: center !important;
+    overflow: visible !important;
+    min-height: 0 !important;
   }
-  .play-canvas-wrapper {
+  .play-canvas-wrapper,
+  .play-canvas-wrapper-fit {
+    width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    /* Fit full field on one page; aspect 40/90 = width/height (70yd + 2×10 EZ, 40yd wide) */
+    max-height: min(85vh, 10in) !important;
+    aspect-ratio: 40 / 90 !important;
+    page-break-inside: avoid !important;
   }
 }

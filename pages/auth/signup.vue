@@ -8,7 +8,7 @@
         Get started with FlagOS. One playbook to rule them all.
       </p>
       <p class="mt-3 text-muted-foreground text-xs max-w-[360px]">
-        We ask for your name, role, and optional team so we can personalize your experience and set up your first team if you’d like.
+        We ask for your name, role, number of players, and optional team so we can personalize your experience and set up your first team if you’d like.
       </p>
     </header>
 
@@ -107,6 +107,19 @@
       </div>
 
       <div class="space-y-2">
+        <Label for="starter_count" class="text-foreground font-medium">Number of players per side</Label>
+        <Select v-model="starterCount" required>
+          <SelectTrigger id="starter_count" class="h-11 bg-muted/40 border-border focus:bg-background transition-colors">
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="n in [5, 6, 7, 8]" :key="n" :value="String(n)">{{ n }}v{{ n }}</SelectItem>
+          </SelectContent>
+        </Select>
+        <p class="text-xs text-muted-foreground">Used for play designer formation and roster starters (e.g. 5v5, 7v7). You can change this in Settings.</p>
+      </div>
+
+      <div class="space-y-2">
         <Label for="team_name" class="text-foreground font-medium">Team name <span class="text-muted-foreground font-normal">(optional)</span></Label>
         <Input
           id="team_name"
@@ -154,6 +167,7 @@ const role = ref<string>('')
 const email = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
+const starterCount = ref<string>('5')
 const teamName = ref('')
 const errorMsg = ref('')
 const submitting = ref(false)
@@ -170,6 +184,7 @@ async function handleSignup() {
     const metadata: Record<string, unknown> = {
       display_name: displayName.value,
       role: role.value,
+      preferred_starter_count: Math.min(8, Math.max(5, parseInt(starterCount.value, 10) || 5)),
     }
     const name = teamName.value?.trim()
     if (name) metadata.preferred_team_name = name

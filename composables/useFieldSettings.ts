@@ -48,6 +48,8 @@ export function useFieldSettings() {
       } else {
         // Create default settings for this user (only columns that exist in DB)
         const { field_length, field_width, endzone_size, line_of_scrimmage, first_down, default_play_view, default_play_type, show_ghost_defense_by_default, default_ghost_defense_play_id, sidebar_start_collapsed, show_player_names_on_canvas, default_offense_starter_count, default_defense_starter_count, theme } = DEFAULT_FIELD_SETTINGS
+        const preferred = user.value?.user_metadata?.preferred_starter_count as number | undefined
+        const count = typeof preferred === 'number' && preferred >= 5 && preferred <= 8 ? preferred : (default_offense_starter_count ?? default_defense_starter_count ?? 5)
         const { data: newData, error: createErr } = await client
           .from('field_settings')
           .insert({
@@ -63,8 +65,8 @@ export function useFieldSettings() {
             default_ghost_defense_play_id,
             sidebar_start_collapsed,
             show_player_names_on_canvas,
-            default_offense_starter_count: default_offense_starter_count ?? 5,
-            default_defense_starter_count: default_defense_starter_count ?? 5,
+            default_offense_starter_count: count,
+            default_defense_starter_count: count,
             theme,
           })
           .select()
@@ -72,6 +74,11 @@ export function useFieldSettings() {
 
         if (createErr) throw createErr
         settings.value = newData as FieldSettings
+        if (typeof preferred === 'number' && preferred >= 5 && preferred <= 8) {
+          const authClient = useSupabaseClient()
+          const meta = { ...user.value?.user_metadata, preferred_starter_count: undefined }
+          await authClient.auth.updateUser({ data: meta })
+        }
       }
     } catch (e: any) {
       error.value = e.message
