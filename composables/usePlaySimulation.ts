@@ -165,6 +165,7 @@ export function usePlaySimulation() {
   let resultYards = 0
   let snapStartTime = 0
   let centerSnapDuration = 0.3 // seconds before center can run route (from snapping attribute)
+  let preSnapMotionLogged = false
 
   // ── Phase timeouts (prevent hang) ──────────────────────────────────────
   const PHASE_MAX: Record<string, number> = {
@@ -197,6 +198,7 @@ export function usePlaySimulation() {
     outcome = null
     resultYards = 0
     throwTargetId = null
+    preSnapMotionLogged = false
     events.value = []
     simulationState.value = 'pre_snap'
     animatedPositions.value = new Map()
@@ -370,8 +372,25 @@ export function usePlaySimulation() {
   }
 
   // ── Phase: Pre-snap ────────────────────────────────────────────────────
-  function tickPreSnap(_dt: number) {
-    if (phaseTime >= PHASE_MAX.pre_snap) {
+  function tickPreSnap(dt: number) {
+    // Log once when WR motion starts
+    if (!preSnapMotionLogged) {
+      const hasWrMotion = players.some(
+        p => p.side === 'offense' && p.canvas.position === 'WR' && p.motionTotalDist > 0,
+      )
+      if (hasWrMotion) logEvent('motion', 'Pre-snap motion')
+      preSnapMotionLogged = true
+    }
+
+    // Run WR pre-snap motion before the ball is snapped
+    runPreSnapMotion(dt)
+
+    const wrMotionPending = players.some(
+      p => p.side === 'offense' && p.canvas.position === 'WR' && !p.motionDone && p.motionTotalDist > 0,
+    )
+
+    // Snap once WRs finish motion (min 0.3s for cadence, max 4s safety timeout)
+    if ((phaseTime >= 0.3 && !wrMotionPending) || phaseTime >= 4) {
       snapStartTime = currentTime
       transitionTo('snap')
       logEvent('snap', 'Ball snapped!')
@@ -414,8 +433,6 @@ export function usePlaySimulation() {
       qb.hasBall = true
 
       transitionTo('routes_developing')
-      const hasMotion = players.some(p => p.side === 'offense' && !p.motionDone)
-      if (hasMotion) logEvent('motion', 'Pre-snap motion')
     } else {
       const step = ballSpeed * dt
       animatedBall.value.x += (dx / d) * Math.min(step, d)
@@ -678,6 +695,29 @@ export function usePlaySimulation() {
   }
 
   // ── Shared movement helpers ────────────────────────────────────────────
+
+  /** Pre-snap motion: only WRs move along their motion path before the ball is snapped. */
+  function runPreSnapMotion(dt: number) {
+    for (const p of players) {
+      if (p.side !== 'offense' || p.motionDone) continue
+      if (p.canvas.position !== 'WR') continue
+
+      const speedAttr = attr(p.roster, 'speed')
+      const motionSpeed = ypsToNorm(speedToYPS(speedAttr) * 0.65)
+
+      p.motionDistTraveled += motionSpeed * dt
+      if (p.motionDistTraveled >= p.motionTotalDist) {
+        p.motionDistTraveled = p.motionTotalDist
+        p.motionDone = true
+        const end = p.motionPolyline[p.motionPolyline.length - 1]
+        if (end) { p.x = end.x; p.y = end.y }
+      } else {
+        const pos = samplePolyline(p.motionPolyline, p.motionCumDist, p.motionDistTraveled)
+        p.x = pos.x
+        p.y = pos.y
+      }
+    }
+  }
 
   function runMotion(dt: number) {
     for (const p of players) {
