@@ -111,54 +111,53 @@
             </ul>
           </div>
           <div class="sim-visual">
-            <!-- CSS art: mini simulation field -->
-            <div class="sim-field">
+            <svg viewBox="0 0 340 280" fill="none" xmlns="http://www.w3.org/2000/svg" class="sim-svg">
+              <!-- Field -->
+              <rect x="0" y="0" width="340" height="248" rx="12" fill="#fafbfc" stroke="var(--color-border)" stroke-width="1"/>
               <!-- Yard lines -->
-              <div class="sim-yard-line" style="top: 20%" />
-              <div class="sim-yard-line" style="top: 40%" />
-              <div class="sim-yard-line" style="top: 60%" />
-              <div class="sim-yard-line" style="top: 80%" />
+              <line x1="16" y1="50" x2="324" y2="50" stroke="rgba(59,130,246,0.18)" stroke-width="1"/>
+              <line x1="16" y1="100" x2="324" y2="100" stroke="rgba(59,130,246,0.18)" stroke-width="1"/>
+              <line x1="16" y1="150" x2="324" y2="150" stroke="rgba(59,130,246,0.18)" stroke-width="1"/>
+              <line x1="16" y1="200" x2="324" y2="200" stroke="rgba(59,130,246,0.18)" stroke-width="1"/>
               <!-- LOS -->
-              <div class="sim-los" />
+              <line x1="10" y1="155" x2="330" y2="155" stroke="rgba(59,130,246,0.65)" stroke-width="2" stroke-dasharray="8 4"/>
               <!-- Offense players -->
-              <div class="sim-player sim-offense" style="left: 50%; top: 62%" title="QB">
-                <svg class="sim-route" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M20 0 L20 -30" stroke="#f97316" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.6" />
-                </svg>
-              </div>
-              <div class="sim-player sim-offense" style="left: 50%; top: 55%" title="C" />
-              <div class="sim-player sim-wr" style="left: 20%; top: 55%" title="WR">
-                <svg class="sim-route" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M30 0 L30 -40 L55 -40" stroke="#22c55e" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.7" />
-                </svg>
-              </div>
-              <div class="sim-player sim-wr" style="left: 80%; top: 55%" title="WR">
-                <svg class="sim-route" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M30 0 L30 -50 L10 -60" stroke="#22c55e" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.7" />
-                </svg>
-              </div>
-              <div class="sim-player sim-wr" style="left: 65%; top: 55%" title="WR">
-                <svg class="sim-route" viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M30 0 L30 -25 L50 -35" stroke="#22c55e" stroke-width="2" stroke-dasharray="4 3" fill="none" opacity="0.7" />
-                </svg>
-              </div>
+              <circle cx="170" cy="185" r="8" fill="#f97316" stroke="white" stroke-width="2.5"/>
+              <circle cx="170" cy="152" r="7" fill="#f59e0b" stroke="white" stroke-width="2"/>
+              <circle cx="60" cy="152" r="7" fill="#22c55e" stroke="white" stroke-width="2"/>
+              <circle cx="280" cy="142" r="7" fill="#22c55e" stroke="white" stroke-width="2"/>
+              <circle cx="225" cy="146" r="7" fill="#22c55e" stroke="white" stroke-width="2"/>
+              <!-- WR routes (smooth curves) -->
+              <path d="M60 152 C60 120, 60 105, 35 80" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+              <polygon points="32,83 39,80 35,74" fill="#22c55e" opacity="0.7"/>
+              <path d="M280 142 C280 110, 280 95, 310 70" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+              <polygon points="312,73 306,70 310,64" fill="#22c55e" opacity="0.7"/>
+              <path d="M225 146 C225 120, 225 110, 260 90" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+              <polygon points="262,93 256,90 260,84" fill="#22c55e" opacity="0.7"/>
               <!-- Defense players -->
-              <div class="sim-player sim-defense" style="left: 50%; top: 42%" title="RSH" />
-              <div class="sim-player sim-db" style="left: 20%; top: 35%" title="DB" />
-              <div class="sim-player sim-db" style="left: 80%; top: 35%" title="DB" />
-              <div class="sim-player sim-db" style="left: 50%; top: 25%" title="DB" />
-              <div class="sim-player sim-mlb" style="left: 50%; top: 38%" title="MLB" />
-              <!-- Animated ball flight -->
-              <div class="sim-ball" />
-            </div>
-            <!-- Timeline bar -->
-            <div class="sim-timeline">
-              <div class="sim-timeline-fill" />
-              <div class="sim-event-dot" style="left: 15%" title="Snap" />
-              <div class="sim-event-dot" style="left: 35%" title="Routes" />
-              <div class="sim-event-dot" style="left: 60%" title="Throw" />
-              <div class="sim-event-dot sim-event-dot-active" style="left: 82%" title="Catch" />
-            </div>
+              <circle cx="60" cy="95" r="7" fill="#ef4444" stroke="white" stroke-width="2"/>
+              <circle cx="280" cy="80" r="7" fill="#ef4444" stroke="white" stroke-width="2"/>
+              <circle cx="170" cy="60" r="7" fill="#ef4444" stroke="white" stroke-width="2"/>
+              <circle cx="130" cy="148" r="7" fill="#a855f7" stroke="white" stroke-width="2"/>
+              <circle cx="215" cy="110" r="7" fill="#3b82f6" stroke="white" stroke-width="2"/>
+              <!-- Throw arc (dashed orange) -->
+              <path d="M170 185 Q200 130 280 142" stroke="#f97316" stroke-width="2" stroke-dasharray="6 4" fill="none" opacity="0.5"/>
+              <!-- Animated ball -->
+              <defs><path id="deepDiveBallPath" d="M170,185 Q200,130 280,142"/></defs>
+              <circle r="5" fill="#fdd835">
+                <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.05;0.55;0.65;1" dur="3s" repeatCount="indefinite"/>
+                <animateMotion dur="3s" repeatCount="indefinite" keyPoints="0;0;1;1;1" keyTimes="0;0.05;0.6;0.65;1" calcMode="linear">
+                  <mpath href="#deepDiveBallPath"/>
+                </animateMotion>
+              </circle>
+              <!-- Timeline bar -->
+              <rect x="0" y="256" width="340" height="20" rx="10" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
+              <rect x="0" y="256" width="280" height="20" rx="10" fill="var(--color-primary)" opacity="0.1"/>
+              <circle cx="50" cy="266" r="5" fill="#3b82f6"/>
+              <circle cx="120" cy="266" r="5" fill="#3b82f6"/>
+              <circle cx="200" cy="266" r="5" fill="#f97316"/>
+              <circle cx="270" cy="266" r="5" fill="#22c55e" stroke="var(--color-card)" stroke-width="2"/>
+            </svg>
           </div>
         </div>
       </div>
@@ -227,19 +226,36 @@ const features = [
     description: 'Interactive canvas with drag-and-drop routes, formations, zones, and motion paths for offense and defense.',
     icon: Pencil,
     span: 'bento-wide',
-    visual: `<svg viewBox="0 0 200 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
-      <rect x="10" y="10" width="180" height="80" rx="6" fill="#2d7a45" opacity="0.15"/>
-      <line x1="10" y1="35" x2="190" y2="35" stroke="#2d7a45" stroke-width="0.5" opacity="0.3"/>
-      <line x1="10" y1="60" x2="190" y2="60" stroke="#2d7a45" stroke-width="0.5" opacity="0.3"/>
-      <line x1="10" y1="50" x2="190" y2="50" stroke="#f97316" stroke-width="1" opacity="0.5" stroke-dasharray="4 2"/>
-      <circle cx="100" cy="62" r="4" fill="#f97316"/>
-      <circle cx="100" cy="55" r="3.5" fill="#f59e0b"/>
-      <circle cx="60" cy="55" r="3.5" fill="#22c55e"/>
-      <circle cx="140" cy="55" r="3.5" fill="#22c55e"/>
-      <circle cx="120" cy="55" r="3.5" fill="#22c55e"/>
-      <path d="M60 55 L60 35 L40 28" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.7"/>
-      <path d="M140 55 L140 30 L160 25" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.7"/>
-      <path d="M120 55 L120 40 L140 35" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.7"/>
+    visual: `<svg viewBox="0 0 260 140" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
+      <!-- Toolbar chrome -->
+      <rect x="8" y="6" width="244" height="128" rx="8" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
+      <rect x="8" y="6" width="244" height="22" rx="8" fill="var(--color-accent)"/>
+      <rect x="8" y="20" width="244" height="8" fill="var(--color-accent)"/>
+      <circle cx="20" cy="17" r="3" fill="#ef4444" opacity="0.7"/><circle cx="29" cy="17" r="3" fill="#f59e0b" opacity="0.7"/><circle cx="38" cy="17" r="3" fill="#22c55e" opacity="0.7"/>
+      <rect x="100" y="13" width="60" height="8" rx="4" fill="var(--color-border)" opacity="0.5"/>
+      <!-- View toggle pills -->
+      <rect x="200" y="12" width="22" height="10" rx="5" fill="var(--color-primary)" opacity="0.8"/><rect x="224" y="12" width="22" height="10" rx="5" fill="var(--color-border)" opacity="0.5"/>
+      <!-- Field canvas -->
+      <rect x="14" y="32" width="232" height="96" rx="4" fill="#fafbfc" stroke="var(--color-border)" stroke-width="0.5"/>
+      <!-- Yard lines -->
+      <line x1="14" y1="56" x2="246" y2="56" stroke="rgba(59,130,246,0.18)" stroke-width="0.75"/>
+      <line x1="14" y1="80" x2="246" y2="80" stroke="rgba(59,130,246,0.18)" stroke-width="0.75"/>
+      <line x1="14" y1="104" x2="246" y2="104" stroke="rgba(59,130,246,0.18)" stroke-width="0.75"/>
+      <!-- LOS -->
+      <line x1="14" y1="90" x2="246" y2="90" stroke="rgba(59,130,246,0.65)" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <!-- Offense players -->
+      <circle cx="130" cy="100" r="5" fill="#f97316" stroke="white" stroke-width="2"/>
+      <circle cx="130" cy="88" r="4.5" fill="#f59e0b" stroke="white" stroke-width="2"/>
+      <circle cx="60" cy="88" r="4.5" fill="#22c55e" stroke="white" stroke-width="2"/>
+      <circle cx="200" cy="88" r="4.5" fill="#22c55e" stroke="white" stroke-width="2"/>
+      <circle cx="165" cy="88" r="4.5" fill="#22c55e" stroke="white" stroke-width="2"/>
+      <!-- Routes (smooth curves with arrowheads) -->
+      <path d="M60 88 C60 68, 60 62, 38 52" stroke="#22c55e" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <polygon points="36,54 42,52 38,47" fill="#22c55e"/>
+      <path d="M200 88 C200 68, 200 58, 222 48" stroke="#22c55e" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <polygon points="224,50 218,48 222,43" fill="#22c55e"/>
+      <path d="M165 88 C165 72, 165 66, 185 56" stroke="#22c55e" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <polygon points="187,58 181,56 185,51" fill="#22c55e"/>
     </svg>`,
   },
   {
@@ -247,14 +263,29 @@ const features = [
     description: 'Organize plays into playbooks. Filter by type, tag concepts, and build your game plan.',
     icon: BookOpen,
     span: 'bento-normal',
-    visual: `<svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
-      <rect x="15" y="20" width="70" height="50" rx="4" fill="var(--color-border)" opacity="0.5"/>
-      <rect x="20" y="15" width="70" height="50" rx="4" fill="var(--color-border)" opacity="0.7"/>
-      <rect x="25" y="10" width="70" height="50" rx="4" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
-      <line x1="33" y1="22" x2="75" y2="22" stroke="var(--color-foreground)" stroke-width="1.5" opacity="0.3"/>
-      <line x1="33" y1="30" x2="87" y2="30" stroke="var(--color-foreground)" stroke-width="1" opacity="0.15"/>
-      <line x1="33" y1="36" x2="80" y2="36" stroke="var(--color-foreground)" stroke-width="1" opacity="0.15"/>
-      <line x1="33" y1="42" x2="70" y2="42" stroke="var(--color-foreground)" stroke-width="1" opacity="0.15"/>
+    visual: `<svg viewBox="0 0 160 110" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
+      <!-- Tab bar -->
+      <rect x="8" y="6" width="144" height="98" rx="8" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
+      <rect x="14" y="12" width="28" height="12" rx="6" fill="var(--color-primary)" opacity="0.9"/><text x="28" y="21" text-anchor="middle" font-size="7" fill="white" font-weight="600">All</text>
+      <rect x="46" y="12" width="38" height="12" rx="6" fill="var(--color-border)" opacity="0.5"/><text x="65" y="21" text-anchor="middle" font-size="7" fill="var(--color-muted-foreground)">Offense</text>
+      <rect x="88" y="12" width="42" height="12" rx="6" fill="var(--color-border)" opacity="0.5"/><text x="109" y="21" text-anchor="middle" font-size="7" fill="var(--color-muted-foreground)">Defense</text>
+      <!-- 2x2 play card grid -->
+      <!-- Card 1 - offense -->
+      <rect x="14" y="30" width="62" height="30" rx="4" fill="#fafbfc" stroke="var(--color-border)" stroke-width="0.75"/>
+      <circle cx="28" cy="40" r="2.5" fill="#f97316" stroke="white" stroke-width="1"/><circle cx="36" cy="40" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/><circle cx="44" cy="40" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/><circle cx="36" cy="44" r="2.5" fill="#f59e0b" stroke="white" stroke-width="1"/>
+      <rect x="14" y="53" width="40" height="4" rx="2" fill="var(--color-foreground)" opacity="0.12"/>
+      <!-- Card 2 - offense -->
+      <rect x="84" y="30" width="62" height="30" rx="4" fill="#fafbfc" stroke="var(--color-border)" stroke-width="0.75"/>
+      <circle cx="98" cy="40" r="2.5" fill="#f97316" stroke="white" stroke-width="1"/><circle cx="106" cy="44" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/><circle cx="114" cy="40" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/><circle cx="106" cy="40" r="2.5" fill="#f59e0b" stroke="white" stroke-width="1"/>
+      <rect x="84" y="53" width="36" height="4" rx="2" fill="var(--color-foreground)" opacity="0.12"/>
+      <!-- Card 3 - defense -->
+      <rect x="14" y="66" width="62" height="30" rx="4" fill="#fafbfc" stroke="var(--color-border)" stroke-width="0.75"/>
+      <circle cx="28" cy="76" r="2.5" fill="#ef4444" stroke="white" stroke-width="1"/><circle cx="36" cy="76" r="2.5" fill="#ef4444" stroke="white" stroke-width="1"/><circle cx="44" cy="76" r="2.5" fill="#ef4444" stroke="white" stroke-width="1"/><circle cx="36" cy="80" r="2.5" fill="#a855f7" stroke="white" stroke-width="1"/>
+      <rect x="14" y="89" width="44" height="4" rx="2" fill="var(--color-foreground)" opacity="0.12"/>
+      <!-- Card 4 - offense -->
+      <rect x="84" y="66" width="62" height="30" rx="4" fill="#fafbfc" stroke="var(--color-border)" stroke-width="0.75"/>
+      <circle cx="98" cy="76" r="2.5" fill="#f97316" stroke="white" stroke-width="1"/><circle cx="106" cy="76" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/><circle cx="114" cy="80" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/><circle cx="106" cy="80" r="2.5" fill="#f59e0b" stroke="white" stroke-width="1"/>
+      <rect x="84" y="89" width="38" height="4" rx="2" fill="var(--color-foreground)" opacity="0.12"/>
     </svg>`,
   },
   {
@@ -262,25 +293,29 @@ const features = [
     description: 'Full roster with positions, starters, and 40+ offensive & defensive attributes per player.',
     icon: Users,
     span: 'bento-normal',
-    visual: `<svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
-      <circle cx="35" cy="25" r="8" fill="#f97316" opacity="0.2" stroke="#f97316" stroke-width="1"/>
-      <circle cx="60" cy="25" r="8" fill="#22c55e" opacity="0.2" stroke="#22c55e" stroke-width="1"/>
-      <circle cx="85" cy="25" r="8" fill="#3b82f6" opacity="0.2" stroke="#3b82f6" stroke-width="1"/>
-      <text x="35" y="28" text-anchor="middle" font-size="7" fill="#f97316" font-weight="600">QB</text>
-      <text x="60" y="28" text-anchor="middle" font-size="7" fill="#22c55e" font-weight="600">WR</text>
-      <text x="85" y="28" text-anchor="middle" font-size="7" fill="#3b82f6" font-weight="600">DB</text>
-      <rect x="20" y="44" width="30" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="20" y="44" width="22" height="4" rx="2" fill="#f97316" opacity="0.6"/>
-      <rect x="45" y="44" width="30" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="45" y="44" width="26" height="4" rx="2" fill="#22c55e" opacity="0.6"/>
-      <rect x="70" y="44" width="30" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="70" y="44" width="18" height="4" rx="2" fill="#3b82f6" opacity="0.6"/>
-      <rect x="20" y="52" width="30" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="20" y="52" width="15" height="4" rx="2" fill="#f97316" opacity="0.4"/>
-      <rect x="45" y="52" width="30" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="45" y="52" width="28" height="4" rx="2" fill="#22c55e" opacity="0.4"/>
-      <rect x="70" y="52" width="30" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="70" y="52" width="24" height="4" rx="2" fill="#3b82f6" opacity="0.4"/>
+    visual: `<svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
+      <rect x="8" y="6" width="144" height="108" rx="8" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
+      <!-- Player identity row -->
+      <circle cx="30" cy="24" r="12" fill="#f97316" stroke="white" stroke-width="2"/>
+      <text x="30" y="27" text-anchor="middle" font-size="8" fill="white" font-weight="700">QB</text>
+      <rect x="48" y="17" width="52" height="6" rx="3" fill="var(--color-foreground)" opacity="0.2"/>
+      <text x="48" y="30" font-size="7" fill="var(--color-muted-foreground)">#7</text>
+      <!-- Starter badge -->
+      <rect x="108" y="17" width="34" height="12" rx="6" fill="#22c55e" opacity="0.15" stroke="#22c55e" stroke-width="0.75"/>
+      <text x="125" y="26" text-anchor="middle" font-size="7" fill="#22c55e" font-weight="600">Starter</text>
+      <!-- Attribute bars -->
+      <text x="16" y="52" font-size="7" fill="var(--color-muted-foreground)">Speed</text>
+      <rect x="56" y="46" width="88" height="6" rx="3" fill="var(--color-border)" opacity="0.5"/>
+      <rect x="56" y="46" width="75" height="6" rx="3" fill="#f97316" opacity="0.7"/>
+      <text x="16" y="66" font-size="7" fill="var(--color-muted-foreground)">Arm Str</text>
+      <rect x="56" y="60" width="88" height="6" rx="3" fill="var(--color-border)" opacity="0.5"/>
+      <rect x="56" y="60" width="62" height="6" rx="3" fill="#f97316" opacity="0.7"/>
+      <text x="16" y="80" font-size="7" fill="var(--color-muted-foreground)">Accuracy</text>
+      <rect x="56" y="74" width="88" height="6" rx="3" fill="var(--color-border)" opacity="0.5"/>
+      <rect x="56" y="74" width="79" height="6" rx="3" fill="#f97316" opacity="0.7"/>
+      <text x="16" y="94" font-size="7" fill="var(--color-muted-foreground)">Throw OTR</text>
+      <rect x="56" y="88" width="88" height="6" rx="3" fill="var(--color-border)" opacity="0.5"/>
+      <rect x="56" y="88" width="40" height="6" rx="3" fill="#f97316" opacity="0.7"/>
     </svg>`,
   },
   {
@@ -288,24 +323,47 @@ const features = [
     description: 'AI-driven engine simulates QB reads, defensive AI, flag pulls, and every outcome — completions, picks, sacks, scrambles.',
     icon: FlaskConical,
     span: 'bento-wide',
-    visual: `<svg viewBox="0 0 200 90" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
-      <rect x="10" y="5" width="180" height="70" rx="6" fill="#2d7a45" opacity="0.12"/>
-      <line x1="10" y1="40" x2="190" y2="40" stroke="#f97316" stroke-width="0.8" opacity="0.4" stroke-dasharray="4 2"/>
-      <circle cx="100" cy="48" r="4" fill="#f97316" opacity="0.8"/>
-      <circle cx="70" cy="42" r="3" fill="#22c55e" opacity="0.8"/>
-      <circle cx="130" cy="42" r="3" fill="#22c55e" opacity="0.8"/>
-      <circle cx="100" cy="30" r="3" fill="#ef4444" opacity="0.8"/>
-      <circle cx="70" cy="25" r="3" fill="#ef4444" opacity="0.8"/>
-      <circle cx="130" cy="25" r="3" fill="#ef4444" opacity="0.8"/>
-      <path d="M100 48 Q110 35 130 42" stroke="#f97316" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.5"/>
-      <circle cx="115" cy="38" r="2" fill="#f59e0b" opacity="0.8">
-        <animateMotion dur="2s" repeatCount="indefinite" path="M0 0 Q10 -10 25 -5" />
+    visual: `<svg viewBox="0 0 260 130" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
+      <!-- Field -->
+      <rect x="8" y="6" width="244" height="100" rx="8" fill="#fafbfc" stroke="var(--color-border)" stroke-width="1"/>
+      <!-- Yard lines -->
+      <line x1="8" y1="30" x2="252" y2="30" stroke="rgba(59,130,246,0.18)" stroke-width="0.75"/>
+      <line x1="8" y1="56" x2="252" y2="56" stroke="rgba(59,130,246,0.18)" stroke-width="0.75"/>
+      <line x1="8" y1="82" x2="252" y2="82" stroke="rgba(59,130,246,0.18)" stroke-width="0.75"/>
+      <!-- LOS -->
+      <line x1="8" y1="66" x2="252" y2="66" stroke="rgba(59,130,246,0.65)" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <!-- Offense (moved from LOS) -->
+      <circle cx="130" cy="78" r="5" fill="#f97316" stroke="white" stroke-width="2"/>
+      <circle cx="130" cy="64" r="4" fill="#f59e0b" stroke="white" stroke-width="2"/>
+      <circle cx="60" cy="64" r="4" fill="#22c55e" stroke="white" stroke-width="2"/>
+      <circle cx="200" cy="58" r="4" fill="#22c55e" stroke="white" stroke-width="2"/>
+      <circle cx="165" cy="60" r="4" fill="#22c55e" stroke="white" stroke-width="2"/>
+      <!-- Defense -->
+      <circle cx="60" cy="38" r="4" fill="#ef4444" stroke="white" stroke-width="2"/>
+      <circle cx="200" cy="32" r="4" fill="#ef4444" stroke="white" stroke-width="2"/>
+      <circle cx="130" cy="26" r="4" fill="#ef4444" stroke="white" stroke-width="2"/>
+      <circle cx="110" cy="62" r="4" fill="#a855f7" stroke="white" stroke-width="2"/>
+      <circle cx="160" cy="44" r="4" fill="#3b82f6" stroke="white" stroke-width="2"/>
+      <!-- Throw arc (dashed) -->
+      <path d="M130 78 Q145 50 200 58" stroke="#f97316" stroke-width="1.5" stroke-dasharray="4 3" fill="none" opacity="0.6"/>
+      <!-- Animated ball -->
+      <circle r="3.5" fill="#fdd835" opacity="0.9">
+        <animateMotion dur="2.5s" repeatCount="indefinite" path="M130,78 Q145,50 200,58" keyPoints="0;1;1" keyTimes="0;0.6;1" calcMode="linear">
+          <mpath href="#simBallPath"/>
+        </animateMotion>
       </circle>
-      <rect x="10" y="80" width="180" height="4" rx="2" fill="var(--color-border)"/>
-      <rect x="10" y="80" width="120" height="4" rx="2" fill="var(--color-primary)" opacity="0.5"/>
-      <circle cx="30" cy="82" r="2.5" fill="var(--color-primary)"/>
-      <circle cx="70" cy="82" r="2.5" fill="var(--color-primary)"/>
-      <circle cx="110" cy="82" r="2.5" fill="var(--color-primary)"/>
+      <defs><path id="simBallPath" d="M130,78 Q145,50 200,58"/></defs>
+      <circle r="3.5" fill="#fdd835">
+        <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.05;0.55;0.65;1" dur="2.5s" repeatCount="indefinite"/>
+        <animateMotion dur="2.5s" repeatCount="indefinite" keyPoints="0;0;1;1;1" keyTimes="0;0.01;0.6;0.65;1" calcMode="linear">
+          <mpath href="#simBallPath"/>
+        </animateMotion>
+      </circle>
+      <!-- Timeline bar -->
+      <rect x="8" y="112" width="244" height="12" rx="6" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="0.75"/>
+      <rect x="8" y="112" width="200" height="12" rx="6" fill="var(--color-primary)" opacity="0.12"/>
+      <circle cx="44" cy="118" r="3.5" fill="#3b82f6"/><circle cx="100" cy="118" r="3.5" fill="#3b82f6"/>
+      <circle cx="156" cy="118" r="3.5" fill="#f97316"/><circle cx="210" cy="118" r="3.5" fill="#22c55e"/>
     </svg>`,
   },
   {
@@ -313,13 +371,30 @@ const features = [
     description: 'Generate public shareable links — anyone can view formations and routes without creating an account.',
     icon: Share2,
     span: 'bento-normal',
-    visual: `<svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
-      <circle cx="60" cy="30" r="14" fill="var(--color-primary)" opacity="0.1" stroke="var(--color-primary)" stroke-width="1"/>
-      <circle cx="30" cy="55" r="10" fill="var(--color-primary)" opacity="0.08" stroke="var(--color-primary)" stroke-width="0.8"/>
-      <circle cx="90" cy="55" r="10" fill="var(--color-primary)" opacity="0.08" stroke="var(--color-primary)" stroke-width="0.8"/>
-      <line x1="50" y1="38" x2="36" y2="49" stroke="var(--color-primary)" stroke-width="1" opacity="0.4"/>
-      <line x1="70" y1="38" x2="84" y2="49" stroke="var(--color-primary)" stroke-width="1" opacity="0.4"/>
-      <path d="M55 28 L65 28 L63 26 M65 28 L63 30" stroke="var(--color-primary)" stroke-width="1.5" opacity="0.6"/>
+    visual: `<svg viewBox="0 0 160 110" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
+      <!-- Browser frame -->
+      <rect x="8" y="6" width="144" height="98" rx="8" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
+      <!-- URL bar -->
+      <rect x="14" y="12" width="132" height="16" rx="4" fill="var(--color-accent)" stroke="var(--color-border)" stroke-width="0.5"/>
+      <!-- Lock icon (simple) -->
+      <rect x="20" y="17" width="5" height="4" rx="1" fill="var(--color-muted-foreground)" opacity="0.4"/>
+      <path d="M21 17 V15.5 A1.5 1.5 0 0 1 24 15.5 V17" stroke="var(--color-muted-foreground)" stroke-width="0.75" fill="none" opacity="0.4"/>
+      <text x="30" y="23" font-size="6.5" fill="var(--color-muted-foreground)" opacity="0.7">flaglab.app/s/a3f8...</text>
+      <!-- Mini play preview -->
+      <rect x="20" y="34" width="120" height="46" rx="4" fill="#fafbfc" stroke="var(--color-border)" stroke-width="0.5"/>
+      <line x1="20" y1="50" x2="140" y2="50" stroke="rgba(59,130,246,0.18)" stroke-width="0.5"/>
+      <line x1="20" y1="60" x2="140" y2="60" stroke="rgba(59,130,246,0.65)" stroke-width="1" stroke-dasharray="4 2"/>
+      <circle cx="80" cy="68" r="3" fill="#f97316" stroke="white" stroke-width="1.5"/>
+      <circle cx="80" cy="58" r="2.5" fill="#f59e0b" stroke="white" stroke-width="1"/>
+      <circle cx="52" cy="58" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/>
+      <circle cx="108" cy="58" r="2.5" fill="#22c55e" stroke="white" stroke-width="1"/>
+      <path d="M52 58 C52 48, 52 44, 40 40" stroke="#22c55e" stroke-width="1" fill="none"/>
+      <path d="M108 58 C108 48, 108 44, 120 40" stroke="#22c55e" stroke-width="1" fill="none"/>
+      <!-- Action buttons -->
+      <rect x="30" y="86" width="48" height="12" rx="6" fill="var(--color-primary)" opacity="0.9"/>
+      <text x="54" y="94" text-anchor="middle" font-size="6.5" fill="white" font-weight="600">Copy Link</text>
+      <rect x="84" y="86" width="40" height="12" rx="6" fill="var(--color-border)" opacity="0.6"/>
+      <text x="104" y="94" text-anchor="middle" font-size="6.5" fill="var(--color-foreground)" opacity="0.7">Share</text>
     </svg>`,
   },
   {
@@ -327,12 +402,33 @@ const features = [
     description: 'Get AI-powered play recommendations based on down, distance, and your team\'s strengths.',
     icon: Sparkles,
     span: 'bento-normal',
-    visual: `<svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
-      <path d="M60 15 L63 25 L73 25 L65 32 L68 42 L60 36 L52 42 L55 32 L47 25 L57 25 Z" fill="var(--color-primary)" opacity="0.15" stroke="var(--color-primary)" stroke-width="0.8"/>
-      <path d="M30 40 L32 46 L38 46 L33 50 L35 56 L30 52 L25 56 L27 50 L22 46 L28 46 Z" fill="var(--color-primary)" opacity="0.08" stroke="var(--color-primary)" stroke-width="0.5"/>
-      <path d="M90 40 L92 46 L98 46 L93 50 L95 56 L90 52 L85 56 L87 50 L82 46 L88 46 Z" fill="var(--color-primary)" opacity="0.08" stroke="var(--color-primary)" stroke-width="0.5"/>
-      <rect x="30" y="62" width="60" height="6" rx="3" fill="var(--color-border)"/>
-      <rect x="30" y="62" width="42" height="6" rx="3" fill="var(--color-primary)" opacity="0.3"/>
+    visual: `<svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="bento-svg">
+      <rect x="8" y="6" width="144" height="108" rx="8" fill="var(--color-card)" stroke="var(--color-border)" stroke-width="1"/>
+      <!-- Sparkle icon + header badge -->
+      <rect x="14" y="12" width="76" height="14" rx="7" fill="var(--color-primary)" opacity="0.1" stroke="var(--color-primary)" stroke-width="0.5"/>
+      <path d="M22 19 L23 16 L24 19 L27 20 L24 21 L23 24 L22 21 L19 20Z" fill="var(--color-primary)" opacity="0.8"/>
+      <text x="32" y="22" font-size="7" fill="var(--color-primary)" font-weight="600">AI Suggestion</text>
+      <!-- Down-distance pill -->
+      <rect x="14" y="32" width="38" height="12" rx="6" fill="var(--color-accent)" stroke="var(--color-border)" stroke-width="0.5"/>
+      <text x="33" y="41" text-anchor="middle" font-size="7" fill="var(--color-foreground)" opacity="0.7">2nd &amp; 5</text>
+      <!-- Play name -->
+      <text x="14" y="58" font-size="10" fill="var(--color-foreground)" font-weight="700">Slant Concept</text>
+      <!-- Mini formation dots -->
+      <circle cx="28" cy="78" r="3.5" fill="#f97316" stroke="white" stroke-width="1.5"/>
+      <circle cx="28" cy="68" r="3" fill="#f59e0b" stroke="white" stroke-width="1"/>
+      <circle cx="52" cy="68" r="3" fill="#22c55e" stroke="white" stroke-width="1"/>
+      <circle cx="76" cy="68" r="3" fill="#22c55e" stroke="white" stroke-width="1"/>
+      <circle cx="100" cy="68" r="3" fill="#22c55e" stroke="white" stroke-width="1"/>
+      <!-- Route hints -->
+      <path d="M52 68 C52 60, 62 56, 66 54" stroke="#22c55e" stroke-width="1" fill="none" opacity="0.5"/>
+      <path d="M76 68 C76 60, 86 56, 90 54" stroke="#22c55e" stroke-width="1" fill="none" opacity="0.5"/>
+      <!-- Confidence bar -->
+      <text x="14" y="96" font-size="7" fill="var(--color-muted-foreground)">87% match</text>
+      <rect x="14" y="100" width="132" height="6" rx="3" fill="var(--color-border)" opacity="0.5"/>
+      <rect x="14" y="100" width="115" height="6" rx="3" fill="#22c55e" opacity="0.6"/>
+      <!-- Sparkle decorations -->
+      <path d="M134 14 L135 12 L136 14 L138 15 L136 16 L135 18 L134 16 L132 15Z" fill="var(--color-primary)" opacity="0.25"/>
+      <path d="M140 28 L140.7 26.5 L141.4 28 L143 28.7 L141.4 29.4 L140.7 31 L140 29.4 L138.4 28.7Z" fill="var(--color-primary)" opacity="0.15"/>
     </svg>`,
   },
 ]
@@ -683,11 +779,11 @@ function animateCountUp() {
 
 .bento-svg {
   width: 100%;
-  max-width: 200px;
+  max-width: 260px;
   height: auto;
 }
 .bento-wide .bento-svg {
-  max-width: 280px;
+  max-width: 340px;
 }
 
 /* ── 4. How It Works ── */
@@ -840,132 +936,10 @@ function animateCountUp() {
   gap: 0.75rem;
 }
 
-.sim-field {
-  position: relative;
+.sim-svg {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  background: linear-gradient(180deg, #2d7a45 0%, #348c4f 100%);
+  height: auto;
   border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid color-mix(in oklch, var(--color-border) 50%, #2d7a45);
-}
-
-.sim-yard-line {
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  height: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.sim-los {
-  position: absolute;
-  left: 5%;
-  right: 5%;
-  top: 52%;
-  height: 0;
-  border-top: 2px solid #f97316;
-  opacity: 0.6;
-}
-
-.sim-player {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.sim-offense {
-  background: #f97316;
-  box-shadow: 0 0 6px rgba(249, 115, 22, 0.5);
-}
-
-.sim-wr {
-  background: #22c55e;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
-}
-
-.sim-defense {
-  background: #a855f7;
-  box-shadow: 0 0 6px rgba(168, 85, 247, 0.5);
-}
-
-.sim-db {
-  background: #ef4444;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
-}
-
-.sim-mlb {
-  background: #3b82f6;
-  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
-}
-
-.sim-route {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60px;
-  height: 80px;
-  overflow: visible;
-  pointer-events: none;
-}
-
-.sim-ball {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #fdd835;
-  box-shadow: 0 0 8px rgba(253, 216, 53, 0.6);
-  left: 50%;
-  top: 62%;
-  transform: translate(-50%, -50%);
-  animation: ballFly 3s ease-in-out infinite;
-}
-
-@keyframes ballFly {
-  0%, 100% { left: 50%; top: 62%; opacity: 0; }
-  10% { opacity: 1; }
-  50% { left: 78%; top: 45%; opacity: 1; }
-  60% { opacity: 0; }
-}
-
-.sim-timeline {
-  position: relative;
-  width: 100%;
-  height: 20px;
-  background: var(--color-card);
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-}
-
-.sim-timeline-fill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 82%;
-  background: linear-gradient(90deg, color-mix(in oklch, var(--color-primary) 15%, transparent), color-mix(in oklch, var(--color-primary) 30%, transparent));
-  border-radius: 10px;
-}
-
-.sim-event-dot {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  opacity: 0.6;
-}
-
-.sim-event-dot-active {
-  opacity: 1;
-  box-shadow: 0 0 6px color-mix(in oklch, var(--color-primary) 50%, transparent);
 }
 
 /* ── 6. Stats ── */

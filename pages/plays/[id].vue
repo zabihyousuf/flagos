@@ -64,6 +64,40 @@
           @set-primary-target="onSetPrimaryTarget"
           @toggle-zone-position="onToggleZonePosition"
         />
+        <div class="h-6 w-px min-w-px mx-2 shrink-0 bg-foreground/40 dark:bg-white/35" aria-hidden="true" />
+        <!-- Play test speed (offense only) -->
+        <DropdownMenu v-if="currentPlay?.play_type === 'offense'" v-model:open="playTestSpeedOpen">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="h-8 gap-1 text-muted-foreground hover:text-foreground font-medium"
+                  >
+                    <span class="text-[12px]">{{ playTest.playbackSpeed.value === 1 ? '1×' : playTest.playbackSpeed.value + '×' }}</span>
+                    <ChevronDown class="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Play test speed</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="center" class="w-32">
+            <DropdownMenuItem
+              v-for="speed in playTestSpeedOptions"
+              :key="speed"
+              class="text-[12px]"
+              :class="playTest.playbackSpeed.value === speed ? 'bg-accent' : ''"
+              @select="playTest.playbackSpeed.value = speed"
+            >
+              {{ speed }}×
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <TooltipProvider v-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value !== 'play_over'">
           <Tooltip>
             <TooltipTrigger as-child>
@@ -376,6 +410,10 @@ const { players, fetchPlayers } = usePlayers()
 const { profile, fetchProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
 const playTest = usePlayTest()
+
+/** Global play test speed multiplier (0.5x–3x). User can change before or during a test run. */
+const playTestSpeedOpen = ref(false)
+const playTestSpeedOptions = [0.5, 1, 1.5, 2, 2.5, 3]
 
 const viewMode = ref<'fit' | 'full'>('fit')
 

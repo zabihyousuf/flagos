@@ -820,6 +820,95 @@ export function useCanvasRenderer() {
   }
 
   /**
+   * Sample the motion path (line or curve through start + points) into a dense polyline for zigzag drawing.
+   */
+  function sampleMotionPathToPolyline(
+    start: { x: number; y: number },
+    points: { x: number; y: number }[],
+  ): { x: number; y: number }[] {
+    if (points.length === 0) return [start]
+    if (points.length === 1) return [start, points[0]]
+
+    const allPts = [start, ...points]
+    const alpha = 0.5
+    const out: { x: number; y: number }[] = []
+    const stepsPerSegment = 16
+
+    for (let i = 0; i < allPts.length - 1; i++) {
+      const p0 = allPts[Math.max(0, i - 1)]
+      const p1 = allPts[i]
+      const p2 = allPts[i + 1]
+      const p3 = allPts[Math.min(allPts.length - 1, i + 2)]
+
+      const d1 = Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2) ** alpha || 1
+      const d2 = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2) ** alpha || 1
+      const d3 = Math.sqrt((p3.x - p2.x) ** 2 + (p3.y - p2.y) ** 2) ** alpha || 1
+
+      const cp1x = p1.x + (p2.x - p0.x) / (3 * d1 / d2 + 3)
+      const cp1y = p1.y + (p2.y - p0.y) / (3 * d1 / d2 + 3)
+      const cp2x = p2.x - (p3.x - p1.x) / (3 * d3 / d2 + 3)
+      const cp2y = p2.y - (p3.y - p1.y) / (3 * d3 / d2 + 3)
+      const endX = p2.x
+      const endY = p2.y
+
+      const n = i === allPts.length - 2 ? stepsPerSegment + 1 : stepsPerSegment
+      for (let k = 0; k <= n; k++) {
+        const t = k / n
+        const u = 1 - t
+        const x = u * u * u * p1.x + 3 * u * u * t * cp1x + 3 * u * t * t * cp2x + t * t * t * endX
+        const y = u * u * u * p1.y + 3 * u * u * t * cp1y + 3 * u * t * t * cp2y + t * t * t * endY
+        if (k === 0 && i > 0) continue
+        out.push({ x, y })
+      }
+    }
+    return out.length ? out : [start, points[points.length - 1]]
+  }
+
+  /**
+   * Draw a zigzag (squiggle) line along a polyline. Uses perpendicular offsets that alternate ±amplitude every period along the path.
+   */
+  function strokeZigzagAlongPolyline(
+    ctx: CanvasRenderingContext2D,
+    polyline: { x: number; y: number }[],
+    amplitudePx: number,
+    periodPx: number,
+  ) {
+    if (polyline.length < 2) return
+    const zigzag: { x: number; y: number }[] = []
+    let tooth = 0
+    let distAccum = 0
+
+    for (let i = 0; i < polyline.length - 1; i++) {
+      const A = polyline[i]
+      const B = polyline[i + 1]
+      const dx = B.x - A.x
+      const dy = B.y - A.y
+      const segLen = Math.sqrt(dx * dx + dy * dy) || 1e-6
+      const ux = dx / segLen
+      const uy = dy / segLen
+      const perpX = -uy
+      const perpY = ux
+
+      let d = 0
+      while (d < segLen) {
+        const t = d / segLen
+        const px = A.x + t * dx
+        const py = A.y + t * dy
+        const off = (tooth % 2 === 0 ? 1 : -1) * amplitudePx
+        zigzag.push({ x: px + perpX * off, y: py + perpY * off })
+        tooth++
+        d += periodPx
+      }
+    }
+    zigzag.push(polyline[polyline.length - 1])
+
+    ctx.beginPath()
+    ctx.moveTo(zigzag[0].x, zigzag[0].y)
+    for (let i = 1; i < zigzag.length; i++) ctx.lineTo(zigzag[i].x, zigzag[i].y)
+    ctx.stroke()
+  }
+
+  /**
    * Draw a smooth curve through points using Catmull-Rom → Cubic Bezier conversion.
    * @param trimEndPx - When set, stop the curve short of the last point by this amount (so the route line doesn't pass through the arrow)
    */
@@ -950,20 +1039,17 @@ export function useCanvasRenderer() {
       })
     })
 
-    // Motion paths
+    // Motion paths (zigzag in normalized 0–1 coords; amplitude/period scaled for thumbnail)
     data.players.forEach((player) => {
       if (!player.motionPath?.length) return
       const pts = player.motionPath.map((p) => ({ x: p.x, y: p.y }))
+      const polyline = sampleMotionPathToPolyline({ x: player.x, y: player.y }, pts)
+      const amplitudeNorm = Math.max(0.002, 0.008)
+      const periodNorm = Math.max(0.008, 0.015)
       ctx.strokeStyle = motionColor
       ctx.lineWidth = Math.max(0.002, onePx * 0.5)
-      ctx.setLineDash([2 * onePx, 3 * onePx])
       ctx.globalAlpha = 0.8
-      ctx.beginPath()
-      ctx.moveTo(player.x, player.y)
-      if (pts.length === 1) ctx.lineTo(pts[0].x, pts[0].y)
-      else drawCurveSegment(ctx, { x: player.x, y: player.y }, pts)
-      ctx.stroke()
-      ctx.setLineDash([])
+      strokeZigzagAlongPolyline(ctx, polyline, amplitudeNorm, periodNorm)
       ctx.globalAlpha = 1
     })
 
@@ -1006,25 +1092,18 @@ export function useCanvasRenderer() {
       y: p.y * fieldH,
     }))
 
+    const polyline = sampleMotionPathToPolyline({ x: startX, y: startY }, points)
+    const amplitudePx = Math.max(1, 2.5 * scale)
+    const periodPx = Math.max(4, 8 * scale)
+
     ctx.save()
     ctx.strokeStyle = color
     ctx.lineWidth = Math.max(0.5, 2 * scale)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctx.setLineDash([4, 6])
     ctx.globalAlpha = 0.7
 
-    ctx.beginPath()
-    ctx.moveTo(startX, startY)
-
-    if (points.length === 1) {
-      ctx.lineTo(points[0].x, points[0].y)
-    } else {
-      drawCurveSegment(ctx, { x: startX, y: startY }, points)
-    }
-
-    ctx.stroke()
-    ctx.setLineDash([])
+    strokeZigzagAlongPolyline(ctx, polyline, amplitudePx, periodPx)
 
     // Small circle at the end of motion path
     if (points.length > 0) {

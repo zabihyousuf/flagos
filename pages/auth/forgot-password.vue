@@ -2,14 +2,14 @@
   <div class="auth-page">
     <header class="mb-10">
       <h1 class="font-display font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
-        Welcome back
+        Forgot password?
       </h1>
       <p class="mt-2 text-muted-foreground text-sm sm:text-base">
-        Sign in to your account to continue.
+        Enter your email and we’ll send you a link to reset your password.
       </p>
     </header>
 
-    <form @submit.prevent="handleLogin" class="space-y-5">
+    <form v-if="!sent" @submit.prevent="handleSubmit" class="space-y-5">
       <div class="space-y-2">
         <Label for="email" class="text-foreground font-medium">Email</Label>
         <Input
@@ -19,26 +19,6 @@
           placeholder="you@example.com"
           required
           autocomplete="email"
-          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
-        />
-      </div>
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <Label for="password" class="text-foreground font-medium">Password</Label>
-          <NuxtLink
-            to="/auth/forgot-password"
-            class="text-sm font-medium text-primary hover:underline"
-          >
-            Forgot password?
-          </NuxtLink>
-        </div>
-        <Input
-          id="password"
-          v-model="password"
-          type="password"
-          placeholder="••••••••"
-          required
-          autocomplete="current-password"
           class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
         />
       </div>
@@ -54,25 +34,28 @@
       >
         <span v-if="submitting" class="inline-flex items-center gap-2">
           <span class="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-          Signing in...
+          Sending...
         </span>
-        <span v-else>Sign in</span>
+        <span v-else>Send reset link</span>
       </Button>
-
-      <p class="text-center">
-        <NuxtLink
-          to="/auth/forgot-password"
-          class="text-sm font-medium text-muted-foreground hover:text-primary hover:underline"
-        >
-          Forgot your password?
-        </NuxtLink>
-      </p>
     </form>
 
+    <div v-else class="space-y-5">
+      <p class="text-sm text-muted-foreground bg-muted/50 rounded-lg px-4 py-3">
+        If an account exists for <strong class="text-foreground">{{ email }}</strong>, we’ve sent a password reset link. Check your inbox and spam folder.
+      </p>
+      <Button
+        variant="outline"
+        class="w-full h-11"
+        @click="sent = false; errorMsg = ''"
+      >
+        Send to a different email
+      </Button>
+    </div>
+
     <p class="mt-8 text-center text-sm text-muted-foreground">
-      Don’t have an account?
-      <NuxtLink to="/auth/signup" class="font-medium text-primary hover:underline ml-1">
-        Sign up
+      <NuxtLink to="/auth/login" class="font-medium text-primary hover:underline">
+        Back to sign in
       </NuxtLink>
     </p>
   </div>
@@ -84,20 +67,22 @@ definePageMeta({ layout: 'auth' })
 const client = useSupabaseClient()
 
 const email = ref('')
-const password = ref('')
 const errorMsg = ref('')
 const submitting = ref(false)
+const sent = ref(false)
 
-async function handleLogin() {
+async function handleSubmit() {
   submitting.value = true
   errorMsg.value = ''
   try {
-    const { error } = await client.auth.signInWithPassword({
-      email: email.value,
-      password: password.value,
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/reset-password`
+      : ''
+    const { error } = await client.auth.resetPasswordForEmail(email.value, {
+      redirectTo,
     })
     if (error) throw error
-    await navigateTo('/dashboard')
+    sent.value = true
   } catch (e: any) {
     errorMsg.value = e.message ?? 'Something went wrong. Try again.'
   } finally {

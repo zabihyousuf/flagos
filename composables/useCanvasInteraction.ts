@@ -248,8 +248,16 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     } else if (tool === 'motion') {
       const selectedId = options.selectedPlayerId.value
       if (selectedId) {
-        const cx = Math.max(0, Math.min(1, coords.x))
-        const cy = Math.max(0, Math.min(1, coords.y))
+        let cx = Math.max(0, Math.min(1, coords.x))
+        let cy = Math.max(0, Math.min(1, coords.y))
+        // Offense: motion cannot go past the line of scrimmage
+        const fs = options.fieldSettings.value
+        const totalLength = fs.field_length + fs.endzone_size * 2
+        const losY = (fs.endzone_size + fs.field_length - fs.line_of_scrimmage) / totalLength
+        const player = options.canvasData.value.players.find((p) => p.id === selectedId)
+        if (player?.side === 'offense') {
+          cy = Math.max(cy, losY)
+        }
         options.onAddMotionPoint(selectedId, cx, cy)
         options.onRequestRender()
       } else {

@@ -31,7 +31,7 @@
       <!-- Right: Form area (scrollable; centered for login, top-aligned for longer forms like signup) -->
       <div
         class="auth-form flex-1 min-h-0 overflow-y-auto flex justify-center"
-        :class="isLogin ? 'items-center' : 'items-start'"
+        :class="isCompactAuth ? 'items-center' : 'items-start'"
       >
         <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 py-8 sm:py-10 lg:py-12 shrink-0">
           <slot />
@@ -43,7 +43,9 @@
 
 <script setup lang="ts">
 const route = useRoute()
-const isLogin = computed(() => route.path === '/auth/login')
+const isCompactAuth = computed(() =>
+  ['/auth/login', '/auth/forgot-password', '/auth/reset-password'].includes(route.path)
+)
 </script>
 
 <style scoped>

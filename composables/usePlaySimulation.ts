@@ -696,6 +696,9 @@ export function usePlaySimulation() {
 
   // ── Shared movement helpers ────────────────────────────────────────────
 
+  /** Speed multiplier for all motion (pre-snap WR motion and post-snap QB rollout / receiver motion). Use 1.0 so motion speed matches route speed scale — a faster receiver (e.g. speed 10) will not be outrun by a slower QB (e.g. speed 8) rolling out. */
+  const MOTION_SPEED_MULTIPLIER = 1.0
+
   /** Pre-snap motion: only WRs move along their motion path before the ball is snapped. */
   function runPreSnapMotion(dt: number) {
     for (const p of players) {
@@ -703,7 +706,7 @@ export function usePlaySimulation() {
       if (p.canvas.position !== 'WR') continue
 
       const speedAttr = attr(p.roster, 'speed')
-      const motionSpeed = ypsToNorm(speedToYPS(speedAttr) * 0.65)
+      const motionSpeed = ypsToNorm(speedToYPS(speedAttr)) * MOTION_SPEED_MULTIPLIER
 
       p.motionDistTraveled += motionSpeed * dt
       if (p.motionDistTraveled >= p.motionTotalDist) {
@@ -726,19 +729,7 @@ export function usePlaySimulation() {
       if (p.id === qbId && !p.hasBall) continue
 
       const speedAttr = attr(p.roster, 'speed')
-      let motionSpeed: number
-
-      if (p.id === qbId) {
-        // QB rollout speed: speed + agility + throw_on_run
-        // Mobile QB (high attrs) rolls out near full sprint; pocket QB is sluggish
-        const agility = attr(p.roster, 'agility')
-        const throwOnRun = attr(p.roster, 'throw_on_run')
-        // Range: 0.6 (all 1s) to 1.1 (all 10s) — elite mobile QB is slightly faster than base sprint
-        const rolloutMul = 0.55 + (speedAttr / 10) * 0.15 + (agility / 10) * 0.2 + (throwOnRun / 10) * 0.2
-        motionSpeed = ypsToNorm(speedToYPS(speedAttr) * rolloutMul)
-      } else {
-        motionSpeed = ypsToNorm(speedToYPS(speedAttr) * 0.65) // Receiver motion is controlled
-      }
+      const motionSpeed = ypsToNorm(speedToYPS(speedAttr)) * MOTION_SPEED_MULTIPLIER
 
       p.motionDistTraveled += motionSpeed * dt
       if (p.motionDistTraveled >= p.motionTotalDist) {
