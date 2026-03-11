@@ -57,18 +57,56 @@
 
     <!-- Navigation -->
     <nav class="sidebar-nav">
-      <template v-for="(group, index) in navGroups" :key="index">
+      <template v-for="(group, index) in displayNavGroups" :key="index">
         <div v-if="!collapsed && (group.label || group.badge)" class="sidebar-group-label flex items-center gap-2">
           <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
           <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[12px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
         </div>
-        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="`${item.to}-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
+        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="`${item.to}-${item.isHistoryTrigger ? 'history' : ''}-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
           <Tooltip :ignore-non-keyboard-focus="true">
             <TooltipTrigger as-child>
+              <button
+                v-if="item.isHistoryTrigger"
+                type="button"
+                class="sidebar-nav-item w-full flex items-center justify-center"
+                aria-label="Simulation history"
+                @click="toggleHistoryPanel"
+              >
+                <component :is="item.icon" class="sidebar-nav-icon transition-transform duration-150 ease-out" :class="historyPanelOpen ? 'rotate-180' : ''" />
+              </button>
+              <div
+                v-else-if="item.to === '/simulation/play-lab' && !item.disabled && !collapsed"
+                class="sidebar-nav-item flex items-center gap-0"
+                :class="{ active: isActive(item.to) }"
+              >
+                <a href="/simulation/play-lab" class="flex-1 min-w-0 flex items-center gap-2 py-0 outline-none" @click.prevent="navigateTo('/simulation/play-lab')">
+                  <component :is="item.icon" class="sidebar-nav-icon shrink-0" />
+                  <span class="sidebar-nav-label">{{ item.label }}</span>
+                </a>
+                <button
+                  type="button"
+                  class="shrink-0 p-1.5 rounded hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-[transform,background] duration-150 ease-out"
+                  :class="historyPanelOpen ? 'rotate-180' : ''"
+                  aria-label="Simulation history"
+                  @click.stop.prevent="toggleHistoryPanel"
+                >
+                  <ChevronRight class="w-4 h-4" />
+                </button>
+              </div>
+              <a
+                v-else-if="item.to === '/simulation/play-lab' && !item.disabled && collapsed"
+                href="/simulation/play-lab"
+                class="sidebar-nav-item"
+                :class="{ active: isActive(item.to) }"
+                @click.prevent="navigateTo('/simulation/play-lab')"
+              >
+                <component :is="item.icon" class="sidebar-nav-icon" />
+                <span class="sidebar-nav-label">{{ item.label }}</span>
+              </a>
               <NuxtLink
-                v-if="!item.disabled"
+                v-else-if="!item.disabled"
                 :to="item.to"
                 class="sidebar-nav-item"
                 :class="{ active: isActive(item.to) }"
@@ -86,7 +124,7 @@
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </span>
             </TooltipTrigger>
-            <TooltipContent side="right" :side-offset="10" v-if="collapsed || item.tooltipDescription" :class="{ 'max-w-xs': item.tooltipDescription }">
+            <TooltipContent side="right" :side-offset="10" v-if="collapsed || item.tooltipDescription" :class="{ 'max-w-xs': item.tooltipDescription || item.isHistoryTrigger }">
               <span v-if="item.tooltipDescription" class="block whitespace-pre-line text-left">{{ item.tooltipDescription }}</span>
               <template v-else>{{ item.label }} <span v-if="item.disabled">(Coming Soon)</span></template>
             </TooltipContent>
@@ -162,6 +200,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
+  ChevronRight,
   Gamepad2,
   Play,
   FlaskConical,
@@ -247,6 +286,7 @@ interface NavItem {
   disabled?: boolean
   devOnly?: boolean
   tooltipDescription?: string
+  isHistoryTrigger?: boolean
 }
 
 interface NavGroup {
@@ -273,7 +313,8 @@ const navGroups: NavGroup[] = [
     label: 'blur.ai',
     items: [
       { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
-      { to: '/simulation/scenario', label: 'Play Lab', icon: FlaskConical, disabled: true, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
+      { to: '/simulation/play-lab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
+      { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
     ]
   }
 ]
@@ -283,7 +324,45 @@ function isActive(path: string) {
   return route.path.startsWith(path)
 }
 
+const sortedNavGroups = computed<NavGroup[]>(() =>
+  navGroups.map((group) => {
+    const sortedByEnabled = [...group.items].sort((a, b) => {
+      const aDisabled = !!a.disabled
+      const bDisabled = !!b.disabled
+      if (aDisabled === bDisabled) return 0
+      return aDisabled ? 1 : -1
+    })
+    if (group.label !== 'blur.ai') {
+      return { ...group, items: sortedByEnabled }
+    }
+    // Within blur.ai, keep enabled-first ordering, then float the currently active route to the top of that enabled block
+    const enabled = sortedByEnabled.filter((i) => !i.disabled)
+    const disabled = sortedByEnabled.filter((i) => i.disabled)
+    enabled.sort((a, b) => (isActive(b.to) ? 1 : 0) - (isActive(a.to) ? 1 : 0))
+    return {
+      ...group,
+      items: [...enabled, ...disabled],
+    }
+  })
+)
+
+const displayNavGroups = computed<NavGroup[]>(() => {
+  if (!collapsed.value) return sortedNavGroups.value
+  return sortedNavGroups.value.map((group) => {
+    if (group.label !== 'blur.ai') return group
+    const items: NavItem[] = []
+    for (const item of group.items) {
+      items.push(item)
+      if (item.to === '/simulation/play-lab') {
+        items.push({ to: '__history__', label: 'Simulation history', icon: ChevronRight, isHistoryTrigger: true })
+      }
+    }
+    return { ...group, items }
+  })
+})
+
 const { open: openSearch } = useAppSearch()
+const { isOpen: historyPanelOpen, toggle: toggleHistoryPanel } = useSimHistoryPanel()
 
 function openQuickPlay() {
   window.dispatchEvent(new CustomEvent('open-quick-play'))

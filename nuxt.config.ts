@@ -15,6 +15,9 @@ export default defineNuxtConfig({
     supabase: {
       serviceKey: process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
     },
+    public: {
+      engineUrl: process.env.NUXT_PUBLIC_ENGINE_URL ?? '',
+    },
   },
   supabase: {
     redirect: false,

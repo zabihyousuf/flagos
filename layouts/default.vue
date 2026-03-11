@@ -2,8 +2,12 @@
   <!-- Layout responsive down to 1024px (iPad Pro); lg = 1024px, xl = 1280px -->
   <div class="flex h-screen overflow-hidden">
     <AppSidebar />
-    <div class="flex flex-col flex-1 min-w-0 overflow-hidden bg-background">
-      <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-4 lg:p-6">
+    <SimHistorySidebar @select-job="onSelectHistoryJob" />
+    <div
+      class="flex flex-col flex-1 min-w-0 overflow-hidden bg-background"
+      @click="maybeCloseHistoryPanel"
+    >
+      <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-4 pb-2 lg:p-6 lg:pb-3">
         <AppBreadcrumb />
         <div class="flex-1 min-h-0 overflow-y-auto">
           <slot />
@@ -21,6 +25,18 @@
 <script setup lang="ts">
 useTheme() // Apply theme and listen for system preference changes
 useHead({ title: 'FlagLab' })
+const route = useRoute()
+const { close: closeHistoryPanel, isOpen: historyPanelOpen } = useSimHistoryPanel()
+
+function onSelectHistoryJob(job: { job_id: string }) {
+  closeHistoryPanel()
+  navigateTo({ path: '/simulation/play-lab', query: { job: job.job_id } })
+}
+
+function maybeCloseHistoryPanel() {
+  if (historyPanelOpen.value) closeHistoryPanel()
+}
+
 const { open } = useQuickPlay()
 const { shouldShowTutorial, showTutorial } = useTutorial()
 const { profile, fetchProfile } = useProfile()

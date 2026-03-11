@@ -304,6 +304,7 @@ export function usePlaySimulation() {
 
   // ── Start / Pause / Reset ──────────────────────────────────────────────
   function start() {
+    if (typeof requestAnimationFrame === 'undefined') return
     if (isRunning.value) return
     if (simulationState.value === 'idle' || simulationState.value === 'play_over') return
     isRunning.value = true
@@ -313,7 +314,7 @@ export function usePlaySimulation() {
 
   function pause() {
     isRunning.value = false
-    if (animFrameId != null) {
+    if (animFrameId != null && typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(animFrameId)
       animFrameId = null
     }
@@ -368,7 +369,7 @@ export function usePlaySimulation() {
     }
 
     syncPositions()
-    animFrameId = requestAnimationFrame(tick)
+    if (typeof requestAnimationFrame !== 'undefined') animFrameId = requestAnimationFrame(tick)
   }
 
   // ── Phase: Pre-snap ────────────────────────────────────────────────────

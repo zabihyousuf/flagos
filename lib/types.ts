@@ -262,3 +262,44 @@ export type CanvasTool = 'select' | 'straight' | 'curve' | 'option' | 'motion' |
 export type OffenseDesignation = 'Q' | 'X' | 'Y' | 'Z' | 'C'
 export type DefenseDesignation = 'R' | 'D1' | 'D2' | 'D3' | 'D4'
 
+export interface SimPlayer {
+  canvas_player_id: string
+  player_id: string | null
+  position: string
+  canvas_alignment: string | null
+  universal_attributes: {
+    speed: number
+    acceleration: number
+    stamina: number
+    football_iq: number
+    agility: number
+    playmaking: number
+    reaction_time: number
+    deceleration: number
+    change_of_direction: number
+    reach: number
+    body_control_balance: number
+    field_vision: number
+  }
+  position_attributes: Record<string, number>
+}
+
+export class EngineAuthError extends Error {
+  constructor(message = 'Unauthorized') { super(message); this.name = 'EngineAuthError' }
+}
+
+export class EngineValidationError extends Error {
+  constructor(message = 'Validation error') { super(message); this.name = 'EngineValidationError' }
+}
+
+export class EngineRateLimitError extends Error {
+  retryAfter: number
+  constructor(retryAfter = 60, message = 'Rate limit exceeded') {
+    super(message); this.name = 'EngineRateLimitError'; this.retryAfter = retryAfter
+  }
+}
+
+export class EngineUnavailableError extends Error {
+  constructor(message = 'Engine unavailable') { super(message); this.name = 'EngineUnavailableError' }
+}
+

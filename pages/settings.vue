@@ -414,7 +414,7 @@
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
-                  <SelectItem v-for="team in teams" :key="team.id" :value="team.id">
+                  <SelectItem v-for="team in selectableTeams" :key="team.id" :value="team.id">
                     {{ team.name }}
                   </SelectItem>
                 </SelectContent>
@@ -816,7 +816,9 @@ function debouncedProfileUpdate(updates: Partial<Profile>) {
   }, 500)
 }
 
-// Team selection
+// Team selection: only user-created teams (exclude Free Agent); dropdown shows "None" + these
+const selectableTeams = computed(() => teams.value.filter((t) => t.name !== 'Free Agent'))
+
 const selectedTeam = computed(() => {
   if (!profile.value?.default_team_id) return null
   return teams.value.find((t) => t.id === profile.value!.default_team_id) ?? null

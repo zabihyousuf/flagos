@@ -37,15 +37,15 @@ export function useRouteAnalysis() {
     return 1.0 - ((rr - 1) / 9) * 0.6
   }
 
-  /** Rusher effective speed (yd/s) - uses rush + get_off_burst like simulation. */
+  /** Rusher effective speed (yd/s). Speed sets max; rush/get_off use it (0.92–1.0 so 7 speed ≈ 4.9s 40yd at 7/7/7). */
   function getRusherSpeed(attributes?: any): number {
     const speedAttr = attributes?.speed ?? 5
     const rushAttr = attributes?.rush ?? 5
     const getOffAttr = attributes?.get_off_burst ?? 5
-    const baseYPS = 5 + (speedAttr / 10) * 5
-    const rushMul = 1.0 + (rushAttr / 10) * 0.2
-    const burstMul = 1.0 + (getOffAttr / 10) * 0.15
-    return baseYPS * rushMul * burstMul
+    const baseYPS = MAX_SPEED_1 + ((speedAttr - 1) / 9) * (MAX_SPEED_10 - MAX_SPEED_1)
+    const rushMul = 0.92 + (rushAttr / 10) * 0.08
+    const burstMul = 0.92 + (getOffAttr / 10) * 0.08
+    return Math.min(baseYPS, baseYPS * rushMul * burstMul)
   }
 
   function calculateDistance(p1: CanvasPoint, p2: CanvasPoint, fieldWidth: number, fieldLength: number): number {

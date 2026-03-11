@@ -5,13 +5,16 @@
         <h2 class="text-2xl font-semibold tracking-tight font-display">Locker Room</h2>
         <p class="text-muted-foreground text-sm mt-1">Manage your teams, roster, and player attributes.</p>
       </div>
-
+      <Button variant="outline" size="sm" class="h-8 text-xs" @click="exportPlayers(filteredPlayers)" :disabled="filteredPlayers.length === 0">
+        <Download class="w-3 h-3 mr-2" />
+        Export players
+      </Button>
     </div>
 
     <!-- Team tracking slots -->
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide font-display">Teams</h3>
+        <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wide font-display">Teams</h3>
         <Button size="sm" variant="ghost" class="text-xs h-8" @click="teamDialogOpen = true">
           <Plus class="w-3 h-3 mr-1.5" />
           New Team
@@ -28,7 +31,7 @@
           <div class="space-y-1">
             <div class="flex items-center justify-between">
               <span
-                class="font-semibold text-sm"
+                class="font-bold text-sm"
                 :style="{ color: teamColorMap.get(team.id) ?? '#888' }"
               >
                 {{ team.name }}
@@ -60,6 +63,7 @@
                 v-for="t in availableTeamsForSlot"
                 :key="t.id"
                 :value="t.id"
+                class="font-bold"
               >
                 {{ t.name }}
               </SelectItem>
@@ -73,7 +77,7 @@
       <div class="space-y-4 min-w-0">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-4 min-w-0 flex-wrap">
-            <h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide font-display">Players</h3>
+            <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wide font-display">Players</h3>
             <div class="relative w-[200px]">
               <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input v-model="searchQuery" placeholder="Search..." class="pl-9 h-9" />
@@ -86,7 +90,7 @@
           </div>
 
           <div v-if="players.length > 0" class="flex flex-wrap items-center gap-2">
-          <TooltipProvider>
+          <TooltipProvider v-if="hasAnyStartersSelected">
             <Tooltip>
                <TooltipTrigger as-child>
                   <Button variant="outline" size="sm" class="h-8 text-xs" @click="handleResetStarters" :disabled="resettingStarters || autoingStarters || loading || players.length === 0">
@@ -107,7 +111,7 @@
                    <Button variant="outline" size="sm" class="h-8 text-xs" @click="handleAutoStarters" :disabled="autoingStarters || resettingStarters || loading || players.length === 0">
                      <Loader2 v-if="autoingStarters" class="w-3 h-3 mr-2 animate-spin" />
                      <Zap v-else class="w-3 h-3 mr-2" />
-                     Auto
+                     Auto starters
                    </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -115,18 +119,29 @@
                 </TooltipContent>
              </Tooltip>
           </TooltipProvider>
-            <Button variant="outline" size="sm" class="h-8 text-xs" @click="exportPlayers(filteredPlayers)" :disabled="filteredPlayers.length === 0">
-              <Download class="w-3 h-3 mr-2" />
-              Export
-            </Button>
-            <Button variant="outline" size="sm" class="h-8 text-xs" @click="openDialog(null)">
-              <Plus class="w-3 h-3 mr-2" />
-              Add Player
-            </Button>
-            <Button size="sm" class="h-8 text-xs" @click="bulkImportOpen = true">
-              <Plus class="w-3 h-3 mr-2" />
-              Add Players
-            </Button>
+            <div class="flex">
+              <Button variant="outline" size="sm" class="h-8 text-xs rounded-r-none border-r-0" @click="openDialog(null)">
+                <Plus class="w-3 h-3 mr-2" />
+                Add Player
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button variant="outline" size="sm" class="h-8 text-xs rounded-l-none px-2 border-l-0">
+                    <ChevronDown class="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @click="openDialog(null)">
+                    <Plus class="w-3.5 h-3.5 mr-2" />
+                    Add Player
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @click="bulkImportOpen = true">
+                    <Users class="w-3.5 h-3.5 mr-2" />
+                    Add multiple players
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -168,7 +183,7 @@
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Teams</SelectItem>
-              <SelectItem v-for="t in teams" :key="t.id" :value="t.id">{{ t.name }}</SelectItem>
+              <SelectItem v-for="t in teams" :key="t.id" :value="t.id" class="font-bold">{{ t.name }}</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -233,14 +248,29 @@
       <h3 class="font-medium text-lg font-display">No players yet</h3>
       <p class="text-muted-foreground text-sm mt-1">Add your first player to get started.</p>
       <div class="flex items-center justify-center gap-2 mt-4">
-        <Button @click="openDialog(null)">
-          <Plus class="w-4 h-4 mr-2" />
-          Add Player
-        </Button>
-        <Button variant="outline" @click="bulkImportOpen = true">
-          <Plus class="w-4 h-4 mr-2" />
-          Add Players
-        </Button>
+        <div class="flex">
+          <Button variant="outline" class="rounded-r-none border-r-0" @click="openDialog(null)">
+            <Plus class="w-4 h-4 mr-2" />
+            Add Player
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" class="rounded-l-none px-2 border-l-0">
+                <ChevronDown class="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem @click="openDialog(null)">
+                <Plus class="w-3.5 h-3.5 mr-2" />
+                Add Player
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="bulkImportOpen = true">
+                <Users class="w-3.5 h-3.5 mr-2" />
+                Add multiple players
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </div>
 
@@ -318,7 +348,7 @@
               />
             </TableCell>
             <TableCell class="font-bold text-primary">{{ p.number }}</TableCell>
-            <TableCell class="font-medium">{{ p.name }}</TableCell>
+            <TableCell>{{ p.name }}</TableCell>
             <TableCell>
               <div class="flex gap-1.5 flex-wrap">
                 <Badge
@@ -372,7 +402,7 @@
                 <span
                   v-for="team in getPlayerTeams(p.id)"
                   :key="team.id || 'fa'"
-                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold"
                   :class="team.name === 'Free Agent' ? 'bg-muted text-muted-foreground' : ''"
                   :style="team.color ? { backgroundColor: team.color + '20', color: team.color } : {}"
                 >
@@ -643,7 +673,7 @@
                                       >
                                          <Check v-if="inlineEdits!.team_ids.includes(team.id)" class="h-3 w-3" />
                                       </div>
-                                      <span class="text-sm">{{ team.name }}</span>
+                                      <span class="text-sm font-bold">{{ team.name }}</span>
                                    </div>
                                    <div v-if="teams.filter(t => t.name !== 'Free Agent').length === 0" class="p-2 text-sm text-muted-foreground text-center">
                                       No teams available
@@ -658,7 +688,7 @@
                                     v-for="team in getPlayerTeams(p.id).filter(t => t.name !== 'Free Agent')"
                                     :key="team.id"
                                     variant="outline"
-                                    class="text-xs font-medium border-0"
+                                    class="text-xs font-bold border-0"
                                     :style="{ backgroundColor: team.color + '20', color: team.color }"
                                   >
                                     {{ team.name }}
@@ -683,7 +713,7 @@
                                 <!-- Team Info -->
                                 <div class="flex items-center gap-3 min-w-0 flex-1">
                                    <span class="flex-shrink-0 w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: team.color }"></span>
-                                   <span class="font-medium text-sm truncate">{{ team.name }}</span>
+                                   <span class="font-bold text-sm truncate">{{ team.name }}</span>
                                 </div>
                                 
                                 <!-- Status Actions -->
@@ -1002,6 +1032,7 @@ import {
 } from 'lucide-vue-next'
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
 
 const SLOT_COLORS = ['#f97316', '#22c55e', '#a855f7']
 const ALL_POSITIONS = ['QB', 'WR', 'C', 'DB', 'RSH', 'MLB'] // Keep for filter compatibility if needed
@@ -1661,6 +1692,15 @@ function getPlayerTeamIds(playerId: string): string[] {
 }
 
 const freeAgentTeam = computed(() => teams.value.find((t) => t.name === 'Free Agent'))
+
+const hasAnyStartersSelected = computed(() => {
+  for (const team of teams.value) {
+    for (const tp of team.team_players ?? []) {
+      if (tp.offense_starter || tp.defense_starter) return true
+    }
+  }
+  return false
+})
 
 function getTeamInitial(name: string): string {
   return name.charAt(0).toUpperCase()

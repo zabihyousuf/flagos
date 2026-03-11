@@ -163,6 +163,7 @@ function handlePrint() {
 }
 
 function scheduleDraw() {
+  if (typeof requestAnimationFrame === 'undefined') return
   nextTick(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(draw)

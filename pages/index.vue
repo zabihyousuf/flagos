@@ -507,6 +507,7 @@ onMounted(() => {
 })
 
 function animateCountUp() {
+  if (typeof requestAnimationFrame === 'undefined') return
   const els = statNumbers.value
   if (!els?.length) return
   els.forEach((el) => {

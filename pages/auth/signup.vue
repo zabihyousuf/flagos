@@ -194,6 +194,7 @@ async function handleSignup() {
       password: password.value,
       options: {
         data: metadata,
+        emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/login` : '',
       },
     })
     if (error) throw error

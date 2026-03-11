@@ -419,6 +419,7 @@ watch([() => props.animatedPositions, () => props.animatedBall], () => {
 
 // Animation loop while a player is selected (for spinning dotted ring)
 watch(selectedPlayerId, (id) => {
+  if (typeof requestAnimationFrame === 'undefined' || typeof cancelAnimationFrame === 'undefined') return
   if (selectionAnimationId.value != null) {
     cancelAnimationFrame(selectionAnimationId.value)
     selectionAnimationId.value = null

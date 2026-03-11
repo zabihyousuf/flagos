@@ -41,6 +41,8 @@ const segments = computed<BreadcrumbSegment[]>(() => {
     '/whats-new': "What's New",
     '/simulation/game': 'Match Sim',
     '/simulation/scenario': 'Play Lab',
+    '/simulation/play-lab': 'Play Lab',
+    '/simulation/engine-picks': 'Engine Picks',
   }
 
   if (topLevel[path]) {
