@@ -176,7 +176,7 @@ import { useJobHistory } from '~/composables/useJobHistory'
 import { usePlayLabJob } from '~/composables/usePlayLabJob'
 
 const { isOpen, close } = useSimHistoryPanel()
-const { jobs, loading, error, fetchJobs } = useJobHistory()
+const { jobs, loading, error, fetchJobs, deleteJob: deleteJobFromDb } = useJobHistory()
 const { jobId: currentJobId } = usePlayLabJob()
 
 const isRefreshing = computed(() => loading.value)
@@ -261,8 +261,7 @@ async function deleteJob(jobId: string) {
     variant: 'destructive',
   })
   if (!ok) return
-  await $fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
-  jobs.value = jobs.value.filter((j) => j.job_id !== jobId)
+  await deleteJobFromDb(jobId)
   if (route.query.job === jobId) {
     navigateTo('/simulation/play-lab')
   }

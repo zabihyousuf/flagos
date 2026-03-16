@@ -6,8 +6,8 @@ const TRIAL_DAYS = 3
 
 const DEV_PRO_STORAGE_KEY = 'flagos-dev-pro-override'
 const DEV_TRIAL_ENDS_KEY = 'flagos-dev-trial-ends-at'
-/** Dev trial length so you can test expiry quickly (10 seconds). Used for dev button trial and for profile-based trial in dev. */
-const DEV_TRIAL_MS = 10 * 1000
+/** Dev trial length — same as production (3 days). Change to a small value (e.g. 10*1000) for quick expiry testing. */
+const DEV_TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000
 
 function getDevTrialEndsAtFromStorage(): string | null {
   if (import.meta.server || typeof localStorage === 'undefined') return null
@@ -81,7 +81,7 @@ export function usePlanAccess() {
     }
   }
 
-  /** Dev only: start or restart a short time-based trial (10 sec). Turns off Pro override so you see trial UI/banner. Resets banner dismissed. Each click resets the timer. */
+  /** Dev only: start or restart a time-based trial. Turns off Pro override so you see trial UI/banner. Resets banner dismissed. Each click resets the timer. */
   function startDevTrial() {
     setDevProOverride(false)
     trialBannerDismissed.value = false
@@ -90,6 +90,16 @@ export function usePlanAccess() {
     devTrialEndsAt.value = iso
     if (import.meta.client && typeof localStorage !== 'undefined') {
       localStorage.setItem(DEV_TRIAL_ENDS_KEY, iso)
+    }
+  }
+
+  /** Dev only: immediately expire the trial so the user becomes a free user. */
+  function stopDevTrial() {
+    setDevProOverride(false)
+    devTrialEndsAt.value = null
+    trialBannerDismissed.value = true
+    if (import.meta.client && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(DEV_TRIAL_ENDS_KEY)
     }
   }
 
@@ -147,6 +157,8 @@ export function usePlanAccess() {
     setDevProOverride,
     /** Dev only: start a time-based trial (TRIAL_DAYS). Persisted in localStorage. */
     startDevTrial,
+    /** Dev only: stop the trial and become a free user. */
+    stopDevTrial,
     trialBannerDismissed,
   }
 }

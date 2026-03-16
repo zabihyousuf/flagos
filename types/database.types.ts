@@ -14,41 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      bug_reports: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          image_urls: string[] | null
+          page_url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          image_urls?: string[] | null
+          page_url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          image_urls?: string[] | null
+          page_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      feature_requests: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          image_urls: string[] | null
+          page_url: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          image_urls?: string[] | null
+          page_url?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          image_urls?: string[] | null
+          page_url?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       field_settings: {
         Row: {
           created_at: string | null
+          default_defense_starter_count: number | null
+          default_ghost_defense_play_id: string | null
+          default_offense_starter_count: number | null
+          default_play_type: string | null
+          default_play_view: string | null
           endzone_size: number
           field_length: number
           field_width: number
-          first_down: number
+          first_down: number | null
           id: string
           line_of_scrimmage: number
+          show_ghost_defense_by_default: boolean | null
+          show_player_names_on_canvas: boolean | null
+          sidebar_start_collapsed: boolean | null
+          theme: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          default_defense_starter_count?: number | null
+          default_ghost_defense_play_id?: string | null
+          default_offense_starter_count?: number | null
+          default_play_type?: string | null
+          default_play_view?: string | null
           endzone_size?: number
           field_length?: number
           field_width?: number
-          first_down?: number
+          first_down?: number | null
           id?: string
           line_of_scrimmage?: number
+          show_ghost_defense_by_default?: boolean | null
+          show_player_names_on_canvas?: boolean | null
+          sidebar_start_collapsed?: boolean | null
+          theme?: string | null
           updated_at?: string | null
           user_id?: string
         }
         Update: {
           created_at?: string | null
+          default_defense_starter_count?: number | null
+          default_ghost_defense_play_id?: string | null
+          default_offense_starter_count?: number | null
+          default_play_type?: string | null
+          default_play_view?: string | null
           endzone_size?: number
           field_length?: number
           field_width?: number
-          first_down?: number
+          first_down?: number | null
           id?: string
           line_of_scrimmage?: number
+          show_ghost_defense_by_default?: boolean | null
+          show_player_names_on_canvas?: boolean | null
+          sidebar_start_collapsed?: boolean | null
+          theme?: string | null
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "field_settings_default_ghost_defense_play_id_fkey"
+            columns: ["default_ghost_defense_play_id"]
+            isOneToOne: false
+            referencedRelation: "plays"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       playbooks: {
         Row: {
@@ -184,6 +276,7 @@ export type Database = {
           default_team_id: string | null
           display_name: string | null
           id: string
+          tutorial_completed_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -191,6 +284,7 @@ export type Database = {
           default_team_id?: string | null
           display_name?: string | null
           id: string
+          tutorial_completed_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -198,9 +292,200 @@ export type Database = {
           default_team_id?: string | null
           display_name?: string | null
           id?: string
+          tutorial_completed_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
+      }
+      shared_plays: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          play_formation: string | null
+          play_id: string
+          play_name: string
+          play_snapshot: Json
+          play_type: string
+          share_token: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          play_formation?: string | null
+          play_id: string
+          play_name: string
+          play_snapshot: Json
+          play_type: string
+          share_token?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          play_formation?: string | null
+          play_id?: string
+          play_name?: string
+          play_snapshot?: Json
+          play_type?: string
+          share_token?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_plays_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "plays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          job_metadata: Json | null
+          job_type: string
+          progress: number
+          progress_label: string
+          result_ref: string | null
+          started_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id: string
+          job_metadata?: Json | null
+          job_type: string
+          progress?: number
+          progress_label?: string
+          result_ref?: string | null
+          started_at?: string | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_metadata?: Json | null
+          job_type?: string
+          progress?: number
+          progress_label?: string
+          result_ref?: string | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      sim_recordings: {
+        Row: {
+          carrier_id: string | null
+          created_at: string
+          forced_target_id: string | null
+          highlight_type: string
+          id: string
+          job_id: string
+          outcome: string
+          pass_completed: boolean | null
+          play_success: boolean | null
+          receiver_id: string | null
+          recording_json: Json
+          scenario_id: string
+          scenario_label: string | null
+          throw_distance: number | null
+          thrower_id: string | null
+          ticks: number | null
+          time_elapsed_seconds: number | null
+          yards_after_catch: number | null
+          yards_gained: number | null
+        }
+        Insert: {
+          carrier_id?: string | null
+          created_at?: string
+          forced_target_id?: string | null
+          highlight_type: string
+          id?: string
+          job_id: string
+          outcome: string
+          pass_completed?: boolean | null
+          play_success?: boolean | null
+          receiver_id?: string | null
+          recording_json: Json
+          scenario_id: string
+          scenario_label?: string | null
+          throw_distance?: number | null
+          thrower_id?: string | null
+          ticks?: number | null
+          time_elapsed_seconds?: number | null
+          yards_after_catch?: number | null
+          yards_gained?: number | null
+        }
+        Update: {
+          carrier_id?: string | null
+          created_at?: string
+          forced_target_id?: string | null
+          highlight_type?: string
+          id?: string
+          job_id?: string
+          outcome?: string
+          pass_completed?: boolean | null
+          play_success?: boolean | null
+          receiver_id?: string | null
+          recording_json?: Json
+          scenario_id?: string
+          scenario_label?: string | null
+          throw_distance?: number | null
+          thrower_id?: string | null
+          ticks?: number | null
+          time_elapsed_seconds?: number | null
+          yards_after_catch?: number | null
+          yards_gained?: number | null
+        }
+        Relationships: []
+      }
+      sim_results: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          result_json: Json
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          job_id: string
+          result_json: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          result_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_results_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "sim_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_players: {
         Row: {
@@ -279,136 +564,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      bug_reports: {
-        Row: {
-          id: string
-          user_id: string
-          description: string
-          image_urls: string[]
-          page_url: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          description: string
-          image_urls?: string[]
-          page_url?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          description?: string
-          image_urls?: string[]
-          page_url?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bug_reports_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      shared_plays: {
-        Row: {
-          id: string
-          play_id: string
-          user_id: string
-          share_token: string
-          is_active: boolean
-          play_snapshot: import('~/lib/types').CanvasData
-          play_name: string
-          play_type: string
-          play_formation: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          play_id: string
-          user_id: string
-          share_token?: string
-          is_active?: boolean
-          play_snapshot: import('~/lib/types').CanvasData
-          play_name: string
-          play_type: string
-          play_formation?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          play_id?: string
-          user_id?: string
-          share_token?: string
-          is_active?: boolean
-          play_snapshot?: import('~/lib/types').CanvasData
-          play_name?: string
-          play_type?: string
-          play_formation?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "shared_plays_play_id_fkey"
-            columns: ["play_id"]
-            isOneToOne: false
-            referencedRelation: "plays"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shared_plays_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      feature_requests: {
-        Row: {
-          id: string
-          user_id: string
-          type: string
-          content: string
-          image_urls: string[]
-          page_url: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          type: string
-          content: string
-          image_urls?: string[]
-          page_url?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          type?: string
-          content?: string
-          image_urls?: string[]
-          page_url?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feature_requests_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

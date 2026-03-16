@@ -87,25 +87,17 @@
               <div
                 v-else-if="item.to === '/simulation/play-lab' && !item.disabled && !collapsed"
                 class="sidebar-nav-button-group"
-                :class="{ active: isActive(item.to) && hasSimulationAccess, 'sidebar-nav-button-group--disabled': !hasSimulationAccess }"
+                :class="{ active: isActive(item.to) }"
               >
                 <a
-                  v-if="hasSimulationAccess"
                   href="/simulation/play-lab"
                   class="sidebar-nav-button-group-main"
-                  @click.prevent="navigateTo('/simulation/play-lab')"
+                  @click.prevent="goToPlayLab()"
                 >
                   <component :is="item.icon" class="sidebar-nav-icon shrink-0" />
                   <span class="sidebar-nav-label">{{ item.label }}</span>
                   <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 </a>
-                <span
-                  v-else
-                  class="sidebar-nav-button-group-main opacity-60 cursor-not-allowed pointer-events-none"
-                >
-                  <component :is="item.icon" class="sidebar-nav-icon shrink-0" />
-                  <span class="sidebar-nav-label">{{ item.label }}</span>
-                </span>
                 <button
                   type="button"
                   class="sidebar-nav-button-group-trigger"
@@ -119,23 +111,15 @@
               </div>
               <template v-else-if="item.to === '/simulation/play-lab' && !item.disabled && collapsed">
                 <a
-                  v-if="hasSimulationAccess"
                   href="/simulation/play-lab"
                   class="sidebar-nav-item"
                   :class="{ active: isActive(item.to) }"
-                  @click.prevent="navigateTo('/simulation/play-lab')"
+                  @click.prevent="goToPlayLab()"
                 >
                   <component :is="item.icon" class="sidebar-nav-icon" />
                   <span class="sidebar-nav-label">{{ item.label }}</span>
                   <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 </a>
-                <span
-                  v-else
-                  class="sidebar-nav-item opacity-60 cursor-not-allowed pointer-events-none"
-                >
-                  <component :is="item.icon" class="sidebar-nav-icon" />
-                  <span class="sidebar-nav-label">{{ item.label }}</span>
-                </span>
               </template>
               <NuxtLink
                 v-else-if="!item.disabled"
@@ -462,6 +446,16 @@ const { isOpen: historyPanelOpen, toggle: toggleHistoryPanel } = useSimHistoryPa
 
 function openQuickPlay() {
   window.dispatchEvent(new CustomEvent('open-quick-play'))
+}
+
+function goToPlayLab() {
+  const route = useRoute()
+  if (route.path === '/simulation/play-lab') {
+    navigateTo({ path: '/simulation/play-lab', query: {} }, { replace: true })
+    window.dispatchEvent(new CustomEvent('playlab:reset'))
+  } else {
+    navigateTo('/simulation/play-lab')
+  }
 }
 
 async function handleLogout() {

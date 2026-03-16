@@ -1,48 +1,94 @@
 import type { JobStatus, JobState } from '~/composables/usePlayLabJob'
 
-function mapBackendStatus(raw: string): JobState {
+function mapDbStatus(raw: string): JobState {
   const upper = raw.toUpperCase()
   if (upper === 'QUEUED') return 'PENDING'
   if (upper === 'RUNNING' || upper === 'COMPLETED' || upper === 'FAILED' || upper === 'CANCELLED') return upper as JobState
   return 'PENDING'
 }
 
-function normalizeJob(raw: Record<string, any>): JobStatus {
-  return {
-    job_id: raw.job_id ?? raw.id ?? '',
-    state: raw.state ?? mapBackendStatus(raw.status ?? 'queued'),
-    progress_percent: raw.progress_percent ?? (raw.progress != null ? raw.progress * 100 : undefined),
-    progress_label: raw.progress_label,
-    error: raw.error,
-    clamped: raw.clamped,
-    clamped_iterations: raw.clamped_iterations,
-    job_type: raw.job_type,
-    completed_at: raw.completed_at,
-    job_metadata: raw.job_metadata,
-    overall_success_rate: raw.overall_success_rate,
-  }
-}
-
 export function useJobHistory() {
-  const engine = useEngineClient()
+  const client = useSupabaseDB()
+  const user = useSupabaseUser()
   const jobs = ref<JobStatus[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchJobs(status?: string): Promise<JobStatus[]> {
+  async function fetchJobs(): Promise<JobStatus[]> {
+    if (!user.value) return []
     loading.value = true
     error.value = null
     try {
-      const path = status ? `/api/v1/jobs?status=${encodeURIComponent(status)}` : '/api/v1/jobs'
-      const { ok, data } = await engine.get<any[]>(path)
-      if (!ok) {
-        if (engine.engineError.value) error.value = engine.engineError.value
+      const { data: jobRows, error: jobErr } = await client
+        .from('sim_jobs')
+        .select('id, job_type, status, progress, progress_label, error, completed_at, created_at, job_metadata')
+        .eq('user_id', user.value.id)
+        .order('created_at', { ascending: false })
+        .limit(75)
+
+      if (jobErr) throw jobErr
+      if (!jobRows || jobRows.length === 0) {
+        jobs.value = []
         return []
       }
-      jobs.value = Array.isArray(data) ? data.map(normalizeJob) : []
+
+      const completedIds = jobRows
+        .filter((r: any) => r.status === 'completed')
+        .map((r: any) => r.id)
+
+      let rateMap = new Map<string, number>()
+      if (completedIds.length > 0) {
+        const { data: resultRows } = await client
+          .from('sim_results')
+          .select('job_id, result_json')
+          .in('job_id', completedIds)
+
+        if (resultRows) {
+          for (const row of resultRows as any[]) {
+            const rate = row.result_json?.overall_success_rate
+            if (typeof rate === 'number') rateMap.set(row.job_id, rate)
+          }
+        }
+      }
+
+      jobs.value = jobRows.map((row: any): JobStatus => ({
+        job_id: row.id,
+        state: mapDbStatus(row.status),
+        progress_percent: row.progress != null ? row.progress * 100 : undefined,
+        progress_label: row.progress_label || undefined,
+        error: row.error || undefined,
+        job_type: row.job_type,
+        completed_at: row.completed_at || undefined,
+        job_metadata: row.job_metadata || undefined,
+        overall_success_rate: rateMap.get(row.id),
+      }))
+
       return jobs.value
+    } catch (e: any) {
+      error.value = e.message ?? 'Failed to fetch simulation history'
+      return []
     } finally {
       loading.value = false
+    }
+  }
+
+  async function deleteJob(jobId: string): Promise<boolean> {
+    if (!user.value) return false
+    try {
+      await client.from('sim_recordings').delete().eq('job_id', jobId)
+      await client.from('sim_results').delete().eq('job_id', jobId)
+      const { error: err } = await client
+        .from('sim_jobs')
+        .delete()
+        .eq('id', jobId)
+        .eq('user_id', user.value.id)
+
+      if (err) throw err
+      jobs.value = jobs.value.filter((j) => j.job_id !== jobId)
+      return true
+    } catch (e: any) {
+      error.value = e.message ?? 'Failed to delete job'
+      return false
     }
   }
 
@@ -51,5 +97,6 @@ export function useJobHistory() {
     loading,
     error,
     fetchJobs,
+    deleteJob,
   }
 }

@@ -491,14 +491,23 @@
               <p class="text-sm font-medium text-foreground tabular-nums">Time remaining: {{ trialCountdownExact ?? '—' }}</p>
               <p class="text-xs text-muted-foreground mt-0.5">Your trial ends automatically; upgrade to Pro before then to keep access.</p>
             </div>
-            <Button
-              v-if="showDevProOverride"
-              variant="outline"
-              class="mt-4 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 dark:hover:border-amber-500"
-              @click="startDevTrial"
-            >
-              {{ hasSimulationAccess ? 'Restart' : 'Start' }} free trial (10 sec, dev only)
-            </Button>
+            <div v-if="showDevProOverride" class="mt-4 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                class="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 dark:hover:border-amber-500"
+                @click="startDevTrial"
+              >
+                {{ hasSimulationAccess ? 'Restart' : 'Start' }} free trial (3 days, dev only)
+              </Button>
+              <Button
+                v-if="isTrialing"
+                variant="outline"
+                class="border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
+                @click="stopDevTrial"
+              >
+                Stop trial (dev only)
+              </Button>
+            </div>
           </div>
 
           <!-- Dev only: activate Pro for testing -->
@@ -780,7 +789,7 @@ const user = useSupabaseUser()
 const { showTutorial } = useTutorial()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
-const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft, trialHoursLeft, trialMinutesLeft, trialCountdownExact, TRIAL_DAYS, devProOverride, setDevProOverride, startDevTrial } = usePlanAccess()
+const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft, trialHoursLeft, trialMinutesLeft, trialCountdownExact, TRIAL_DAYS, devProOverride, setDevProOverride, startDevTrial, stopDevTrial } = usePlanAccess()
 const runtimeConfig = useRuntimeConfig()
 const showDevProOverride = computed(() => !!(runtimeConfig.public as { showDevProOverride?: boolean }).showDevProOverride)
 const theme = useTheme()

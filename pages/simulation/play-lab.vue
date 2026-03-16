@@ -43,7 +43,7 @@
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
               >
-                1K iterations
+                500 scenarios · 100 iterations
               </span>
             </div>
           </div>
@@ -247,7 +247,7 @@
           <div class="space-y-2">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Run configuration</h2>
-              <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">100 per scenario</span>
+              <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">500 scenarios · 100 iterations</span>
             </div>
             <div class="space-y-1.5">
               <span class="text-xs font-medium">Scenarios</span>
@@ -258,15 +258,23 @@
                   :key="'sc-'+n"
                   class="flex flex-col items-center gap-0.5"
                 >
+                  <span
+                    v-if="!isPaidPro"
+                    class="text-[9px] font-semibold uppercase tracking-wider"
+                    :class="isScenarioAllowed(n) ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'"
+                  >
+                    {{ isScenarioAllowed(n) ? 'Free Trial' : 'Pro' }}
+                  </span>
                   <button
                     type="button"
                     class="px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors"
                     :class="[
+                      !isScenarioAllowed(n) && 'opacity-50 cursor-not-allowed',
                       configLocked && 'pointer-events-none opacity-60',
-                      nScenarios === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                      nScenarios === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : isScenarioAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
                     ]"
-                    :disabled="configLocked"
-                    @click="nScenarios = n"
+                    :disabled="configLocked || !isScenarioAllowed(n)"
+                    @click="isScenarioAllowed(n) && (nScenarios = n)"
                   >
                     {{ n >= 1000 ? (n / 1000) + 'K' : n }}
                   </button>
@@ -282,8 +290,12 @@
                   :key="n"
                   class="flex flex-col items-center gap-0.5"
                 >
-                  <span v-if="n === 100 || !isPaidPro" class="text-[9px] font-semibold uppercase tracking-wider" :class="n === 100 ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'">
-                    {{ n === 100 ? (isPaidPro ? '100' : 'Free') : 'Pro' }}
+                  <span
+                    v-if="!isPaidPro"
+                    class="text-[9px] font-semibold uppercase tracking-wider"
+                    :class="isIterationAllowed(n) ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'"
+                  >
+                    {{ isIterationAllowed(n) ? 'Free Trial' : 'Pro' }}
                   </span>
                   <button
                     type="button"
@@ -301,7 +313,7 @@
                 </div>
               </div>
               <p v-if="!isPaidPro" class="text-xs text-muted-foreground">
-                <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for 1K–100K iterations per scenario.
+                <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for up to 5K scenarios and 100K iterations.
               </p>
             </div>
             <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm space-y-1">
@@ -818,11 +830,20 @@ const attributeTiersOrdered = computed(() => {
   return order.map((id) => attributeTiers.find((t) => t.id === id)).filter(Boolean) as typeof attributeTiers
 })
 
-/** Everyone sees all options; Free can only select 100 */
 const iterationOptions = [100, 1000, 10000, 100000]
-const isIterationAllowed = (n: number) => n === 100 || hasProAccess.value
-const maxIterationsForPlan = computed(() => (hasProAccess.value ? 100000 : 100))
+const isIterationAllowed = (n: number) => {
+  if (isPaidPro.value) return true
+  if (isTrialing.value) return n === 100
+  return n === 100
+}
+const maxIterationsForPlan = computed(() => (isPaidPro.value ? 100000 : 100))
 const scenarioOptions = [500, 1000, 2000, 5000]
+const isScenarioAllowed = (n: number) => {
+  if (isPaidPro.value) return true
+  if (isTrialing.value) return n === 500
+  return n === 500
+}
+const maxScenariosForPlan = computed(() => (isPaidPro.value ? 5000 : 500))
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
 const { resolveRoster, resolveRosterWithFallback, countStarters } = useSimRoster(teams)
@@ -849,8 +870,8 @@ async function fetchReplaysForJob(jobId: string) {
   replaysLoading.value = true
   replaysFromDb.value = []
   try {
-    const supabase = useSupabaseClient()
-    const { data, error } = await (supabase as any)
+    const supabase = useSupabaseDB()
+    const { data, error } = await supabase
       .from('sim_recordings')
       .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, ticks, carrier_id, thrower_id, receiver_id, recording_json')
       .eq('job_id', jobId)
@@ -1016,7 +1037,7 @@ watch(
         if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
         if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
         if (meta.n_iterations) nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
-        if (meta.n_scenarios) nScenarios.value = meta.n_scenarios
+        if (meta.n_scenarios) nScenarios.value = Math.min(meta.n_scenarios, maxScenariosForPlan.value)
       }
     } else {
       job.attachToJob(queryJobId)
@@ -1028,6 +1049,12 @@ watch(
 watch([nIterations, maxIterationsForPlan], () => {
   if (nIterations.value > maxIterationsForPlan.value) {
     nIterations.value = maxIterationsForPlan.value
+  }
+}, { immediate: true })
+
+watch([nScenarios, maxScenariosForPlan], () => {
+  if (nScenarios.value > maxScenariosForPlan.value) {
+    nScenarios.value = maxScenariosForPlan.value
   }
 }, { immediate: true })
 
@@ -1433,6 +1460,7 @@ async function runSimulation() {
   defenseBasePlayerWarnings.value = defResult.warnings
 
   const effectiveIterations = Math.min(nIterations.value, maxIterationsForPlan.value)
+  const effectiveScenarios = Math.min(nScenarios.value, maxScenariosForPlan.value)
   const ok = await job.startJob(
     {
       offensive_play: play.canvas_data,
@@ -1441,7 +1469,7 @@ async function runSimulation() {
       field_settings: fs,
       offensive_players: offResult.players,
       n_iterations: effectiveIterations,
-      n_scenarios: nScenarios.value,
+      n_scenarios: effectiveScenarios,
       variation_seed: null,
       auto_generate: true,
     },
@@ -1450,7 +1478,7 @@ async function runSimulation() {
       offensive_play_id: play.id,
       defensive_play_name: firstDefPlay.name,
       defensive_play_id: firstDefPlay.id,
-      n_scenarios: nScenarios.value,
+      n_scenarios: effectiveScenarios,
       n_iterations: effectiveIterations,
       auto_generate: true,
     }
@@ -1483,12 +1511,26 @@ function exportResults() {
   URL.revokeObjectURL(a.href)
 }
 
+function handlePlayLabReset() {
+  job.reset()
+  configRailed.value = false
+  selectedPlayId.value = ''
+  selectedDefenseIds.value = []
+  nIterations.value = 100
+  nScenarios.value = 2000
+}
+
 onMounted(() => {
   fetchSettings()
   fetchPlayers()
   fetchTeams()
   fetchPlays()
   job.probeEngine()
+  window.addEventListener('playlab:reset', handlePlayLabReset)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('playlab:reset', handlePlayLabReset)
 })
 
 watch(

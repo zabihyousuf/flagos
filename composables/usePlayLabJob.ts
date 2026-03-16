@@ -231,6 +231,7 @@ function getStubBatchResult(jobId: string, nIterations: number, scenarioNames: s
 export function usePlayLabJob() {
   const config = useRuntimeConfig()
   const engine = useEngineClient()
+  const supabase = useSupabaseDB()
   const baseUrl = engine.baseUrl
   const useStub = !baseUrl
 
@@ -315,6 +316,7 @@ export function usePlayLabJob() {
           aggregated_by_field_zone: {},
           aggregated_by_rush_count: {},
           aggregated_by_press_rate_bucket: {},
+          per_receiver: [],
           best_10_scenarios: [],
           worst_10_scenarios: [],
           overall_completion_rate: 0,
@@ -362,9 +364,13 @@ export function usePlayLabJob() {
   }
 
   async function pollStatus() {
-    if (!jobId.value || !baseUrl || useStub) return
-    const { ok, data } = await engine.get<any>(`/api/v1/jobs/${jobId.value}`)
-    if (!ok || !data) return
+    if (!jobId.value || useStub) return
+    const { data, error } = await supabase
+      .from('sim_jobs')
+      .select('id, job_type, status, progress, progress_label, error, completed_at, job_metadata')
+      .eq('id', jobId.value)
+      .single()
+    if (error || !data) return
     const normalized = normalizeJobStatus(data)
     console.log('[poll-status]', normalized.state, normalized.progress_percent?.toFixed(0) + '%', normalized.progress_label)
     status.value = normalized
@@ -374,16 +380,21 @@ export function usePlayLabJob() {
   }
 
   async function pollResults() {
-    if (!jobId.value || !baseUrl || useStub) return
+    if (!jobId.value || useStub) return
     const currentState = status.value?.state
     if (!currentState || currentState === 'PENDING') return
-    const { ok, data } = await engine.get<any>(`/api/v1/jobs/${jobId.value}/result`)
-    if (!ok || !data) return
-    const mapped = resultToPartial(data)
-    console.log('[poll-results]', mapped.scenarios_completed, '/', mapped.scenarios_total, 'partial=', data.is_partial)
+    const { data, error } = await supabase
+      .from('sim_results')
+      .select('result_json')
+      .eq('job_id', jobId.value)
+      .single()
+    if (error || !data?.result_json) return
+    const resultData = data.result_json as Record<string, any>
+    const mapped = resultToPartial(resultData)
+    console.log('[poll-results]', mapped.scenarios_completed, '/', mapped.scenarios_total, 'partial=', resultData.is_partial)
     partialResult.value = mapped
-    if (!data.is_partial) {
-      result.value = data as BatchSimResult
+    if (!resultData.is_partial) {
+      result.value = resultData as BatchSimResult
     }
   }
 
@@ -423,9 +434,14 @@ export function usePlayLabJob() {
   }
 
   async function getJobStatus(id: string): Promise<JobStatus | null> {
-    if (useStub || !baseUrl) return null
-    const { ok, data } = await engine.get<any>(`/api/v1/jobs/${id}`)
-    return ok && data ? normalizeJobStatus(data) : null
+    if (useStub) return null
+    const { data, error } = await supabase
+      .from('sim_jobs')
+      .select('id, job_type, status, progress, progress_label, error, completed_at, job_metadata')
+      .eq('id', id)
+      .single()
+    if (error || !data) return null
+    return normalizeJobStatus(data)
   }
 
   async function cancelJob(): Promise<void> {
@@ -463,14 +479,21 @@ export function usePlayLabJob() {
   }
 
   async function loadResult(id: string): Promise<boolean> {
-    if (!baseUrl) return false
-    const [statusRes, resultRes] = await Promise.all([
-      engine.get<any>(`/api/v1/jobs/${id}`),
-      engine.get<any>(`/api/v1/jobs/${id}/result`),
+    const [jobRes, resultRes] = await Promise.all([
+      supabase
+        .from('sim_jobs')
+        .select('id, job_type, status, progress, progress_label, error, completed_at, job_metadata')
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('sim_results')
+        .select('result_json')
+        .eq('job_id', id)
+        .single(),
     ])
-    if (!statusRes.ok || !statusRes.data || !resultRes.ok || !resultRes.data) return false
-    const normalized = normalizeJobStatus(statusRes.data)
-    const resultData = resultRes.data
+    if (jobRes.error || !jobRes.data || resultRes.error || !resultRes.data?.result_json) return false
+    const normalized = normalizeJobStatus(jobRes.data)
+    const resultData = resultRes.data.result_json as Record<string, any>
     jobId.value = id
     status.value = { ...normalized, state: 'COMPLETED' as JobState }
     result.value = resultData as BatchSimResult
