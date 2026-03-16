@@ -8,6 +8,19 @@
         <div>
           <h2 class="text-2xl font-semibold tracking-tight font-display">Play Lab</h2>
           <p class="text-sm text-muted-foreground mt-1">Stress test a single play against defensive scenarios</p>
+          <div class="flex flex-wrap items-center gap-1.5 mt-2">
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+              :class="isPaidPro ? 'bg-primary/15 text-primary' : isTrialing ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
+            >
+              {{ isPaidPro ? 'Pro' : isTrialing ? (trialDaysLeft > 0 ? `Trial · ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : 'Trial') : 'Free' }} plan
+            </span>
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
+            >
+              {{ hasProAccess ? 'Up to 1M' : '1K' }} iterations
+            </span>
+          </div>
         </div>
       </div>
       <div class="flex flex-1 min-h-0 flex-col lg:flex-row gap-4 lg:gap-6 p-4 lg:p-6">
@@ -22,7 +35,7 @@
             <div v-show="!configRailed" class="p-4 lg:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 min-w-0">
           <div class="flex items-center justify-between gap-2 -mt-0.5">
             <p class="text-xs text-muted-foreground">Pick a play, defense, and run.</p>
-            <TooltipProvider v-if="job.jobId">
+            <TooltipProvider v-if="job?.jobId">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
@@ -86,7 +99,10 @@
           </div>
 
           <div class="space-y-2">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Defensive play</h2>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Defensive play</h2>
+              <span v-if="!hasProAccess" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary uppercase tracking-wide" title="Pro: multi-select">1 play</span>
+            </div>
             <DropdownMenu v-model:open="defenseDropdownOpen">
               <TooltipProvider>
                 <Tooltip>
@@ -98,14 +114,17 @@
                         :disabled="configLocked"
                       >
                         <span class="truncate">
-                          {{ selectedDefenseIds.length > 0 ? `${selectedDefenseIds.length} play(s) selected` : 'Select defensive plays' }}
+                          {{ hasProAccess
+                            ? (selectedDefenseIds.length > 0 ? `${selectedDefenseIds.length} play(s) selected` : 'Select defensive plays')
+                            : (selectedDefenseIds[0] ? (defensePlays.find(p => p.id === selectedDefenseIds[0])?.name ?? 'One selected') : 'Select one defensive play')
+                          }}
                         </span>
                         <ChevronDown class="h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="right" class="max-w-xs">
-                    <p>Multi-select: choose one or more defensive plays to run against.</p>
+                    <p>{{ hasProAccess ? 'Multi-select: choose one or more defensive plays to run against.' : 'Free plan: select one defensive play. Upgrade to Pro for multiple.' }}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -126,8 +145,17 @@
                     class="flex items-center gap-2 py-2 px-2 rounded cursor-pointer hover:bg-accent/50"
                   >
                     <Checkbox
+                      v-if="hasProAccess"
                       :model-value="selectedDefenseIds.includes(play.id)"
                       @update:model-value="toggleDefense(play.id)"
+                    />
+                    <input
+                      v-else
+                      type="radio"
+                      name="defense-single-free"
+                      :checked="selectedDefenseIds[0] === play.id"
+                      class="rounded-full border-input"
+                      @change="toggleDefense(play.id)"
                     />
                     <span class="text-sm truncate flex-1">{{ play.name }}</span>
                     <span class="text-xs text-muted-foreground shrink-0">{{ (play as PlayWithPb)._playbookName }}</span>
@@ -142,28 +170,30 @@
             <div class="space-y-2">
               <span class="text-xs font-medium text-muted-foreground">Attribute tier</span>
               <div class="grid grid-cols-4 gap-1.5">
-                <button
-                  v-for="tier in attributeTiers"
+                <div
+                  v-for="tier in attributeTiersOrdered"
                   :key="tier.id"
-                  type="button"
-                  class="flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors"
-                  :class="[
-                    attributeTier === tier.id
-                      ? 'border-primary/50 bg-primary/10 text-primary ring-1 ring-primary/20'
-                      : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                    configLocked ? 'pointer-events-none opacity-60' : ''
-                  ]"
-                  :disabled="configLocked"
-                  @click="attributeTier = tier.id"
+                  class="flex flex-col items-center gap-0.5"
                 >
-                  <span>{{ tier.label }}</span>
-                  <span
-                    class="text-[10px] font-normal opacity-80"
-                    :class="attributeTier === tier.id ? 'text-primary/80' : 'text-muted-foreground'"
-                  >
-                    {{ tier.hint }}
+                  <span class="text-[9px] font-semibold uppercase tracking-wider" :class="(tier.id === 'poor' || tier.id === 'average') ? 'text-muted-foreground' : 'text-primary'">
+                    {{ (tier.id === 'poor' || tier.id === 'average') ? 'Free' : 'Pro' }}
                   </span>
-                </button>
+                  <button
+                    type="button"
+                    class="w-full flex flex-col items-center justify-center gap-0 rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
+                    :class="[
+                      attributeTier === tier.id
+                        ? 'border-primary/50 bg-primary/10 text-primary ring-1 ring-primary/20'
+                        : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                      (configLocked || (!hasProAccess && (tier.id === 'as_is' || tier.id === 'elite'))) && 'pointer-events-none opacity-50 cursor-not-allowed'
+                    ]"
+                    :disabled="configLocked || (!hasProAccess && (tier.id === 'as_is' || tier.id === 'elite'))"
+                    :title="attributeTiers.find(t => t.id === tier.id)?.description"
+                    @click="(configLocked || (!hasProAccess && (tier.id === 'as_is' || tier.id === 'elite'))) || (attributeTier = tier.id)"
+                  >
+                    {{ tier.label }}
+                  </button>
+                </div>
               </div>
               <p class="text-xs text-muted-foreground leading-relaxed">
                 {{ attributeTiers.find(t => t.id === attributeTier)?.description }}
@@ -172,26 +202,40 @@
           </div>
 
           <div class="space-y-2">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Run configuration</h2>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Run configuration</h2>
+              <span v-if="!hasProAccess" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">1K max</span>
+            </div>
             <div class="space-y-1.5">
               <span class="text-xs font-medium">Iterations</span>
-              <div class="flex gap-2 items-center flex-wrap">
-                <button
+              <div class="flex gap-1.5 items-end flex-wrap">
+                <div
                   v-for="n in iterationOptions"
                   :key="n"
-                  type="button"
-                  class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors shadow-sm"
-                  :class="[
-                    nIterations === n ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : 'bg-muted/50 text-muted-foreground hover:text-foreground',
-                    configLocked ? 'pointer-events-none opacity-60' : ''
-                  ]"
-                  :disabled="configLocked"
-                  @click="nIterations = n"
+                  class="flex flex-col items-center gap-0.5"
                 >
-                  {{ n >= 1e6 ? '1M' : n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : '1K' }}
-                </button>
+                  <span class="text-[9px] font-semibold uppercase tracking-wider" :class="n === 1000 ? 'text-muted-foreground' : 'text-primary'">
+                    {{ n === 1000 ? 'Free' : 'Pro' }}
+                  </span>
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors"
+                    :class="[
+                      !isIterationAllowed(n) && 'opacity-50 cursor-not-allowed',
+                      configLocked && 'pointer-events-none opacity-60',
+                      nIterations === n ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : isIterationAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
+                    ]"
+                    :disabled="configLocked || !isIterationAllowed(n)"
+                    @click="isIterationAllowed(n) && (nIterations = n)"
+                  >
+                    {{ n >= 1e6 ? '1M' : n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : '1K' }}
+                  </button>
+                </div>
               </div>
               <p class="text-xs text-muted-foreground">{{ iterationTimeHint }}</p>
+              <p v-if="!hasProAccess" class="text-xs text-muted-foreground">
+                <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for 10K–1M iterations.
+              </p>
             </div>
             <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm">
               <p class="text-xs font-medium text-muted-foreground mb-1">Field settings</p>
@@ -202,7 +246,7 @@
 
           <div class="space-y-2">
             <ClientOnly>
-              <div v-if="job.engineDown" class="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-sm text-destructive">
+              <div v-if="job?.engineDown" class="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-sm text-destructive">
                 The simulation engine is unavailable. Please try again in a moment.
               </div>
             </ClientOnly>
@@ -217,16 +261,16 @@
             <Button
               class="w-full"
               size="lg"
-              :disabled="!canRun || job.status?.state === 'PENDING' || job.rateLimited || configLocked"
+              :disabled="!canRun || job?.status?.state === 'PENDING' || job?.rateLimited || configLocked"
               @click="runSimulation"
             >
-              {{ job.status?.state === 'PENDING' ? 'Starting...' : 'Run Simulation' }}
+              {{ job?.status?.state === 'PENDING' ? 'Starting...' : 'Run Simulation' }}
             </Button>
             <ClientOnly>
-              <p v-if="job.rateLimited && job.retryAfterSeconds > 0" class="text-sm text-amber-600 dark:text-amber-500">
-                You've submitted too many simulations. Try again in {{ job.retryAfterSeconds }} seconds.
+              <p v-if="job?.rateLimited && (job?.retryAfterSeconds ?? 0) > 0" class="text-sm text-amber-600 dark:text-amber-500">
+                You've submitted too many simulations. Try again in {{ job?.retryAfterSeconds ?? 0 }} seconds.
               </p>
-              <p v-else-if="job.runError" class="text-sm text-destructive">{{ job.runError }}</p>
+              <p v-else-if="job?.runError" class="text-sm text-destructive">{{ job?.runError }}</p>
             </ClientOnly>
           </div>
         </div>
@@ -256,7 +300,7 @@
       <main class="flex-1 min-w-0 flex flex-col bg-background overflow-y-auto min-h-0">
         <EngineStatus />
         <ClientOnly>
-        <template v-if="!job.jobId">
+        <template v-if="!job?.jobId">
           <div class="flex-1 flex flex-col items-center justify-center text-center p-8 min-h-[280px]">
             <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -266,9 +310,9 @@
           </div>
         </template>
 
-        <template v-else-if="job.status?.state === 'FAILED'">
+        <template v-else-if="job?.status?.state === 'FAILED'">
           <div class="flex-1 flex flex-col items-center justify-center text-center p-8">
-            <p class="text-destructive font-medium">{{ job.status?.error ?? 'Job failed' }}</p>
+            <p class="text-destructive font-medium">{{ job?.status?.error ?? 'Job failed' }}</p>
             <Button class="mt-4" variant="outline" @click="handleRunAgain">Start over</Button>
           </div>
         </template>
@@ -283,28 +327,26 @@
                   <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">
                     {{ selectedPlay?.name ?? 'Play' }}
                   </p>
-                  <p v-if="!job.isLoadedResult" class="text-sm text-muted-foreground">
-                    {{ job.status?.progress_label ?? 'Starting simulation…' }}
+                  <p v-if="!job?.isLoadedResult" class="text-sm text-muted-foreground">
+                    {{ job?.status?.progress_label ?? 'Starting simulation…' }}
                   </p>
                   <div v-else class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm text-muted-foreground">Completed {{ formatRelativeTime(job.loadedJobStatus?.completed_at) }}</span>
+                    <span class="text-sm text-muted-foreground">Completed {{ formatRelativeTime(job?.loadedJobStatus?.completed_at) }}</span>
                     <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">Archived result</span>
                   </div>
                 </div>
 
-                <div class="space-y-1.5">
-                  <div class="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>
-                      {{ scenariosCompleted }} of {{ scenariosTotal }} scenarios complete
-                    </span>
-                    <span v-if="!job.isLoadedResult">{{ formatElapsed(job.elapsedSeconds) }}</span>
-                  </div>
-                  <div class="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <span class="text-[11px] text-muted-foreground shrink-0">
+                    {{ scenariosCompleted }} of {{ scenariosTotal }} scenarios complete
+                  </span>
+                  <div class="h-1.5 rounded-full bg-muted overflow-hidden flex-1 min-w-[80px] max-w-[200px]">
                     <div
                       class="h-full rounded-full transition-all"
                       :style="progressBarStyle"
                     />
                   </div>
+                  <span v-if="!job?.isLoadedResult" class="text-[11px] text-muted-foreground shrink-0">{{ formatElapsed(job?.elapsedSeconds ?? 0) }}</span>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -313,14 +355,14 @@
                   </p>
                   <div class="flex items-center gap-2">
                     <Button
-                      v-if="job.status?.state === 'RUNNING' || job.status?.state === 'PENDING'"
+                      v-if="job?.status?.state === 'RUNNING' || job?.status?.state === 'PENDING'"
                       variant="outline"
                       size="sm"
                       @click="handleCancel"
                     >
                       Cancel
                     </Button>
-                    <template v-if="job.status?.state === 'COMPLETED'">
+                    <template v-if="job?.status?.state === 'COMPLETED'">
                       <Button variant="outline" size="sm" @click="handleRunAgain">Run Again</Button>
                       <Button variant="secondary" size="sm" @click="exportResults">Export Results</Button>
                     </template>
@@ -328,16 +370,16 @@
                 </div>
 
                 <div
-                  v-if="job.status?.state === 'COMPLETED' && scenariosTotal > 0"
+                  v-if="job?.status?.state === 'COMPLETED' && scenariosTotal > 0"
                   class="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary shadow-sm"
                 >
                   Simulation complete — {{ nIterations.toLocaleString() }} iterations across {{ scenariosTotal }} scenarios.
                 </div>
                 <p
-                  v-if="job.status?.clamped && job.status?.clamped_iterations != null"
+                  v-if="job?.status?.clamped && job?.status?.clamped_iterations != null"
                   class="text-xs text-muted-foreground"
                 >
-                  Iterations reduced to {{ job.status.clamped_iterations.toLocaleString() }} (server maximum)
+                  Iterations reduced to {{ job?.status?.clamped_iterations?.toLocaleString() }} (server maximum)
                 </p>
               </div>
 
@@ -590,12 +632,23 @@ const attributeTiers: { id: string; label: string; description: string; hint: st
   { id: 'elite', label: 'Elite', description: 'All attributes boosted to elite tier (8).', hint: '8' },
 ]
 
-const iterationOptions = [1000, 10000, 100000, 1000000]
-
 const route = useRoute()
 const client = useSupabaseDB()
 const user = useSupabaseUser()
+const { profile } = useProfile()
+const { hasProAccess, isPaidPro, isTrialing, trialDaysLeft } = usePlanAccess()
 const { settings: fieldSettings, fetchSettings } = useFieldSettings()
+
+/** Free: Poor, Average, As-Is, Elite. Pro/trial: As-Is, Poor, Average, Elite. */
+const attributeTiersOrdered = computed(() => {
+  const order = hasProAccess.value ? ['as_is', 'poor', 'average', 'elite'] : ['poor', 'average', 'as_is', 'elite']
+  return order.map((id) => attributeTiers.find((t) => t.id === id)).filter(Boolean) as typeof attributeTiers
+})
+
+/** Everyone sees all options; Free can only select 1K */
+const iterationOptions = [1000, 10000, 100000, 1000000]
+const isIterationAllowed = (n: number) => n === 1000 || hasProAccess.value
+const maxIterationsForPlan = computed(() => (hasProAccess.value ? 1000000 : 1000))
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
 const { resolveRoster } = useSimRoster(teams)
@@ -607,7 +660,16 @@ const displayedSuccessRate = ref(0)
 const configRailed = ref(false)
 const rosterErrors = ref<RosterError[]>([])
 
-const configLocked = computed(() => !!job.jobId)
+const configLocked = computed(() => !!job?.jobId)
+
+const playSearchQuery = ref('')
+const playDropdownOpen = ref(false)
+const selectedPlayId = ref<string>('')
+const defenseSearchQuery = ref('')
+const defenseDropdownOpen = ref(false)
+const selectedDefenseIds = ref<string[]>([])
+const attributeTier = ref('as_is')
+const nIterations = ref(1000)
 
 function maybeCloseHistoryPanel() {
   if (historyPanelOpen.value) closeHistoryPanel()
@@ -622,7 +684,7 @@ watch(
         configRailed.value = false
         selectedPlayId.value = ''
         selectedDefenseIds.value = []
-        nIterations.value = 10000
+        nIterations.value = 1000
       }
       return
     }
@@ -634,7 +696,7 @@ watch(
         const meta = job.loadedJobStatus.job_metadata
         if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
         if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
-        if (meta.n_iterations) nIterations.value = meta.n_iterations
+        if (meta.n_iterations) nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
       }
     } else {
       job.attachToJob(queryJobId)
@@ -642,6 +704,17 @@ watch(
   },
   { immediate: true },
 )
+
+watch([nIterations, maxIterationsForPlan], () => {
+  if (nIterations.value > maxIterationsForPlan.value) {
+    nIterations.value = maxIterationsForPlan.value
+  }
+}, { immediate: true })
+
+watch(hasProAccess, (access) => {
+  if (!access && (attributeTier.value === 'as_is' || attributeTier.value === 'elite')) attributeTier.value = 'average'
+  if (!access && selectedDefenseIds.value.length > 1) selectedDefenseIds.value = selectedDefenseIds.value.slice(0, 1)
+}, { immediate: true })
 
 function formatRelativeTime(iso: string | undefined): string {
   if (!iso) return '—'
@@ -658,15 +731,6 @@ function formatRelativeTime(iso: string | undefined): string {
     return '—'
   }
 }
-
-const playSearchQuery = ref('')
-const playDropdownOpen = ref(false)
-const selectedPlayId = ref<string>('')
-const defenseSearchQuery = ref('')
-const defenseDropdownOpen = ref(false)
-const selectedDefenseIds = ref<string[]>([])
-const attributeTier = ref('as_is')
-const nIterations = ref(10000)
 
 const allOffensivePlays = ref<PlayWithPb[]>([])
 const allDefensePlays = ref<PlayWithPb[]>([])
@@ -929,6 +993,11 @@ watch(
 )
 
 function toggleDefense(id: string) {
+  if (!hasProAccess.value) {
+    if (selectedDefenseIds.value[0] === id) selectedDefenseIds.value = []
+    else selectedDefenseIds.value = [id]
+    return
+  }
   const idx = selectedDefenseIds.value.indexOf(id)
   if (idx === -1) selectedDefenseIds.value = [...selectedDefenseIds.value, id]
   else selectedDefenseIds.value = selectedDefenseIds.value.filter((x) => x !== id)
@@ -989,6 +1058,7 @@ async function runSimulation() {
     return
   }
 
+  const effectiveIterations = Math.min(nIterations.value, maxIterationsForPlan.value)
   const ok = await job.startJob(
     {
       offensive_play: play.canvas_data,
@@ -996,7 +1066,7 @@ async function runSimulation() {
       defensive_players: defResult.players,
       field_settings: fs,
       offensive_players: offResult.players,
-      n_iterations: nIterations.value,
+      n_iterations: effectiveIterations,
       variation_seed: null,
       auto_generate: true,
     },
@@ -1006,7 +1076,7 @@ async function runSimulation() {
       defensive_play_name: firstDefPlay.name,
       defensive_play_id: firstDefPlay.id,
       n_scenarios: selectedDefenseIds.value.length,
-      n_iterations: nIterations.value,
+      n_iterations: effectiveIterations,
     }
   )
   if (ok) {

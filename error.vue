@@ -19,6 +19,9 @@
           Back to Dashboard
         </NuxtLink>
       </Button>
+      <p class="text-xs text-muted-foreground">
+        Need help? Contact <a href="mailto:support@flaglab.win" class="text-primary hover:underline">support@flaglab.win</a>
+      </p>
     </div>
   </div>
 </template>

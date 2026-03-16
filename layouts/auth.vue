@@ -35,6 +35,9 @@
       >
         <div class="w-full max-w-[400px] p-6 sm:p-8 lg:p-12 py-8 sm:py-10 lg:py-12 shrink-0">
           <slot />
+          <p class="mt-6 text-center text-xs text-muted-foreground">
+            Need help? <a href="mailto:support@flaglab.win" class="text-primary hover:underline">support@flaglab.win</a>
+          </p>
         </div>
       </div>
     </div>

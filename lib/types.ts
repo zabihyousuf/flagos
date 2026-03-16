@@ -4,6 +4,8 @@ export interface Profile {
   default_team_id: string | null
   /** When set, user has completed the onboarding tutorial */
   tutorial_completed_at?: string | null
+  /** Subscription plan: free = 1K iterations in Play Lab; pro = full iteration options */
+  plan?: 'free' | 'pro' | null
   created_at: string
   updated_at: string
 }

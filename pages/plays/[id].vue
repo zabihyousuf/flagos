@@ -44,8 +44,8 @@
         </div>
       </div>
 
-      <!-- Center: Toolbar -->
-      <div class="flex-1 flex justify-center items-center min-w-0 gap-1.5">
+      <!-- Center: Toolbar (relative z-10 so Share/Print stay clickable when right section overlaps) -->
+      <div class="relative z-10 flex-1 flex justify-center items-center min-w-0 gap-1.5">
         <CanvasToolbar
           v-if="canvasReady"
           :selected-tool="cSelectedTool"
@@ -133,41 +133,43 @@
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <TooltipProvider v-if="playId !== 'new'">
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-8 w-8"
-                @click="shareDialogOpen = true"
-              >
-                <Share2 class="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Share play</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-8 w-8"
-                :disabled="!currentPlay"
-                @click="handlePrint"
-              >
-                <Printer class="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Print play</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <TooltipProvider v-if="playId !== 'new'">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  class="h-8 w-8"
+                  @click="shareDialogOpen = true"
+                >
+                  <Share2 class="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Share play</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  class="h-8 w-8"
+                  :disabled="!currentPlay"
+                  @click="handlePrint"
+                >
+                  <Printer class="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Print play</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       <!-- Right: Ghost defense (offense only) + View Toggle + Save -->

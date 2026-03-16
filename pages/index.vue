@@ -199,6 +199,7 @@
       <div class="landing-container footer-inner">
         <span class="font-copernicus font-bold text-sm tracking-tight text-foreground">FlagLab</span>
         <p class="text-sm text-muted-foreground">&copy; {{ new Date().getFullYear() }} FlagLab. All rights reserved.</p>
+        <a href="mailto:support@flaglab.win" class="text-sm text-muted-foreground hover:text-foreground transition-colors">support@flaglab.win</a>
       </div>
     </footer>
   </div>
@@ -1014,7 +1015,9 @@ function animateCountUp() {
 
 .footer-inner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem 1rem;
 }
 </style>

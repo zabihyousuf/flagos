@@ -264,6 +264,17 @@
               </div>
             </div>
 
+            <!-- Help & support -->
+            <div class="general-row">
+              <Label class="general-label">Help & support</Label>
+              <div class="general-control">
+                <p class="text-sm">
+                  <a href="mailto:support@flaglab.win" class="text-primary hover:underline">support@flaglab.win</a>
+                </p>
+                <p class="text-xs text-muted-foreground mt-1">Questions, bugs, or feature requests.</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </template>
@@ -462,9 +473,38 @@
           <!-- Current plan -->
           <div class="billing-current mb-8">
             <span class="text-sm text-muted-foreground">Current plan</span>
-            <div class="flex items-center gap-2 mt-1">
-              <span class="font-semibold text-foreground">Free</span>
-              <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">Active</span>
+            <div class="flex items-center gap-2 mt-1 flex-wrap">
+              <span class="font-semibold text-foreground">
+                {{ isPaidPro ? 'Pro' : isTrialing ? 'Free trial' : 'Free' }}
+              </span>
+              <span
+                class="px-2 py-0.5 rounded-full text-xs font-medium"
+                :class="isPaidPro ? 'bg-primary/15 text-primary' : isTrialing ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
+              >
+                {{ isPaidPro ? 'Active' : isTrialing ? (trialDaysLeft > 0 ? `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : `${trialHoursLeft}h left`) : 'Active' }}
+              </span>
+            </div>
+            <p v-if="isTrialing" class="text-xs text-muted-foreground mt-1.5">
+              New users get a {{ TRIAL_DAYS }}-day free trial of Pro features. After the trial, only Free plan features are available until you upgrade.
+            </p>
+          </div>
+
+          <!-- Dev only: activate Pro for testing -->
+          <div v-if="showDevProOverride" class="mb-8 p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="text-sm font-medium text-foreground">Activate Pro (dev only)</p>
+                <p class="text-xs text-muted-foreground mt-0.5">Treat this session as Pro for testing. Persists across reloads.</p>
+              </div>
+              <label class="flex items-center gap-2 cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  :checked="devProOverride"
+                  class="rounded border-input"
+                  @change="setDevProOverride(($event.target as HTMLInputElement).checked)"
+                />
+                <span class="text-sm text-muted-foreground">Pro override on</span>
+              </label>
             </div>
           </div>
 
@@ -489,9 +529,37 @@
                   <Check class="w-4 h-4 shrink-0 text-primary" />
                   <span>Create and manage teams</span>
                 </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Full play designer (offense & defense)</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Roster & squad management</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Share plays via link</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Custom field dimensions</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Light / dark theme</span>
+                </li>
                 <li class="billing-perk billing-perk--no">
                   <X class="w-4 h-4 shrink-0 text-muted-foreground" />
-                  <span class="text-muted-foreground">Test plays & run simulations</span>
+                  <span class="text-muted-foreground">Play test with animated routes</span>
+                </li>
+                <li class="billing-perk billing-perk--no">
+                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span class="text-muted-foreground">Play Lab & simulations</span>
+                </li>
+                <li class="billing-perk billing-perk--no">
+                  <X class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <span class="text-muted-foreground">Blur.ai & AI features</span>
                 </li>
               </ul>
               <div class="billing-card-footer">
@@ -515,27 +583,39 @@
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>AI assistant coach & all AI features</span>
-                </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Blur.ai</span>
-                </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Test plays & run simulations</span>
-                </li>
-                <li class="billing-perk billing-perk--yes">
-                  <Check class="w-4 h-4 shrink-0 text-primary" />
                   <span>Play test with animated routes</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Scenario & game simulations</span>
+                  <span>Play Lab — stress test plays vs scenarios</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Match Sim — full game simulation</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Engine Picks — daily AI play suggestions</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Blur.ai & AI assistant coach</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Simulation history & export results</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
                   <span>Print playbooks in different formats</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Priority simulation queue</span>
+                </li>
+                <li class="billing-perk billing-perk--yes">
+                  <Check class="w-4 h-4 shrink-0 text-primary" />
+                  <span>Email support</span>
                 </li>
               </ul>
               <div class="billing-card-footer">
@@ -560,7 +640,7 @@
             @click="activeTab = 'billing'"
           >
             <Sparkles class="w-4 h-4 shrink-0" />
-            <span>Upgrade to Pro — test plays, run simulations & more</span>
+            <span>Upgrade to Pro — Play Lab, Match Sim, Blur.ai & more</span>
           </Button>
 
           <div class="config-fields">
@@ -672,12 +752,25 @@ const tabs = [
   { id: 'billing', label: 'Pricing & Billing', icon: CreditCard },
 ]
 
-const activeTab = ref('general')
+const route = useRoute()
+const tabIds = ['general', 'account', 'field', 'team', 'billing'] as const
+const activeTab = ref<'general' | 'account' | 'field' | 'team' | 'billing'>('general')
+
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (tab && tabIds.includes(tab as any)) activeTab.value = tab as typeof activeTab.value
+  },
+  { immediate: true }
+)
 
 const user = useSupabaseUser()
 const { showTutorial } = useTutorial()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
+const { hasProAccess, isPaidPro, isTrialing, trialDaysLeft, trialHoursLeft, TRIAL_DAYS, devProOverride, setDevProOverride } = usePlanAccess()
+const runtimeConfig = useRuntimeConfig()
+const showDevProOverride = computed(() => !!(runtimeConfig.public as { showDevProOverride?: boolean }).showDevProOverride)
 const theme = useTheme()
 
 const effectiveTheme = computed<ThemePreference>(() => settings.value?.theme ?? theme.preference.value ?? 'system')

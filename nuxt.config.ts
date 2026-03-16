@@ -17,6 +17,10 @@ export default defineNuxtConfig({
     },
     public: {
       engineUrl: process.env.NUXT_PUBLIC_ENGINE_URL ?? '',
+      /** When true, sidebar shows items and section headers marked devOnly. When false, only production items are shown and sections with no production items are hidden. Omit to default to dev mode in development. */
+      showDevSidebarItems: process.env.NUXT_PUBLIC_SHOW_DEV_SIDEBAR_ITEMS as string | undefined,
+      /** When true, Settings > Billing shows "Activate Pro (dev only)". Only enabled in non-production (NODE_ENV !== 'production'). */
+      showDevProOverride: process.env.NODE_ENV !== 'production',
     },
   },
   supabase: {

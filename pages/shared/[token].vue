@@ -63,7 +63,8 @@
       <footer class="shared-play-footer">
         <p class="text-xs text-muted-foreground">
           Created with <NuxtLink to="/" class="underline hover:text-foreground transition-colors">FlagLab</NuxtLink>
-           — The play designer for flag football
+          — The play designer for flag football
+          · <a href="mailto:support@flaglab.win" class="underline hover:text-foreground transition-colors">Support</a>
         </p>
       </footer>
     </div>

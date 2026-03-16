@@ -57,14 +57,15 @@
 
     <!-- Navigation -->
     <nav class="sidebar-nav">
-      <template v-for="(group, index) in displayNavGroups" :key="index">
-        <div v-if="!collapsed && (group.label || group.badge)" class="sidebar-group-label flex items-center gap-2">
+      <template v-for="(group, index) in visibleNavGroups" :key="index">
+        <div v-if="!collapsed && (group.label || group.badge || (group.label === 'blur.ai' && blurAiPlanBadge))" class="sidebar-group-label flex items-center gap-2">
           <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
-          <span v-if="group.badge" class="px-1.5 py-0.5 rounded text-[12px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
+          <span v-if="group.label === 'blur.ai' && blurAiPlanBadge" class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal" :class="blurAiPlanBadge === 'Pro' ? 'sidebar-nav-chip--pro' : blurAiPlanBadge === 'Trial' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ blurAiPlanBadge }}</span>
+          <span v-else-if="group.badge" class="px-1.5 py-0.5 rounded text-[12px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
         </div>
-        <TooltipProvider v-for="item in group.items.filter(i => !i.devOnly || isDev)" :key="`${item.to}-${item.isHistoryTrigger ? 'history' : ''}-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
+        <TooltipProvider v-for="item in group.items" :key="`${item.to}-${item.isHistoryTrigger ? 'history' : ''}-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
           <Tooltip :ignore-non-keyboard-focus="true">
             <TooltipTrigger as-child>
               <button
@@ -78,18 +79,24 @@
               </button>
               <div
                 v-else-if="item.to === '/simulation/play-lab' && !item.disabled && !collapsed"
-                class="sidebar-nav-item flex items-center gap-0"
+                class="sidebar-nav-button-group"
                 :class="{ active: isActive(item.to) }"
               >
-                <a href="/simulation/play-lab" class="flex-1 min-w-0 flex items-center gap-2 py-0 outline-none" @click.prevent="navigateTo('/simulation/play-lab')">
+                <a
+                  href="/simulation/play-lab"
+                  class="sidebar-nav-button-group-main"
+                  @click.prevent="navigateTo('/simulation/play-lab')"
+                >
                   <component :is="item.icon" class="sidebar-nav-icon shrink-0" />
                   <span class="sidebar-nav-label">{{ item.label }}</span>
+                  <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 </a>
                 <button
                   type="button"
-                  class="shrink-0 p-1.5 rounded hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-[transform,background] duration-150 ease-out"
+                  class="sidebar-nav-button-group-trigger"
                   :class="historyPanelOpen ? 'rotate-180' : ''"
-                  aria-label="Simulation history"
+                  aria-label="Open simulation history"
+                  title="Simulation history"
                   @click.stop.prevent="toggleHistoryPanel"
                 >
                   <ChevronRight class="w-4 h-4" />
@@ -104,6 +111,7 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
+                <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
               </a>
               <NuxtLink
                 v-else-if="!item.disabled"
@@ -113,6 +121,7 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
+                <span v-if="navItemChip(item)" class="sidebar-nav-chip ml-auto" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </NuxtLink>
               <span
@@ -121,6 +130,7 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
+                <span v-if="navItemChip(item)" class="sidebar-nav-chip ml-auto" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </span>
             </TooltipTrigger>
@@ -130,7 +140,7 @@
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <div v-if="!collapsed && index < navGroups.length - 1" class="sidebar-group-divider" />
+        <div v-if="!collapsed && index < visibleNavGroups.length - 1" class="sidebar-group-divider" />
       </template>
     </nav>
 
@@ -276,15 +286,38 @@ const avatarInitial = computed(() => {
   return (displayName.value || emailAddress.value).charAt(0).toUpperCase() || '?'
 })
 
-const isDev = import.meta.dev
+const runtimeConfig = useRuntimeConfig()
+const isDev = (runtimeConfig.public as { showDevSidebarItems?: string }).showDevSidebarItems === undefined
+  ? import.meta.dev
+  : (runtimeConfig.public as { showDevSidebarItems?: string }).showDevSidebarItems === 'true'
+
+/** Plan badge next to blur.ai; no chip on Play Lab. Pro-only items show "Pro" when no access. */
+const { hasProAccess, isTrialing, isPaidPro } = usePlanAccess()
+
+const blurAiPlanBadge = computed(() => {
+  if (isPaidPro.value) return 'Pro'
+  if (isTrialing.value) return 'Trial'
+  return 'Free'
+})
+
+function navItemChip(item: NavItem) {
+  if (item.isHistoryTrigger) return null
+  if (item.to === '/simulation/play-lab') return null
+  if (item.proOnly && !hasProAccess.value) return 'Pro'
+  return null
+}
 
 interface NavItem {
   to: string
   label: string
   icon: any
   badge?: string
+  /** When true, link is non-clickable and styled as disabled. Can be combined with devOnly. */
   disabled?: boolean
+  /** When true, item is hidden unless showDevSidebarItems is on. Can be combined with disabled. */
   devOnly?: boolean
+  /** Show "Pro" chip for this item (e.g. Pro-only features). Shown when user is free. */
+  proOnly?: boolean
   tooltipDescription?: string
   isHistoryTrigger?: boolean
 }
@@ -312,9 +345,9 @@ const navGroups: NavGroup[] = [
   {
     label: 'blur.ai',
     items: [
-      { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
+      { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
       { to: '/simulation/play-lab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
-      { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
+      { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
     ]
   }
 ]
@@ -359,6 +392,16 @@ const displayNavGroups = computed<NavGroup[]>(() => {
     }
     return { ...group, items }
   })
+})
+
+/** Groups with only visible items; sections with no production items are hidden when isDev is false. */
+const visibleNavGroups = computed<NavGroup[]>(() => {
+  return displayNavGroups.value
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((i) => !i.devOnly || isDev),
+    }))
+    .filter((group) => group.items.length > 0)
 })
 
 const { open: openSearch } = useAppSearch()
@@ -636,10 +679,107 @@ async function handleLogout() {
   justify-content: center;
 }
 
+/* Play Lab button group: main link + history trigger */
+.sidebar-nav-button-group {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 1px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.sidebar-nav-button-group:hover,
+.sidebar-nav-button-group.active {
+  background: var(--color-accent);
+}
+
+.sidebar-nav-button-group-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: var(--color-muted-foreground);
+  font-size: 15px;
+  font-weight: 500;
+  transition: color 0.15s;
+  outline: none;
+}
+
+.sidebar-nav-button-group:hover .sidebar-nav-button-group-main,
+.sidebar-nav-button-group.active .sidebar-nav-button-group-main {
+  color: var(--color-foreground);
+}
+
+.sidebar-nav-button-group.active .sidebar-nav-button-group-main {
+  font-weight: 600;
+}
+
+.sidebar-nav-button-group-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-left: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.sidebar-nav-button-group:hover .sidebar-nav-button-group-trigger,
+.sidebar-nav-button-group.active .sidebar-nav-button-group-trigger {
+  color: var(--color-foreground);
+  border-left-color: color-mix(in oklch, var(--color-border) 80%, transparent);
+}
+
+.sidebar-nav-button-group-trigger:hover {
+  background: color-mix(in oklch, var(--color-accent) 80%, black);
+}
+
 .sidebar-nav-icon {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+}
+
+.sidebar-nav-chip {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.sidebar-nav-chip--free {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+.sidebar-nav-button-group .sidebar-nav-chip--free,
+.sidebar-nav-button-group.active .sidebar-nav-chip--free {
+  background: color-mix(in oklch, var(--color-primary) 20%, transparent);
+  color: var(--color-primary);
+}
+.sidebar-nav-chip--pro {
+  background: color-mix(in oklch, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
+}
+.sidebar-nav-chip--trial {
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+.sidebar-nav-button-group .sidebar-nav-chip--trial,
+.sidebar-nav-button-group.active .sidebar-nav-chip--trial {
+  background: color-mix(in oklch, var(--color-primary) 18%, transparent);
+  color: var(--color-primary);
 }
 
 .sidebar-group-divider {

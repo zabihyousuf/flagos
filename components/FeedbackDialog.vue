@@ -10,6 +10,7 @@
         <DialogTitle>Send Feedback</DialogTitle>
         <DialogDescription>
           Report a bug, request a feature, or share your thoughts on FlagLab.
+          Or email <a href="mailto:support@flaglab.win" class="text-primary hover:underline">support@flaglab.win</a>.
         </DialogDescription>
       </DialogHeader>
 
