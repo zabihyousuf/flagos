@@ -8,6 +8,7 @@ export interface PlayLabBatchRequest {
   field_settings: FieldSettings
   offensive_players: SimPlayer[]
   n_iterations: number
+  n_scenarios: number
   variation_seed: null
   auto_generate?: boolean
 }
@@ -159,6 +160,16 @@ export interface AggregatedStats {
   most_common_failure: string
 }
 
+export interface ReceiverStats {
+  receiver_id: string
+  targets: number
+  completions: number
+  completion_rate: number
+  yards_gained_mean: number
+  touchdowns: number
+  interceptions: number
+}
+
 export interface PartialBatchSimResult {
   scenarios_completed: number
   scenarios_total: number
@@ -170,6 +181,7 @@ export interface PartialBatchSimResult {
   aggregated_by_field_zone: Record<string, AggregatedStats>
   aggregated_by_rush_count: Record<string, AggregatedStats>
   aggregated_by_press_rate_bucket: Record<string, AggregatedStats>
+  per_receiver: ReceiverStats[]
   best_10_scenarios: any[]
   worst_10_scenarios: any[]
 }
@@ -186,6 +198,7 @@ function resultToPartial(data: any): PartialBatchSimResult {
     aggregated_by_field_zone: data.aggregated_by_field_zone ?? {},
     aggregated_by_rush_count: data.aggregated_by_rush_count ?? {},
     aggregated_by_press_rate_bucket: data.aggregated_by_press_rate_bucket ?? {},
+    per_receiver: data.per_receiver ?? [],
     best_10_scenarios: data.best_10_scenarios ?? [],
     worst_10_scenarios: data.worst_10_scenarios ?? [],
   }
@@ -328,6 +341,7 @@ export function usePlayLabJob() {
       field_settings: toEngineFieldSettings(request.field_settings),
       offensive_players: request.offensive_players,
       n_iterations: request.n_iterations,
+      n_scenarios: request.n_scenarios,
       variation_seed: request.variation_seed,
       auto_generate: request.auto_generate ?? false,
       job_metadata: metadata,

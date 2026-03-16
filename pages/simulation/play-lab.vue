@@ -72,17 +72,18 @@
             @click.stop
           >
             <div v-show="!configRailed" class="p-4 lg:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 min-w-0">
-          <div class="flex items-center justify-end gap-2 -mt-0.5">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Simulation</h2>
             <TooltipProvider v-if="job?.jobId">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
                     variant="ghost"
                     size="icon"
-                    class="h-8 w-8 shrink-0"
+                    class="h-7 w-7 shrink-0"
                     @click.stop="configRailed = true"
                   >
-                    <ChevronDown class="h-4 w-4 rotate-90" />
+                    <PanelLeftClose class="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left">
@@ -246,18 +247,43 @@
           <div class="space-y-2">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Run configuration</h2>
-              <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">1K max</span>
+              <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">100 per scenario</span>
             </div>
             <div class="space-y-1.5">
-              <span class="text-xs font-medium">Iterations</span>
+              <span class="text-xs font-medium">Scenarios</span>
+              <p class="text-[10px] text-muted-foreground leading-snug">Unique game situations (down, distance, field position, coverage) to test against.</p>
+              <div class="flex gap-1.5 items-end flex-wrap">
+                <div
+                  v-for="n in scenarioOptions"
+                  :key="'sc-'+n"
+                  class="flex flex-col items-center gap-0.5"
+                >
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors"
+                    :class="[
+                      configLocked && 'pointer-events-none opacity-60',
+                      nScenarios === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                    ]"
+                    :disabled="configLocked"
+                    @click="nScenarios = n"
+                  >
+                    {{ n >= 1000 ? (n / 1000) + 'K' : n }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-1.5">
+              <span class="text-xs font-medium">Iterations per scenario</span>
+              <p class="text-[10px] text-muted-foreground leading-snug">How many times each scenario is simulated. 30% use smart QB reads, 70% test each receiver individually.</p>
               <div class="flex gap-1.5 items-end flex-wrap">
                 <div
                   v-for="n in iterationOptions"
                   :key="n"
                   class="flex flex-col items-center gap-0.5"
                 >
-                  <span v-if="n === 1000 || !isPaidPro" class="text-[9px] font-semibold uppercase tracking-wider" :class="n === 1000 ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'">
-                    {{ n === 1000 ? (isPaidPro ? '1K' : 'Free trial') : 'Pro' }}
+                  <span v-if="n === 100 || !isPaidPro" class="text-[9px] font-semibold uppercase tracking-wider" :class="n === 100 ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'">
+                    {{ n === 100 ? (isPaidPro ? '100' : 'Free') : 'Pro' }}
                   </span>
                   <button
                     type="button"
@@ -270,13 +296,20 @@
                     :disabled="configLocked || !isIterationAllowed(n)"
                     @click="isIterationAllowed(n) && (nIterations = n)"
                   >
-                    {{ n >= 1e6 ? '1M' : n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : '1K' }}
+                    {{ n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : n >= 1e3 ? '1K' : '100' }}
                   </button>
                 </div>
               </div>
               <p v-if="!isPaidPro" class="text-xs text-muted-foreground">
-                <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for 10K–1M iterations.
+                <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for 1K–100K iterations per scenario.
               </p>
+            </div>
+            <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm space-y-1">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-medium text-muted-foreground">Total simulations</p>
+                <p class="text-xs font-semibold">{{ totalSimulations.toLocaleString() }}</p>
+              </div>
+              <p class="text-[10px] text-muted-foreground">{{ nScenarios.toLocaleString() }} scenarios &times; {{ nIterations.toLocaleString() }} iterations &bull; {{ iterationTimeHint }}</p>
             </div>
             <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm">
               <p class="text-xs font-medium text-muted-foreground mb-1">Field settings</p>
@@ -520,14 +553,30 @@
               </div>
 
               <div class="rounded-xl bg-card/80 p-5 lg:p-6 space-y-4 shadow-md">
-                <h3 class="text-sm font-medium">Vs Press</h3>
-                <div class="space-y-2">
-                  <BreakdownRow
-                    v-for="row in pressRows"
-                    :key="row.key"
-                    :label="row.label"
-                    :stat="row.stat"
-                  />
+                <h3 class="text-sm font-medium">By Receiver</h3>
+                <div v-if="receiverRows.length === 0" class="text-xs text-muted-foreground">No receiver data yet</div>
+                <div v-else class="space-y-3">
+                  <div v-for="row in receiverRows" :key="row.receiver_id" class="space-y-1">
+                    <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span class="font-medium text-foreground">{{ row.label }}</span>
+                      <span class="font-medium">{{ Math.round(row.completion_rate * 100) }}% comp</span>
+                    </div>
+                    <div class="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        :class="barColorClass(row.completion_rate)"
+                        :style="{ width: `${Math.max(5, row.completion_rate * 100)}%`, transition: 'width 0.6s ease' }"
+                      />
+                    </div>
+                    <div class="mt-0.5 flex items-center justify-between gap-1 text-[10px] text-muted-foreground flex-wrap">
+                      <div class="flex items-center gap-1.5">
+                        <span v-if="row.touchdowns > 0" class="text-emerald-500">{{ row.touchdowns }} TD</span>
+                        <span v-if="row.interceptions > 0" class="text-destructive">{{ row.interceptions }} INT</span>
+                        <span>{{ row.yards_gained_mean.toFixed(1) }} avg yds</span>
+                      </div>
+                      <span>{{ row.targets.toLocaleString() }} targets</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -688,7 +737,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import { Search, ChevronDown, Play as PlayIcon, Film } from 'lucide-vue-next'
+import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose } from 'lucide-vue-next'
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
@@ -769,10 +818,11 @@ const attributeTiersOrdered = computed(() => {
   return order.map((id) => attributeTiers.find((t) => t.id === id)).filter(Boolean) as typeof attributeTiers
 })
 
-/** Everyone sees all options; Free can only select 1K */
-const iterationOptions = [1000, 10000, 100000, 1000000]
-const isIterationAllowed = (n: number) => n === 1000 || hasProAccess.value
-const maxIterationsForPlan = computed(() => (hasProAccess.value ? 1000000 : 1000))
+/** Everyone sees all options; Free can only select 100 */
+const iterationOptions = [100, 1000, 10000, 100000]
+const isIterationAllowed = (n: number) => n === 100 || hasProAccess.value
+const maxIterationsForPlan = computed(() => (hasProAccess.value ? 100000 : 100))
+const scenarioOptions = [500, 1000, 2000, 5000]
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
 const { resolveRoster, resolveRosterWithFallback, countStarters } = useSimRoster(teams)
@@ -936,7 +986,8 @@ const defenseSearchQuery = ref('')
 const defenseDropdownOpen = ref(false)
 const selectedDefenseIds = ref<string[]>([])
 const attributeTier = ref('as_is')
-const nIterations = ref(1000)
+const nIterations = ref(100)
+const nScenarios = ref(2000)
 
 function maybeCloseHistoryPanel() {
   if (historyPanelOpen.value) closeHistoryPanel()
@@ -951,7 +1002,8 @@ watch(
         configRailed.value = false
         selectedPlayId.value = ''
         selectedDefenseIds.value = []
-        nIterations.value = 1000
+        nIterations.value = 100
+        nScenarios.value = 2000
       }
       return
     }
@@ -964,6 +1016,7 @@ watch(
         if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
         if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
         if (meta.n_iterations) nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
+        if (meta.n_scenarios) nScenarios.value = meta.n_scenarios
       }
     } else {
       job.attachToJob(queryJobId)
@@ -1036,12 +1089,13 @@ const canRun = computed(() => {
   return true
 })
 
+const totalSimulations = computed(() => nIterations.value * nScenarios.value)
 const iterationTimeHint = computed(() => {
-  const n = nIterations.value
-  if (n <= 1000) return '~5 seconds'
-  if (n <= 10000) return '~30 seconds'
-  if (n <= 100000) return '~5 minutes'
-  return '~30 minutes'
+  const total = totalSimulations.value
+  if (total <= 200_000) return '~1 minute'
+  if (total <= 2_000_000) return '~5 minutes'
+  if (total <= 20_000_000) return '~30 minutes'
+  return '~1 hour'
 })
 
 const partial = computed(() => job.partialResult)
@@ -1190,14 +1244,31 @@ const rushRows = computed(() => {
   return order.map((o) => ({ ...o, stat: src[o.key] as AggregatedStats | undefined }))
 })
 
-const pressRows = computed(() => {
-  const src = partial.value?.aggregated_by_press_rate_bucket ?? {}
-  const order: { key: string; label: string }[] = [
-    { key: 'high', label: 'Heavy Press' },
-    { key: 'medium', label: 'Mixed Press' },
-    { key: 'low', label: 'Light Press' },
-  ]
-  return order.map((o) => ({ ...o, stat: src[o.key] as AggregatedStats | undefined }))
+/** Map canvas_player_id → display name using the offensive play's canvas data. */
+const receiverNameMap = computed<Record<string, string>>(() => {
+  const play = selectedPlay.value
+  if (!play?.canvas_data?.players) return {}
+  const map: Record<string, string> = {}
+  const wrs = play.canvas_data.players
+    .filter((cp: any) => cp.position === 'WR')
+    .sort((a: any, b: any) => (a.readOrder ?? 99) - (b.readOrder ?? 99))
+  wrs.forEach((cp: any, idx: number) => {
+    const label = cp.name
+      ? `${cp.name}${cp.number ? ' #' + cp.number : ''}`
+      : cp.designation && cp.designation !== 'WR'
+        ? `${cp.designation}${cp.number ? ' #' + cp.number : ''}`
+        : `WR${idx + 1}`
+    map[cp.id] = label
+  })
+  return map
+})
+
+const receiverRows = computed(() => {
+  const stats = partial.value?.per_receiver ?? []
+  return stats.map((rs) => ({
+    ...rs,
+    label: receiverNameMap.value[rs.receiver_id] || rs.receiver_id.slice(0, 8),
+  }))
 })
 
 const combinedYardStats = computed(() => {
@@ -1370,6 +1441,7 @@ async function runSimulation() {
       field_settings: fs,
       offensive_players: offResult.players,
       n_iterations: effectiveIterations,
+      n_scenarios: nScenarios.value,
       variation_seed: null,
       auto_generate: true,
     },
@@ -1378,7 +1450,7 @@ async function runSimulation() {
       offensive_play_id: play.id,
       defensive_play_name: firstDefPlay.name,
       defensive_play_id: firstDefPlay.id,
-      n_scenarios: selectedDefenseIds.value.length,
+      n_scenarios: nScenarios.value,
       n_iterations: effectiveIterations,
       auto_generate: true,
     }

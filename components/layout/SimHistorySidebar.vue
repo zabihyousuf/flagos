@@ -218,17 +218,20 @@ function formatDate(iso: string | undefined): string {
   }
 }
 
-/** When auto_generate, engine ran many defensive situations; show "Auto" instead of selected count. */
+/** When auto_generate, show the actual scenario count the engine generated. */
 function formatScenarioCount(metadata: { n_scenarios?: number; auto_generate?: boolean } | undefined): string {
-  if (metadata?.auto_generate) return 'Auto situations'
+  if (metadata?.auto_generate) {
+    const n = metadata?.n_scenarios ?? 2000
+    return `${n.toLocaleString()} situations`
+  }
   const n = metadata?.n_scenarios ?? 0
   return n === 1 ? '1 situation' : `${n} situations`
 }
 
-/** Total simulation runs (split across all situations). */
+/** Iterations per scenario. */
 function formatIterations(n: number | undefined): string {
   const val = n ?? 0
-  return val === 1 ? '1 run' : `${(val).toLocaleString()} runs`
+  return val === 1 ? '1 run/scenario' : `${(val).toLocaleString()} runs/scenario`
 }
 
 function successPillClass(rate: number): string {
