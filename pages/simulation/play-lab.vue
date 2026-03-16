@@ -48,15 +48,17 @@
             </div>
           </div>
           <Button
-            v-if="job?.jobId"
-            variant="outline"
+            v-if="showReplaysButton"
+            variant="secondary"
             size="sm"
-            class="shrink-0 h-8 gap-1.5"
+            class="shrink-0 h-8 gap-1.5 bg-amber-500/90 hover:bg-amber-500 text-amber-950 border border-amber-600/40 shadow-sm ring-1 ring-amber-300/30"
             @click="replaysModalOpen = true"
           >
             <Film class="w-4 h-4" />
             Replays
-            <span v-if="replaysGroupedByScenarioFlat.length > 0" class="tabular-nums">({{ replaysGroupedByScenarioFlat.length }})</span>
+            <span class="tabular-nums inline-flex items-center rounded-full bg-amber-950/10 px-2 py-0.5 text-[11px] font-semibold">
+              {{ recordingsCount }}
+            </span>
           </Button>
         </div>
       </div>
@@ -584,7 +586,7 @@
 
             <!-- Replays modal: left sidebar grouped by scenario, center = player -->
             <Dialog v-model:open="replaysModalOpen">
-              <DialogContent class="w-[95vw] max-w-[1400px] h-[90vh] max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col" :show-close-button="true">
+              <DialogContent class="w-[98vw] max-w-[calc(100%-2rem)] sm:max-w-[1800px] h-[92vh] max-h-[92vh] p-0 gap-0 overflow-hidden flex flex-col" :show-close-button="true">
                 <DialogHeader class="shrink-0 px-4 pt-4 pb-2 border-b border-border/60">
                   <DialogTitle class="text-base font-medium">Replays</DialogTitle>
                 </DialogHeader>
@@ -594,6 +596,9 @@
                     <nav class="p-2 space-y-4">
                       <p v-if="replaysLoading" class="px-2 py-3 text-xs text-muted-foreground">Loading replays…</p>
                       <template v-else>
+                      <div v-if="replaysGroupedByScenarioFlat.length === 0" class="px-2 py-6 text-xs text-muted-foreground">
+                        No replays saved for this run yet.
+                      </div>
                       <div v-for="group in replaysGroupedByScenario" :key="group.key" class="space-y-1">
                         <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                           {{ group.label }}
@@ -616,26 +621,29 @@
                       </template>
                     </nav>
                   </aside>
-                  <!-- Center: player -->
-                  <div class="flex-1 min-w-0 flex flex-col bg-muted/30">
-                    <div class="flex-1 min-h-[280px] flex items-center justify-center p-4">
-                      <template v-if="selectedReplayInModal?.url">
-                        <img
-                          :src="selectedReplayInModal.url"
-                          :alt="selectedReplayInModal.label"
-                          class="max-w-full max-h-[60vh] w-auto h-auto object-contain rounded-lg shadow-md"
-                        />
-                      </template>
-                      <div v-else class="flex flex-col items-center gap-3 text-muted-foreground py-12">
-                        <Film class="w-14 h-14 opacity-50" />
-                        <p class="text-sm font-medium">Select a replay</p>
-                        <p class="text-xs max-w-xs text-center">Choose a scenario from the list to play the recording.</p>
+                  <!-- Center: replay player -->
+                  <div class="flex-1 min-w-0 flex flex-col">
+                    <template v-if="selectedReplayInModal?.recording_json && (selectedReplayInModal.recording_json as any).player_traces">
+                      <SimReplayPlayer
+                        :recording="selectedReplayInModal.recording_json as any"
+                        :ticks="selectedReplayInModal.ticks ?? 0"
+                        :carrier-id="selectedReplayInModal.carrier_id"
+                        :thrower-id="selectedReplayInModal.thrower_id"
+                        :receiver-id="selectedReplayInModal.receiver_id"
+                      />
+                      <div class="shrink-0 px-4 py-2.5 border-t border-border/60 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span v-if="selectedReplayInModal.outcome" class="capitalize font-medium">{{ selectedReplayInModal.outcome }}</span>
+                        <span v-if="selectedReplayInModal.yardsGained != null">{{ selectedReplayInModal.yardsGained }} yards</span>
+                        <span>{{ selectedReplayInModal.scenario_group }}</span>
+                        <span v-if="selectedReplayInModal.scenario_label" class="text-muted-foreground/60">{{ selectedReplayInModal.scenario_label }}</span>
                       </div>
-                    </div>
-                    <div v-if="selectedReplayInModal" class="shrink-0 px-4 py-3 border-t border-border/60 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      <span v-if="selectedReplayInModal.outcome" class="capitalize">{{ selectedReplayInModal.outcome }}</span>
-                      <span v-if="selectedReplayInModal.yardsGained != null">{{ selectedReplayInModal.yardsGained }} yards</span>
-                      <span>{{ selectedReplayInModal.scenario_group }} · {{ selectedReplayInModal.scenario_label }}</span>
+                    </template>
+                    <div v-else class="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground py-12">
+                      <Film class="w-14 h-14 opacity-50" />
+                      <p v-if="!selectedReplayInModal" class="text-sm font-medium">Select a replay</p>
+                      <p v-else-if="!selectedReplayInModal.recording_json" class="text-sm font-medium">No recording data found</p>
+                      <p v-else class="text-sm font-medium">Recording missing player traces</p>
+                      <p class="text-xs max-w-xs text-center">Choose a scenario from the list to play the recording.</p>
                     </div>
                   </div>
                 </div>
@@ -673,6 +681,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/comp
 import { Checkbox } from '~/components/ui/checkbox'
 import { Skeleton } from '~/components/ui/skeleton'
 import PlayPreview from '~/components/play/PlayPreview.vue'
+import SimReplayPlayer from '~/components/play-lab/SimReplayPlayer.vue'
 import {
   Dialog,
   DialogContent,
@@ -700,6 +709,12 @@ export interface PlayLabReplay {
   yardsGained?: number
   thumbnailUrl?: string | null
   url: string | null
+  /** Full recording data for the replay player */
+  ticks?: number
+  carrier_id?: string | null
+  thrower_id?: string | null
+  receiver_id?: string | null
+  recording_json?: Record<string, unknown> | null
 }
 
 /** Row shape from sim_recordings (Supabase). */
@@ -711,6 +726,10 @@ interface SimRecordingRow {
   highlight_type: string
   outcome: string
   yards_gained: number
+  ticks: number
+  carrier_id: string | null
+  thrower_id: string | null
+  receiver_id: string | null
   recording_json: Record<string, unknown> | null
 }
 
@@ -769,6 +788,11 @@ const selectedReplayInModal = ref<PlayLabReplay | null>(null)
 /** Raw rows from sim_recordings (fetched when job has id). */
 const replaysFromDb = ref<SimRecordingRow[]>([])
 const replaysLoading = ref(false)
+const recordingsCount = computed(() => replaysFromDb.value.length)
+const isJobCompleted = computed(() =>
+  job?.status?.state === 'COMPLETED' || job?.loadedJobStatus?.state === 'COMPLETED'
+)
+const showReplaysButton = computed(() => isJobCompleted.value && recordingsCount.value > 0)
 
 /** Fetch sim_recordings for current job. */
 async function fetchReplaysForJob(jobId: string) {
@@ -778,7 +802,7 @@ async function fetchReplaysForJob(jobId: string) {
     const supabase = useSupabaseClient()
     const { data, error } = await (supabase as any)
       .from('sim_recordings')
-      .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, recording_json')
+      .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, ticks, carrier_id, thrower_id, receiver_id, recording_json')
       .eq('job_id', jobId)
       .order('highlight_type')
       .order('yards_gained', { ascending: false })
@@ -791,7 +815,11 @@ async function fetchReplaysForJob(jobId: string) {
       highlight_type: r.highlight_type ?? '',
       outcome: r.outcome ?? '',
       yards_gained: r.yards_gained ?? 0,
-      recording_json: r.recording_json ?? null,
+      ticks: r.ticks ?? 0,
+      carrier_id: r.carrier_id ?? null,
+      thrower_id: r.thrower_id ?? null,
+      receiver_id: r.receiver_id ?? null,
+      recording_json: typeof r.recording_json === 'string' ? JSON.parse(r.recording_json) : (r.recording_json ?? null),
     }))
   } catch (_) {
     replaysFromDb.value = []
@@ -805,19 +833,19 @@ function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; labe
   const byType = new Map<string, PlayLabReplay[]>()
   const highlightLabels: Record<string, string> = {
     touchdown: 'Touchdown',
-    long_pass: 'Long pass',
+    long_pass: 'Long Pass',
     most_yac: 'Most YAC',
     interception: 'Interception',
-    flag_pulled: 'Flag pulled',
+    flag_pulled: 'Flag Pulled',
     sack: 'Sack',
     safety: 'Safety',
-    out_of_bounds: 'Out of bounds',
+    out_of_bounds: 'Out of Bounds',
+    fastest_td: 'Fastest TD',
+    most_yards: 'Most Yards',
+    biggest_yac: 'Biggest YAC',
   }
   for (const r of rows) {
     const groupLabel = (highlightLabels[r.highlight_type] ?? r.highlight_type.replace(/_/g, ' ')) || 'Other'
-    const url = r.recording_json && typeof r.recording_json === 'object'
-      ? (r.recording_json as any).url ?? (r.recording_json as any).gif_url ?? null
-      : null
     const item: PlayLabReplay = {
       id: r.id,
       job_id: r.job_id,
@@ -827,7 +855,12 @@ function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; labe
       label: r.scenario_label || `${groupLabel} — ${Math.round(r.yards_gained ?? 0)} yd`,
       outcome: r.outcome?.toLowerCase().replace(/_/g, ' '),
       yardsGained: r.yards_gained != null ? Math.round(r.yards_gained) : undefined,
-      url: typeof url === 'string' ? url : null,
+      url: null,
+      ticks: r.ticks,
+      carrier_id: r.carrier_id,
+      thrower_id: r.thrower_id,
+      receiver_id: r.receiver_id,
+      recording_json: r.recording_json,
     }
     if (!byType.has(r.highlight_type)) byType.set(r.highlight_type, [])
     byType.get(r.highlight_type)!.push(item)
@@ -839,25 +872,17 @@ function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; labe
   }))
 }
 
-/** Dummy fallback when no job or fetch returned empty. */
-const REPLAYS_DUMMY_GROUPED: { key: string; label: string; items: PlayLabReplay[] }[] = [
-  { key: 'by_outcome', label: 'By outcome', items: [
-    { id: 'dummy-1', scenario_group: 'By outcome', scenario_label: 'Touchdown', label: 'Sample TD', outcome: 'touchdown', yardsGained: 35, url: null },
-    { id: 'dummy-2', scenario_group: 'By outcome', scenario_label: 'Interception', label: 'Sample INT', outcome: 'interception', yardsGained: 0, url: null },
-  ]},
-]
-
 const replaysGroupedByScenario = computed(() => {
   if (!job.jobId) return []
   if (replaysFromDb.value.length > 0) return groupRecordingsByScenario(replaysFromDb.value)
-  return REPLAYS_DUMMY_GROUPED
+  return []
 })
 
 const replaysGroupedByScenarioFlat = computed(() => replaysGroupedByScenario.value.flatMap((g) => g.items))
 
 watch(replaysModalOpen, (open) => {
   if (open) {
-    if (job.jobId) fetchReplaysForJob(job.jobId)
+    if (job.jobId && isJobCompleted.value) fetchReplaysForJob(job.jobId)
     selectedReplayInModal.value = replaysGroupedByScenarioFlat.value[0] ?? null
   } else {
     selectedReplayInModal.value = null
@@ -865,8 +890,19 @@ watch(replaysModalOpen, (open) => {
 })
 
 watch(() => job.jobId, (jobId) => {
-  if (jobId && replaysModalOpen.value) fetchReplaysForJob(jobId)
+  // Reset recordings when job changes
+  replaysFromDb.value = []
+  if (jobId && isJobCompleted.value) fetchReplaysForJob(jobId)
 })
+
+watch(
+  () => job.status?.state,
+  (state) => {
+    if (state === 'COMPLETED' && job.jobId) {
+      fetchReplaysForJob(job.jobId)
+    }
+  }
+)
 
 /** When grouped replays update (e.g. after fetch), select first if modal is open and current selection is missing. */
 watch(replaysGroupedByScenarioFlat, (flat) => {
