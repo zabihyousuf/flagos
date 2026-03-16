@@ -1,5 +1,18 @@
 <template>
   <div class="flex flex-col h-full min-h-0">
+    <div
+      v-if="!hasSimulationAccess"
+      class="flex flex-1 flex-col items-center justify-center p-8 text-center"
+    >
+      <h2 class="text-2xl font-semibold tracking-tight font-display mb-2">Upgrade to Pro</h2>
+      <p class="text-muted-foreground max-w-md mb-6">
+        Engine Picks is available on Pro. Upgrade to get daily auto-drafted plays tailored to your roster.
+      </p>
+      <NuxtLink to="/settings?tab=billing">
+        <Button>Upgrade to Pro</Button>
+      </NuxtLink>
+    </div>
+    <template v-else>
     <div class="px-4 pt-4 lg:px-6 lg:pt-6">
       <h2 class="text-2xl font-semibold tracking-tight font-display">Engine Picks</h2>
       <p class="text-sm text-muted-foreground mt-1">
@@ -66,10 +79,12 @@
         </article>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
+const { hasSimulationAccess } = usePlanAccess()
 const sampleSlots = [
   {
     id: 1,

@@ -105,7 +105,7 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
           name,
           play_type: playType,
           formation,
-          canvas_data: canvasData,
+          canvas_data: canvasData as any,
         })
         .select()
         .single()
@@ -127,7 +127,7 @@ export function usePlays(playbookId?: Ref<string | undefined>) {
     try {
       const { data, error: err } = await client
         .from('plays')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .update({ ...updates, updated_at: new Date().toISOString() } as any)
         .eq('id', id)
         .select()
         .single()

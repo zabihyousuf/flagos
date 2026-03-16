@@ -803,7 +803,7 @@ async function fetchDefensePlaysForGhost() {
       query = query.eq('playbook_id', currentPlay.value.playbook_id)
     }
     const { data } = await query
-    defensePlaysForGhost.value = (data ?? []) as Array<{ id: string; name: string; canvas_data: CanvasData }>
+    defensePlaysForGhost.value = (data ?? []) as unknown as Array<{ id: string; name: string; canvas_data: CanvasData }>
   } finally {
     ghostPlaysLoading.value = false
   }
@@ -853,7 +853,7 @@ async function loadGhostPlayById(gid: string) {
     .eq('id', gid)
     .single()
   if (play) {
-    const typed = play as { id: string; name: string; canvas_data: CanvasData }
+    const typed = play as unknown as { id: string; name: string; canvas_data: CanvasData }
     ghostPlayId.value = typed.id
     ghostPlayers.value = JSON.parse(JSON.stringify(typed.canvas_data?.players ?? []))
     defensePlaysForGhost.value = [typed]

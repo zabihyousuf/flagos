@@ -61,7 +61,7 @@ const props = defineProps<{
   /** Default for marker label when player has no showLabel set (from settings: number / position / both / none) */
   defaultPlayerLabelOnCanvas?: 'number' | 'position' | 'both' | 'none'
   /** Suggested route preview for one player (from Player Details Suggest) — drawn on canvas until Accept/Deny */
-  suggestedRoutePreview?: { playerId: string; route: { segments: { type: string; points: { x: number; y: number }[] }[] } } | null
+  suggestedRoutePreview?: { playerId: string; route: { segments: { type: 'straight' | 'curve' | 'option' | 'rollout'; points: { x: number; y: number }[] }[] } } | null
   /** Animated positions from simulation (overrides player x/y in renderer) */
   animatedPositions?: Map<string, { x: number; y: number }>
   /** Animated ball from simulation */
@@ -460,8 +460,6 @@ onMounted(() => {
         los: fieldSettings.value.line_of_scrimmage,
         length: fieldSettings.value.field_length,
         endzone: fieldSettings.value.endzone_size,
-        default_offense_starter_count: (fieldSettings.value as any).default_offense_starter_count ?? 5,
-        default_defense_starter_count: (fieldSettings.value as any).default_defense_starter_count ?? 5,
       }, props.starterPositionMap)
       nextTick(() => seedHistory())
     }

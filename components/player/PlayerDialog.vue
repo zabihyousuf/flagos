@@ -48,7 +48,7 @@
               </Button>
               <div v-if="copyablePlayers.length > 0" class="flex items-center gap-2">
                 <span class="text-xs text-muted-foreground">Copy from:</span>
-                <Select v-model="copyFromPlayerId" @update:model-value="(id) => id && applyCopyFrom(id)">
+                <Select v-model="copyFromPlayerId" @update:model-value="(id: any) => id && applyCopyFrom(String(id))">
                   <SelectTrigger class="w-[160px] h-7 text-xs">
                     <SelectValue placeholder="Select player" />
                   </SelectTrigger>
@@ -222,10 +222,10 @@ function applyCopyFrom(playerId: string) {
   const offRelevant = new Set(visibleOffenseGroups.value.flatMap((g) => g.attrs.map((a) => a.key)))
   const defRelevant = new Set(visibleDefenseGroups.value.flatMap((g) => g.attrs.map((a) => a.key)))
   Object.keys(form.offense_attributes).forEach((k) => {
-    form.offense_attributes[k] = offRelevant.has(k) ? (src.offense_attributes as any)?.[k] ?? 5 : 5
+    ;(form.offense_attributes as any)[k] = (offRelevant as Set<string>).has(k) ? (src.offense_attributes as any)?.[k] ?? 5 : 5
   })
   Object.keys(form.defense_attributes).forEach((k) => {
-    form.defense_attributes[k] = defRelevant.has(k) ? (src.defense_attributes as any)?.[k] ?? 5 : 5
+    ;(form.defense_attributes as any)[k] = (defRelevant as Set<string>).has(k) ? (src.defense_attributes as any)?.[k] ?? 5 : 5
   })
   copyFromPlayerId.value = playerId
 }
@@ -272,9 +272,9 @@ watch(() => props.open, (isOpen) => {
     const sanitized = sanitizeAttributesForPositions(
       props.player.offense_positions,
       props.player.defense_positions,
-      props.player.universal_attributes ?? {},
-      props.player.offense_attributes ?? {},
-      props.player.defense_attributes ?? {},
+      (props.player.universal_attributes ?? {}) as unknown as Record<string, number>,
+      (props.player.offense_attributes ?? {}) as unknown as Record<string, number>,
+      (props.player.defense_attributes ?? {}) as unknown as Record<string, number>,
     )
     form.name = props.player.name
     form.number = props.player.number

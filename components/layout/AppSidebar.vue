@@ -60,7 +60,15 @@
       <template v-for="(group, index) in visibleNavGroups" :key="index">
         <div v-if="!collapsed && (group.label || group.badge || (group.label === 'blur.ai' && blurAiPlanBadge))" class="sidebar-group-label flex items-center gap-2">
           <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
-          <span v-if="group.label === 'blur.ai' && blurAiPlanBadge" class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal" :class="blurAiPlanBadge === 'Pro' ? 'sidebar-nav-chip--pro' : blurAiPlanBadge === 'Trial' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ blurAiPlanBadge }}</span>
+          <button
+            v-if="group.label === 'blur.ai' && blurAiPlanBadge === 'Upgrade'"
+            type="button"
+            class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal sidebar-nav-chip--upgrade cursor-pointer hover:opacity-90 transition-opacity"
+            @click.stop="upgradeModalOpen = true"
+          >
+            Upgrade
+          </button>
+          <span v-else-if="group.label === 'blur.ai' && blurAiPlanBadge" class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal" :class="blurAiPlanBadge === 'Pro' ? 'sidebar-nav-chip--pro' : 'sidebar-nav-chip--trial'">{{ blurAiPlanBadge }}</span>
           <span v-else-if="group.badge" class="px-1.5 py-0.5 rounded text-[12px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
@@ -80,17 +88,25 @@
               <div
                 v-else-if="item.to === '/simulation/play-lab' && !item.disabled && !collapsed"
                 class="sidebar-nav-button-group"
-                :class="{ active: isActive(item.to) }"
+                :class="{ active: isActive(item.to) && hasSimulationAccess, 'sidebar-nav-button-group--disabled': !hasSimulationAccess }"
               >
                 <a
+                  v-if="hasSimulationAccess"
                   href="/simulation/play-lab"
                   class="sidebar-nav-button-group-main"
                   @click.prevent="navigateTo('/simulation/play-lab')"
                 >
                   <component :is="item.icon" class="sidebar-nav-icon shrink-0" />
                   <span class="sidebar-nav-label">{{ item.label }}</span>
-                  <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
+                  <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 </a>
+                <span
+                  v-else
+                  class="sidebar-nav-button-group-main opacity-60 cursor-not-allowed pointer-events-none"
+                >
+                  <component :is="item.icon" class="sidebar-nav-icon shrink-0" />
+                  <span class="sidebar-nav-label">{{ item.label }}</span>
+                </span>
                 <button
                   type="button"
                   class="sidebar-nav-button-group-trigger"
@@ -102,17 +118,26 @@
                   <ChevronRight class="w-4 h-4" />
                 </button>
               </div>
-              <a
-                v-else-if="item.to === '/simulation/play-lab' && !item.disabled && collapsed"
-                href="/simulation/play-lab"
-                class="sidebar-nav-item"
-                :class="{ active: isActive(item.to) }"
-                @click.prevent="navigateTo('/simulation/play-lab')"
-              >
-                <component :is="item.icon" class="sidebar-nav-icon" />
-                <span class="sidebar-nav-label">{{ item.label }}</span>
-                <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
-              </a>
+              <template v-else-if="item.to === '/simulation/play-lab' && !item.disabled && collapsed">
+                <a
+                  v-if="hasSimulationAccess"
+                  href="/simulation/play-lab"
+                  class="sidebar-nav-item"
+                  :class="{ active: isActive(item.to) }"
+                  @click.prevent="navigateTo('/simulation/play-lab')"
+                >
+                  <component :is="item.icon" class="sidebar-nav-icon" />
+                  <span class="sidebar-nav-label">{{ item.label }}</span>
+                  <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
+                </a>
+                <span
+                  v-else
+                  class="sidebar-nav-item opacity-60 cursor-not-allowed pointer-events-none"
+                >
+                  <component :is="item.icon" class="sidebar-nav-icon" />
+                  <span class="sidebar-nav-label">{{ item.label }}</span>
+                </span>
+              </template>
               <NuxtLink
                 v-else-if="!item.disabled"
                 :to="item.to"
@@ -121,7 +146,7 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
-                <span v-if="navItemChip(item)" class="sidebar-nav-chip ml-auto" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
+                <span v-if="navItemChip(item)" class="sidebar-nav-chip ml-auto" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </NuxtLink>
               <span
@@ -130,13 +155,12 @@
               >
                 <component :is="item.icon" class="sidebar-nav-icon" />
                 <span class="sidebar-nav-label">{{ item.label }}</span>
-                <span v-if="navItemChip(item)" class="sidebar-nav-chip ml-auto" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
+                <span v-if="navItemChip(item)" class="sidebar-nav-chip ml-auto" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 <span v-if="item.devOnly" class="ml-auto text-[12px] font-mono text-muted-foreground/50 border border-muted-foreground/20 rounded px-1">DEV</span>
               </span>
             </TooltipTrigger>
-            <TooltipContent side="right" :side-offset="10" v-if="collapsed || item.tooltipDescription" :class="{ 'max-w-xs': item.tooltipDescription || item.isHistoryTrigger }">
-              <span v-if="item.tooltipDescription" class="block whitespace-pre-line text-left">{{ item.tooltipDescription }}</span>
-              <template v-else>{{ item.label }} <span v-if="item.disabled">(Coming Soon)</span></template>
+            <TooltipContent side="right" :side-offset="10" v-if="collapsed" :class="{ 'max-w-xs': item.isHistoryTrigger }">
+              {{ item.label }}<span v-if="item.disabled"> (Coming Soon)</span>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -194,6 +218,26 @@
     </div>
 
     <FeedbackDialog v-model:open="feedbackOpen" />
+
+    <!-- Upgrade modal (free tier) -->
+    <Dialog :open="upgradeModalOpen" @update:open="upgradeModalOpen = $event">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upgrade to Pro</DialogTitle>
+          <DialogDescription>
+            Get full access to Play Lab, more iterations, and all blur.ai features. Manage your plan or upgrade in settings.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="flex flex-col gap-2 pt-2">
+          <NuxtLink to="/settings?tab=billing" @click="upgradeModalOpen = false">
+            <Button class="w-full">Upgrade to Pro</Button>
+          </NuxtLink>
+          <NuxtLink to="/settings" @click="upgradeModalOpen = false">
+            <Button variant="outline" class="w-full">Open Settings</Button>
+          </NuxtLink>
+        </div>
+      </DialogContent>
+    </Dialog>
   </aside>
 </template>
 
@@ -224,6 +268,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 const route = useRoute()
 const user = useSupabaseUser()
@@ -235,6 +287,8 @@ const hovering = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const feedbackOpen = ref(false)
+/** Shared state so Play Lab (and others) can open the upgrade modal. */
+const upgradeModalOpen = useState<boolean>('upgrade-modal-open', () => false)
 
 onMounted(() => {
   const saved = localStorage.getItem('flagos-sidebar-collapsed')
@@ -292,18 +346,18 @@ const isDev = (runtimeConfig.public as { showDevSidebarItems?: string }).showDev
   : (runtimeConfig.public as { showDevSidebarItems?: string }).showDevSidebarItems === 'true'
 
 /** Plan badge next to blur.ai; no chip on Play Lab. Pro-only items show "Pro" when no access. */
-const { hasProAccess, isTrialing, isPaidPro } = usePlanAccess()
+const { hasProAccess, hasSimulationAccess, isTrialing, isPaidPro } = usePlanAccess()
 
 const blurAiPlanBadge = computed(() => {
   if (isPaidPro.value) return 'Pro'
   if (isTrialing.value) return 'Trial'
-  return 'Free'
+  return 'Upgrade'
 })
 
-function navItemChip(item: NavItem) {
+function navItemChip(item: NavItem): 'Pro' | 'Trial!' | 'Free' | 'Upgrade' | null {
   if (item.isHistoryTrigger) return null
   if (item.to === '/simulation/play-lab') return null
-  if (item.proOnly && !hasProAccess.value) return 'Pro'
+  if (item.proOnly && !hasProAccess.value) return hasSimulationAccess.value ? 'Pro' : 'Upgrade'
   return null
 }
 
@@ -346,7 +400,7 @@ const navGroups: NavGroup[] = [
     label: 'blur.ai',
     items: [
       { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
-      { to: '/simulation/play-lab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times against different defenses using AI and machine learning to see when each works best and for what scenario.' },
+      { to: '/simulation/play-lab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times across many defensive situations (down, distance, zone, coverage) to see when each works best.' },
       { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
     ]
   }
@@ -422,7 +476,8 @@ async function handleLogout() {
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   background: var(--color-background);
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
   flex-shrink: 0;
@@ -622,7 +677,8 @@ async function handleLogout() {
 
 /* ── Navigation ────────────────────────────────────────────────── */
 .sidebar-nav {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 4px 12px;
@@ -769,8 +825,22 @@ async function handleLogout() {
   color: var(--color-primary);
 }
 .sidebar-nav-chip--pro {
-  background: color-mix(in oklch, var(--color-primary) 15%, transparent);
-  color: var(--color-primary);
+  background: color-mix(in oklch, #c9a227 24%, transparent);
+  color: #a67c00;
+}
+:deep(.dark .sidebar-nav-chip--pro) {
+  color: #e8c547;
+  background: color-mix(in oklch, #d4af37 22%, transparent);
+}
+.sidebar-nav-button-group .sidebar-nav-chip--pro,
+.sidebar-nav-button-group.active .sidebar-nav-chip--pro {
+  background: color-mix(in oklch, #c9a227 26%, transparent);
+  color: #a67c00;
+}
+:deep(.dark .sidebar-nav-button-group .sidebar-nav-chip--pro),
+:deep(.dark .sidebar-nav-button-group.active .sidebar-nav-chip--pro) {
+  color: #e8c547;
+  background: color-mix(in oklch, #d4af37 24%, transparent);
 }
 .sidebar-nav-chip--trial {
   background: color-mix(in oklch, var(--color-primary) 12%, transparent);
@@ -782,12 +852,30 @@ async function handleLogout() {
   color: var(--color-primary);
 }
 
+.sidebar-nav-chip--upgrade {
+  background: color-mix(in oklch, var(--color-primary) 18%, transparent);
+  color: var(--color-primary);
+}
+.sidebar-nav-button-group .sidebar-nav-chip--upgrade,
+.sidebar-nav-button-group.active .sidebar-nav-chip--upgrade {
+  background: color-mix(in oklch, var(--color-primary) 22%, transparent);
+  color: var(--color-primary);
+}
+
+.sidebar-nav-button-group--disabled:hover {
+  background: transparent;
+}
+.sidebar-nav-button-group--disabled .sidebar-nav-button-group-main {
+  pointer-events: none;
+}
+
 .sidebar-group-divider {
   display: none; /* Hide if using labels, or use instead of labels if preferred */
 }
 
 /* ── Footer ────────────────────────────────────────────────────── */
 .sidebar-footer {
+  flex-shrink: 0;
   padding: 8px 12px 12px;
   transition: padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   /* Ensure popup can go outside */

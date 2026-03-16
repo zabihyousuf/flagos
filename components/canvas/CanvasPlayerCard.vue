@@ -126,8 +126,8 @@
             <input
               type="color"
               class="w-6 h-6 rounded-full cursor-pointer border-0 p-0 bg-transparent shrink-0"
-              :value="selectedPlayer.markerColor ?? posColor(selectedPlayer.position)"
-              @input="(e: any) => $emit('update-attribute', selectedPlayer.id, { markerColor: e.target.value })"
+              :value="selectedPlayer!.markerColor ?? posColor(selectedPlayer!.position)"
+              @input="(e: any) => $emit('update-attribute', selectedPlayer!.id, { markerColor: e.target.value })"
             />
           </div>
         </div>

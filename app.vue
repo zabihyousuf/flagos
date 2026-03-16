@@ -8,5 +8,5 @@
 </template>
 
 <script setup lang="ts">
-import UiSonner from '~/components/ui/sonner/Sonner.vue'
+import UiSonner from '~/components/ui/sonner'
 </script>

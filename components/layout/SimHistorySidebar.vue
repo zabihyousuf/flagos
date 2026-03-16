@@ -98,7 +98,7 @@
                       {{ job.state === 'RUNNING' ? 'Running…' : 'Queued' }}
                     </p>
                     <span class="text-xs text-muted-foreground">
-                      {{ (job.job_metadata?.n_iterations ?? 0).toLocaleString() }} iterations
+                      {{ formatIterations(job.job_metadata?.n_iterations) }}
                     </span>
                   </div>
                   <button
@@ -114,6 +114,7 @@
             </section>
             <section v-if="completedItems.length > 0" class="space-y-2">
               <h4 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Completed</h4>
+              <p class="text-[10px] text-muted-foreground/80 px-1">Runs = total sim runs; situations = defensive situations tested.</p>
               <ul class="space-y-1">
                 <li
                   v-for="job in completedItems"
@@ -142,10 +143,10 @@
                         {{ Math.round(job.overall_success_rate * 100) }}%
                       </span>
                       <span class="text-xs text-muted-foreground">
-                        {{ job.job_metadata?.n_scenarios ?? 0 }} scenarios
+                        {{ formatScenarioCount(job.job_metadata) }}
                       </span>
                       <span class="text-xs text-muted-foreground">
-                        {{ (job.job_metadata?.n_iterations ?? 0).toLocaleString() }} iterations
+                        {{ formatIterations(job.job_metadata?.n_iterations) }}
                       </span>
                     </div>
                   </div>
@@ -215,6 +216,19 @@ function formatDate(iso: string | undefined): string {
   } catch {
     return '—'
   }
+}
+
+/** When auto_generate, engine ran many defensive situations; show "Auto" instead of selected count. */
+function formatScenarioCount(metadata: { n_scenarios?: number; auto_generate?: boolean } | undefined): string {
+  if (metadata?.auto_generate) return 'Auto situations'
+  const n = metadata?.n_scenarios ?? 0
+  return n === 1 ? '1 situation' : `${n} situations`
+}
+
+/** Total simulation runs (split across all situations). */
+function formatIterations(n: number | undefined): string {
+  const val = n ?? 0
+  return val === 1 ? '1 run' : `${(val).toLocaleString()} runs`
 }
 
 function successPillClass(rate: number): string {

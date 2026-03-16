@@ -102,6 +102,8 @@ export interface JobMetadata {
   notes?: string
   n_iterations?: number
   n_scenarios?: number
+  /** When true, engine generated scenarios (actual count may be much higher than n_scenarios). */
+  auto_generate?: boolean
 }
 
 export interface JobStatus {
@@ -118,14 +120,15 @@ export interface JobStatus {
   overall_success_rate?: number
 }
 
-export type PlayOutcome = 'TOUCHDOWN' | 'FLAG_PULLED' | 'INCOMPLETE' | 'SACK' | 'INTERCEPTION'
+/** Outcome keys in batch sim result counts (backend shape). */
+export type BatchPlayOutcome = 'TOUCHDOWN' | 'FLAG_PULLED' | 'INCOMPLETE' | 'SACK' | 'INTERCEPTION'
 
 export interface ScenarioResult {
   scenario_name: string
   scenario_index: number
   success_rate: number
   iterations_completed: number
-  outcome_counts: Record<PlayOutcome, number>
+  outcome_counts: Record<BatchPlayOutcome, number>
   yards_histogram: Record<number, number>
   penalties_rate?: number
   most_common_penalty?: string
@@ -150,6 +153,7 @@ export interface AggregatedStats {
   n_scenarios: number
   n_iterations: number
   success_rate: number
+  completion_rate: number
   yards_gained_stats: AggregatedYardStats
   outcome_distribution: Record<string, number>
   most_common_failure: string
@@ -160,6 +164,7 @@ export interface PartialBatchSimResult {
   scenarios_total: number
   is_partial: boolean
   overall_success_rate: number
+  overall_completion_rate: number
   per_scenario: any[]
   aggregated_by_down: Record<string, AggregatedStats>
   aggregated_by_field_zone: Record<string, AggregatedStats>
@@ -175,6 +180,7 @@ function resultToPartial(data: any): PartialBatchSimResult {
     scenarios_total: data.scenarios_total ?? data.total_scenarios ?? 0,
     is_partial: data.is_partial ?? false,
     overall_success_rate: data.overall_success_rate ?? 0,
+    overall_completion_rate: data.overall_completion_rate ?? 0,
     per_scenario: data.per_scenario ?? [],
     aggregated_by_down: data.aggregated_by_down ?? {},
     aggregated_by_field_zone: data.aggregated_by_field_zone ?? {},
@@ -298,6 +304,7 @@ export function usePlayLabJob() {
           aggregated_by_press_rate_bucket: {},
           best_10_scenarios: [],
           worst_10_scenarios: [],
+          overall_completion_rate: 0,
         }
         if (pct >= 100) {
           result.value = getStubBatchResult(id, request.n_iterations, ['Auto: Scenario 1', 'Auto: Scenario 2', 'Auto: Scenario 3'])

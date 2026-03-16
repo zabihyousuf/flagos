@@ -1228,9 +1228,9 @@ function toggleExpand(p: Player) {
     const sanitized = sanitizeAttributesForPositions(
       p.offense_positions,
       p.defense_positions,
-      p.universal_attributes ?? {},
-      p.offense_attributes ?? {},
-      p.defense_attributes ?? {},
+      (p.universal_attributes ?? {}) as unknown as Record<string, number>,
+      (p.offense_attributes ?? {}) as unknown as Record<string, number>,
+      (p.defense_attributes ?? {}) as unknown as Record<string, number>,
     )
     inlineEdits.value = {
       universal: { ...sanitized.universal_attributes },

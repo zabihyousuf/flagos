@@ -41,7 +41,7 @@
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium">Success rate</p>
-            <p class="text-xs text-muted-foreground">{{ result.iterations_completed.toLocaleString() }} iterations</p>
+            <p class="text-xs text-muted-foreground">{{ result.iterations_completed.toLocaleString() }} runs (this situation)</p>
           </div>
         </div>
         <div class="flex flex-wrap gap-1.5">
@@ -125,8 +125,8 @@ const insightLine = computed(() => {
   if (!r || r.iterations_completed < 1000) return ''
   const rate = Math.round(r.success_rate)
   const outcome = mostCommonOutcome.value ? formatOutcome(mostCommonOutcome.value) : 'attempts'
-  if (rate >= 70) return `Beats this scenario ${rate}% of the time. Most common result: ${outcome}.`
-  if (rate <= 40) return `Struggles against this scenario — success rate ${rate}%. Most often: ${outcome}.`
-  return `Success rate ${rate}% against this scenario. Most common outcome: ${outcome}.`
+  if (rate >= 70) return `Beats this situation ${rate}% of the time. Most common result: ${outcome}.`
+  if (rate <= 40) return `Struggles against this situation — success rate ${rate}%. Most often: ${outcome}.`
+  return `Success rate ${rate}% against this situation. Most common outcome: ${outcome}.`
 })
 </script>

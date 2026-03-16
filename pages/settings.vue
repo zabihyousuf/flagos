@@ -135,8 +135,8 @@
               <div class="general-control">
                 <Select
                   :model-value="String(settings.default_offense_starter_count ?? settings.default_defense_starter_count ?? 5)"
-                  @update:model-value="(v) => {
-                    const n = parseInt(v, 10)
+                  @update:model-value="(v: any) => {
+                    const n = parseInt(String(v), 10)
                     updateSettings({ default_offense_starter_count: n, default_defense_starter_count: n })
                   }"
                 >
@@ -186,7 +186,7 @@
                   <p class="text-xs text-muted-foreground mt-2 mb-1.5">Choose the default play below.</p>
                   <Select
                     :model-value="settings.default_ghost_defense_play_id ?? '__none__'"
-                    @update:model-value="(v: string) => updateSettings({ default_ghost_defense_play_id: v === '__none__' ? null : v })"
+                    @update:model-value="(v: any) => updateSettings({ default_ghost_defense_play_id: String(v) === '__none__' ? null : String(v) })"
                   >
                     <SelectTrigger class="w-full max-w-[240px]">
                       <SelectValue placeholder="Select a defensive play" />
@@ -478,15 +478,27 @@
                 {{ isPaidPro ? 'Pro' : isTrialing ? 'Free trial' : 'Free' }}
               </span>
               <span
-                class="px-2 py-0.5 rounded-full text-xs font-medium"
+                class="px-2 py-0.5 rounded-full text-xs font-medium tabular-nums"
                 :class="isPaidPro ? 'bg-primary/15 text-primary' : isTrialing ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
               >
-                {{ isPaidPro ? 'Active' : isTrialing ? (trialDaysLeft > 0 ? `${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : `${trialHoursLeft}h left`) : 'Active' }}
+                {{ isPaidPro ? 'Active' : isTrialing ? (trialCountdownExact ?? '—') : 'Active' }}
               </span>
             </div>
             <p v-if="isTrialing" class="text-xs text-muted-foreground mt-1.5">
               New users get a {{ TRIAL_DAYS }}-day free trial of Pro features. After the trial, only Free plan features are available until you upgrade.
             </p>
+            <div v-if="isTrialing" class="mt-3 px-3 py-2.5 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 dark:border-primary/30">
+              <p class="text-sm font-medium text-foreground tabular-nums">Time remaining: {{ trialCountdownExact ?? '—' }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">Your trial ends automatically; upgrade to Pro before then to keep access.</p>
+            </div>
+            <Button
+              v-if="showDevProOverride"
+              variant="outline"
+              class="mt-4 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 dark:hover:border-amber-500"
+              @click="startDevTrial"
+            >
+              {{ hasSimulationAccess ? 'Restart' : 'Start' }} free trial (10 sec, dev only)
+            </Button>
           </div>
 
           <!-- Dev only: activate Pro for testing -->
@@ -587,7 +599,7 @@
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
-                  <span>Play Lab — stress test plays vs scenarios</span>
+                  <span>Play Lab — stress test plays across many defensive situations</span>
                 </li>
                 <li class="billing-perk billing-perk--yes">
                   <Check class="w-4 h-4 shrink-0 text-primary" />
@@ -745,11 +757,11 @@ import {
 } from '~/components/ui/alert-dialog'
 
 const tabs = [
-  { id: 'general', label: 'General', icon: Settings2 },
-  { id: 'account', label: 'Account', icon: User },
-  { id: 'field', label: 'Field', icon: Ruler },
-  { id: 'team', label: 'Team', icon: ShieldIcon },
-  { id: 'billing', label: 'Pricing & Billing', icon: CreditCard },
+  { id: 'general' as const, label: 'General', icon: Settings2 },
+  { id: 'account' as const, label: 'Account', icon: User },
+  { id: 'field' as const, label: 'Field', icon: Ruler },
+  { id: 'team' as const, label: 'Team', icon: ShieldIcon },
+  { id: 'billing' as const, label: 'Pricing & Billing', icon: CreditCard },
 ]
 
 const route = useRoute()
@@ -768,7 +780,7 @@ const user = useSupabaseUser()
 const { showTutorial } = useTutorial()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
-const { hasProAccess, isPaidPro, isTrialing, trialDaysLeft, trialHoursLeft, TRIAL_DAYS, devProOverride, setDevProOverride } = usePlanAccess()
+const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft, trialHoursLeft, trialMinutesLeft, trialCountdownExact, TRIAL_DAYS, devProOverride, setDevProOverride, startDevTrial } = usePlanAccess()
 const runtimeConfig = useRuntimeConfig()
 const showDevProOverride = computed(() => !!(runtimeConfig.public as { showDevProOverride?: boolean }).showDevProOverride)
 const theme = useTheme()

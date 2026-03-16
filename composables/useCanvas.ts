@@ -514,7 +514,7 @@ export function useCanvas() {
   function resetFormation(
     side: 'offense' | 'defense',
     starters?: Player[],
-    settings?: { los: number, length: number, endzone: number },
+    settings?: { los: number; length: number; endzone: number; [key: string]: any },
     positionMap?: Record<string, string>,
   ) {
     canvasData.value = getDefaultFormation(side, starters, settings, positionMap)

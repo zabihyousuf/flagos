@@ -3,24 +3,61 @@
     class="flex flex-col h-full min-h-0 bg-background text-foreground overflow-hidden"
     @click="maybeCloseHistoryPanel"
   >
+    <!-- Upgrade gate: only when Free (no trial) and not viewing a past job -->
+    <div
+      v-if="showUpgradeGate"
+      class="flex flex-1 flex-col items-center justify-center p-8 text-center"
+    >
+      <h2 class="text-2xl font-semibold tracking-tight font-display mb-2">Upgrade to Pro</h2>
+      <p class="text-muted-foreground max-w-md mb-6">
+        Run new simulations with Play Lab on Pro or free trial. Upgrade to run simulations, compare defensive plays, and view replays.
+      </p>
+      <NuxtLink to="/settings?tab=billing">
+        <Button>Upgrade to Pro</Button>
+      </NuxtLink>
+    </div>
+    <template v-else>
     <div class="flex flex-1 min-h-0 min-w-0 flex-col">
       <div class="shrink-0 px-4 pt-4 lg:px-6 lg:pt-6 space-y-2">
-        <div>
-          <h2 class="text-2xl font-semibold tracking-tight font-display">Play Lab</h2>
-          <p class="text-sm text-muted-foreground mt-1">Stress test a single play against defensive scenarios</p>
-          <div class="flex flex-wrap items-center gap-1.5 mt-2">
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-              :class="isPaidPro ? 'bg-primary/15 text-primary' : isTrialing ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
-            >
-              {{ isPaidPro ? 'Pro' : isTrialing ? (trialDaysLeft > 0 ? `Trial · ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} left` : 'Trial') : 'Free' }} plan
-            </span>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
-            >
-              {{ hasProAccess ? 'Up to 1M' : '1K' }} iterations
-            </span>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-2xl font-semibold tracking-tight font-display">Play Lab</h2>
+              <component
+                :is="isFree ? 'button' : 'span'"
+                type="button"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border transition-colors"
+                :class="[
+                  isPaidPro
+                    ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60'
+                    : isTrialing
+                      ? 'bg-primary/10 text-primary border-primary/30'
+                      : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 cursor-pointer',
+                ]"
+                @click="isFree && openUpgradeModal()"
+              >
+                {{ planBadgeLabel }}
+              </component>
+            </div>
+            <div v-if="!isPaidPro" class="flex flex-wrap items-center gap-1.5 mt-2">
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
+              >
+                1K iterations
+              </span>
+            </div>
           </div>
+          <Button
+            v-if="job?.jobId"
+            variant="outline"
+            size="sm"
+            class="shrink-0 h-8 gap-1.5"
+            @click="replaysModalOpen = true"
+          >
+            <Film class="w-4 h-4" />
+            Replays
+            <span v-if="replaysGroupedByScenarioFlat.length > 0" class="tabular-nums">({{ replaysGroupedByScenarioFlat.length }})</span>
+          </Button>
         </div>
       </div>
       <div class="flex flex-1 min-h-0 flex-col lg:flex-row gap-4 lg:gap-6 p-4 lg:p-6">
@@ -33,15 +70,14 @@
             @click.stop
           >
             <div v-show="!configRailed" class="p-4 lg:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 min-w-0">
-          <div class="flex items-center justify-between gap-2 -mt-0.5">
-            <p class="text-xs text-muted-foreground">Pick a play, defense, and run.</p>
+          <div class="flex items-center justify-end gap-2 -mt-0.5">
             <TooltipProvider v-if="job?.jobId">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
                     variant="ghost"
                     size="icon"
-                    class="h-8 w-8 shrink-0 -mr-1"
+                    class="h-8 w-8 shrink-0"
                     @click.stop="configRailed = true"
                   >
                     <ChevronDown class="h-4 w-4 rotate-90" />
@@ -101,7 +137,7 @@
           <div class="space-y-2">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Defensive play</h2>
-              <span v-if="!hasProAccess" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary uppercase tracking-wide" title="Pro: multi-select">1 play</span>
+              <span v-if="!hasProAccess" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary uppercase tracking-wide" title="Free trial: 1 play. Pro: multi-select">1 play</span>
             </div>
             <DropdownMenu v-model:open="defenseDropdownOpen">
               <TooltipProvider>
@@ -124,7 +160,7 @@
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="right" class="max-w-xs">
-                    <p>{{ hasProAccess ? 'Multi-select: choose one or more defensive plays to run against.' : 'Free plan: select one defensive play. Upgrade to Pro for multiple.' }}</p>
+                    <p>{{ hasProAccess ? 'Multi-select: choose one or more defensive plays to run against.' : 'Free trial: select one defensive play. Upgrade to Pro for multiple.' }}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -167,6 +203,14 @@
               </DropdownMenuContent>
             </DropdownMenu>
 
+            <div v-if="hasNoDefenseStarters" class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2.5">
+              <p class="text-xs font-medium text-amber-800 dark:text-amber-300">No defensive starters — using base players. <NuxtLink to="/squad" class="underline">Squad</NuxtLink></p>
+            </div>
+
+            <div v-if="defenseBasePlayerWarnings.length > 0 && !hasNoDefenseStarters" class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2.5">
+              <p class="text-xs font-medium text-amber-800 dark:text-amber-300">Some slots use base players. <NuxtLink to="/squad" class="underline">Squad</NuxtLink></p>
+            </div>
+
             <div class="space-y-2">
               <span class="text-xs font-medium text-muted-foreground">Attribute tier</span>
               <div class="grid grid-cols-4 gap-1.5">
@@ -175,36 +219,32 @@
                   :key="tier.id"
                   class="flex flex-col items-center gap-0.5"
                 >
-                  <span class="text-[9px] font-semibold uppercase tracking-wider" :class="(tier.id === 'poor' || tier.id === 'average') ? 'text-muted-foreground' : 'text-primary'">
-                    {{ (tier.id === 'poor' || tier.id === 'average') ? 'Free' : 'Pro' }}
+                  <span class="text-[9px] font-semibold uppercase tracking-wider" :class="(tier.id === 'poor' || tier.id === 'average' || isPaidPro) ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'">
+                    {{ isPaidPro ? tier.hint : ((tier.id === 'poor' || tier.id === 'average') ? 'Free trial' : 'Pro') }}
                   </span>
                   <button
                     type="button"
                     class="w-full flex flex-col items-center justify-center gap-0 rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
                     :class="[
                       attributeTier === tier.id
-                        ? 'border-primary/50 bg-primary/10 text-primary ring-1 ring-primary/20'
+                        ? 'border-amber-400/60 bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:border-amber-500/70 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50'
                         : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
                       (configLocked || (!hasProAccess && (tier.id === 'as_is' || tier.id === 'elite'))) && 'pointer-events-none opacity-50 cursor-not-allowed'
                     ]"
                     :disabled="configLocked || (!hasProAccess && (tier.id === 'as_is' || tier.id === 'elite'))"
-                    :title="attributeTiers.find(t => t.id === tier.id)?.description"
                     @click="(configLocked || (!hasProAccess && (tier.id === 'as_is' || tier.id === 'elite'))) || (attributeTier = tier.id)"
                   >
                     {{ tier.label }}
                   </button>
                 </div>
               </div>
-              <p class="text-xs text-muted-foreground leading-relaxed">
-                {{ attributeTiers.find(t => t.id === attributeTier)?.description }}
-              </p>
             </div>
           </div>
 
           <div class="space-y-2">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Run configuration</h2>
-              <span v-if="!hasProAccess" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">1K max</span>
+              <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">1K max</span>
             </div>
             <div class="space-y-1.5">
               <span class="text-xs font-medium">Iterations</span>
@@ -214,8 +254,8 @@
                   :key="n"
                   class="flex flex-col items-center gap-0.5"
                 >
-                  <span class="text-[9px] font-semibold uppercase tracking-wider" :class="n === 1000 ? 'text-muted-foreground' : 'text-primary'">
-                    {{ n === 1000 ? 'Free' : 'Pro' }}
+                  <span v-if="n === 1000 || !isPaidPro" class="text-[9px] font-semibold uppercase tracking-wider" :class="n === 1000 ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'">
+                    {{ n === 1000 ? (isPaidPro ? '1K' : 'Free trial') : 'Pro' }}
                   </span>
                   <button
                     type="button"
@@ -223,7 +263,7 @@
                     :class="[
                       !isIterationAllowed(n) && 'opacity-50 cursor-not-allowed',
                       configLocked && 'pointer-events-none opacity-60',
-                      nIterations === n ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : isIterationAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
+                      nIterations === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : isIterationAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
                     ]"
                     :disabled="configLocked || !isIterationAllowed(n)"
                     @click="isIterationAllowed(n) && (nIterations = n)"
@@ -232,8 +272,7 @@
                   </button>
                 </div>
               </div>
-              <p class="text-xs text-muted-foreground">{{ iterationTimeHint }}</p>
-              <p v-if="!hasProAccess" class="text-xs text-muted-foreground">
+              <p v-if="!isPaidPro" class="text-xs text-muted-foreground">
                 <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for 10K–1M iterations.
               </p>
             </div>
@@ -250,10 +289,10 @@
                 The simulation engine is unavailable. Please try again in a moment.
               </div>
             </ClientOnly>
-            <div v-if="rosterErrors.length > 0" class="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2.5 space-y-1">
-              <p class="text-xs font-medium text-amber-800 dark:text-amber-300">Roster issues — assign starters in Squad first:</p>
+            <div v-if="rosterErrors.length > 0" class="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2.5 space-y-1">
+              <p class="text-xs font-medium text-destructive">Offensive roster issues — <NuxtLink to="/squad" class="underline">assign starters in Squad</NuxtLink> first:</p>
               <ul class="space-y-0.5">
-                <li v-for="e in rosterErrors" :key="e.canvas_player_id" class="text-xs text-amber-700 dark:text-amber-400">
+                <li v-for="e in rosterErrors" :key="e.canvas_player_id" class="text-xs text-destructive/80">
                   {{ e.position }}: {{ e.message }}
                 </li>
               </ul>
@@ -306,7 +345,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <h2 class="text-lg font-semibold font-display">Run a simulation to see results</h2>
-            <p class="text-sm text-muted-foreground mt-1 max-w-sm">Select a play and configure your scenarios to get started</p>
+            <p class="text-sm text-muted-foreground mt-1">Select a play, choose defense, and run.</p>
           </div>
         </template>
 
@@ -319,26 +358,42 @@
 
         <template v-else>
           <div class="flex-1 p-4 lg:p-6 space-y-6">
-            <!-- Row 1: Status card (left) + Progress card (right) -->
-            <section class="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4">
-              <!-- Left: play name, status text, scenario count, streaming info, buttons -->
-              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col justify-center gap-3 shadow-md">
-                <div>
-                  <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">
-                    {{ selectedPlay?.name ?? 'Play' }}
-                  </p>
-                  <p v-if="!job?.isLoadedResult" class="text-sm text-muted-foreground">
-                    {{ job?.status?.progress_label ?? 'Starting simulation…' }}
-                  </p>
-                  <div v-else class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm text-muted-foreground">Completed {{ formatRelativeTime(job?.loadedJobStatus?.completed_at) }}</span>
-                    <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">Archived result</span>
+            <!-- Row 1: Status card (left) + Progress circle (right), side by side via flex -->
+            <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
+              <!-- Left: play name + description row with action buttons on same row, then progress bar and info -->
+              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col gap-3 shadow-md min-w-0 flex-1">
+                <!-- Top row: title + description (left), action buttons (right) -->
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">
+                      {{ selectedPlay?.name ?? 'Play' }}
+                    </p>
+                    <p v-if="!job?.isLoadedResult" class="text-sm text-muted-foreground">
+                      {{ job?.status?.progress_label ?? 'Starting simulation…' }}
+                    </p>
+                    <div v-else class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm text-muted-foreground">Completed {{ formatRelativeTime(job?.loadedJobStatus?.completed_at) }}</span>
+                      <span class="inline-flex items-center rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">Archived result</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <Button
+                      v-if="job?.status?.state === 'RUNNING' || job?.status?.state === 'PENDING'"
+                      variant="outline"
+                      size="sm"
+                      @click="handleCancel"
+                    >
+                      Cancel
+                    </Button>
+                    <template v-if="job?.status?.state === 'COMPLETED'">
+                      <Button variant="secondary" size="sm" @click="exportResults">Export Results</Button>
+                    </template>
                   </div>
                 </div>
 
                 <div class="flex items-center gap-3 flex-wrap">
                   <span class="text-[11px] text-muted-foreground shrink-0">
-                    {{ scenariosCompleted }} of {{ scenariosTotal }} scenarios complete
+                    {{ scenariosCompleted.toLocaleString() }} of {{ scenariosTotal.toLocaleString() }} runs complete
                   </span>
                   <div class="h-1.5 rounded-full bg-muted overflow-hidden flex-1 min-w-[80px] max-w-[200px]">
                     <div
@@ -349,23 +404,23 @@
                   <span v-if="!job?.isLoadedResult" class="text-[11px] text-muted-foreground shrink-0">{{ formatElapsed(job?.elapsedSeconds ?? 0) }}</span>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <p class="text-xs text-muted-foreground">
-                    Streaming live results as scenarios complete. You can cancel at any time.
-                  </p>
-                  <div class="flex items-center gap-2">
-                    <Button
-                      v-if="job?.status?.state === 'RUNNING' || job?.status?.state === 'PENDING'"
-                      variant="outline"
-                      size="sm"
-                      @click="handleCancel"
-                    >
-                      Cancel
-                    </Button>
-                    <template v-if="job?.status?.state === 'COMPLETED'">
-                      <Button variant="outline" size="sm" @click="handleRunAgain">Run Again</Button>
-                      <Button variant="secondary" size="sm" @click="exportResults">Export Results</Button>
-                    </template>
+                <!-- Key stats summary -->
+                <div v-if="scenariosCompleted > 0" class="grid grid-cols-2 gap-2 text-center">
+                  <div class="rounded-lg bg-muted/40 px-2 py-2">
+                    <p class="text-lg font-bold tabular-nums">{{ Math.round(overallCompletionRate) }}%</p>
+                    <p class="text-[10px] text-muted-foreground">Completion</p>
+                  </div>
+                  <div class="rounded-lg bg-muted/40 px-2 py-2">
+                    <p class="text-lg font-bold tabular-nums">{{ combinedYardStats ? combinedYardStats.mean.toFixed(1) : '—' }}</p>
+                    <p class="text-[10px] text-muted-foreground">Avg Yards</p>
+                  </div>
+                  <div class="rounded-lg bg-muted/40 px-2 py-2">
+                    <p class="text-lg font-bold tabular-nums text-emerald-500">{{ overallTdRate }}%</p>
+                    <p class="text-[10px] text-muted-foreground">TD Rate</p>
+                  </div>
+                  <div class="rounded-lg bg-muted/40 px-2 py-2">
+                    <p class="text-lg font-bold tabular-nums text-destructive">{{ overallIntRate }}%</p>
+                    <p class="text-[10px] text-muted-foreground">INT Rate</p>
                   </div>
                 </div>
 
@@ -373,18 +428,18 @@
                   v-if="job?.status?.state === 'COMPLETED' && scenariosTotal > 0"
                   class="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary shadow-sm"
                 >
-                  Simulation complete — {{ nIterations.toLocaleString() }} iterations across {{ scenariosTotal }} scenarios.
+                  Complete — {{ scenariosTotal.toLocaleString() }} runs
                 </div>
                 <p
                   v-if="job?.status?.clamped && job?.status?.clamped_iterations != null"
                   class="text-xs text-muted-foreground"
                 >
-                  Iterations reduced to {{ job?.status?.clamped_iterations?.toLocaleString() }} (server maximum)
+                  Total runs reduced to {{ job?.status?.clamped_iterations?.toLocaleString() }} (server maximum)
                 </p>
               </div>
 
-              <!-- Right: circular progress only -->
-              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md">
+              <!-- Right: circular progress (always next to the card on sm+) -->
+              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md shrink-0">
                 <div class="relative h-40 w-40 shrink-0">
                   <svg viewBox="0 0 120 120" class="h-full w-full">
                     <defs>
@@ -415,6 +470,7 @@
                   </svg>
                   <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
                     <p class="text-3xl font-bold tabular-nums">{{ Math.round(displayedSuccessRate) }}%</p>
+                    <p class="text-[10px] text-muted-foreground mt-0.5">Completion Rate</p>
                     <p class="text-xs text-muted-foreground mt-0.5">
                       {{ confidenceLabel }}
                     </p>
@@ -474,67 +530,7 @@
               </div>
             </section>
 
-            <!-- PART 3: Yards distribution -->
-            <section class="rounded-xl bg-card/80 p-4 space-y-3 shadow-md">
-              <div class="flex items-center justify-between gap-2">
-                <div>
-                  <h3 class="text-sm font-medium">Yards Gained Distribution</h3>
-                  <p class="text-xs text-muted-foreground mt-0.5">
-                    Based on {{ totalIterations }} completed iterations so far
-                  </p>
-                </div>
-              </div>
-              <div class="mt-2 h-32 flex items-center justify-center" v-if="!combinedYardStats">
-                <span class="text-xs text-muted-foreground">Waiting for enough data to estimate distribution…</span>
-              </div>
-              <div v-else class="mt-2">
-                <svg viewBox="0 0 320 80" class="w-full h-32">
-                  <line x1="24" y1="60" x2="296" y2="60" class="stroke-muted" stroke-width="1" />
-                  <rect
-                    :x="yardScale(combinedYardStats.p25)"
-                    y="40"
-                    :width="Math.max(4, yardScale(combinedYardStats.p75) - yardScale(combinedYardStats.p25))"
-                    height="20"
-                    class="fill-primary/30"
-                  />
-                  <line
-                    :x1="yardScale(combinedYardStats.median)"
-                    y1="36"
-                    :x2="yardScale(combinedYardStats.median)"
-                    y2="64"
-                    class="stroke-primary"
-                    stroke-width="2"
-                  />
-                  <circle
-                    :cx="yardScale(combinedYardStats.mean)"
-                    cy="50"
-                    r="3"
-                    class="fill-primary"
-                  />
-                  <line
-                    :x1="yardScale(combinedYardStats.p95)"
-                    y1="46"
-                    :x2="yardScale(combinedYardStats.p95)"
-                    y2="64"
-                    class="stroke-muted-foreground/60"
-                    stroke-width="1.5"
-                    stroke-dasharray="2 2"
-                  />
-                  <text
-                    v-for="tick in yardTicks"
-                    :key="tick"
-                    :x="yardScale(tick)"
-                    y="72"
-                    class="text-[10px] fill-muted-foreground"
-                    text-anchor="middle"
-                  >
-                    {{ tick }}
-                  </text>
-                </svg>
-              </div>
-            </section>
-
-            <!-- PART 4: Worst scenarios panel -->
+            <!-- PART 4: Worst situations panel -->
             <section class="rounded-xl bg-card/80 shadow-md">
               <button
                 type="button"
@@ -552,7 +548,7 @@
                   v-if="!worstScenarios.length"
                   class="text-xs text-muted-foreground py-2"
                 >
-                  Waiting for enough scenarios to identify weak spots…
+                  Waiting for enough data to identify weak spots…
                 </div>
                 <div
                   v-for="s in worstScenarios"
@@ -561,17 +557,17 @@
                 >
                   <div class="flex items-center justify-between gap-2">
                     <p class="text-xs font-medium truncate">
-                      {{ s.label || 'Scenario' }}
+                      {{ s.label || 'Situation' }}
                     </p>
                     <span class="text-[11px] text-muted-foreground">
-                      {{ Math.round((s.success_rate ?? 0) * 100) }}%
+                      {{ Math.round((s.completion_rate ?? s.success_rate ?? 0) * 100) }}% comp
                     </span>
                   </div>
                   <div class="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       class="h-full rounded-full transition-all"
-                      :class="barColorClass(s.success_rate ?? 0)"
-                      :style="{ width: `${Math.max(5, (s.success_rate ?? 0) * 100)}%`, transition: 'width 0.6s ease' }"
+                      :class="barColorClass(s.completion_rate ?? s.success_rate ?? 0)"
+                      :style="{ width: `${Math.max(5, (s.completion_rate ?? s.success_rate ?? 0) * 100)}%`, transition: 'width 0.6s ease' }"
                     />
                   </div>
                   <div class="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
@@ -585,6 +581,66 @@
                 </div>
               </div>
             </section>
+
+            <!-- Replays modal: left sidebar grouped by scenario, center = player -->
+            <Dialog v-model:open="replaysModalOpen">
+              <DialogContent class="w-[95vw] max-w-[1400px] h-[90vh] max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col" :show-close-button="true">
+                <DialogHeader class="shrink-0 px-4 pt-4 pb-2 border-b border-border/60">
+                  <DialogTitle class="text-base font-medium">Replays</DialogTitle>
+                </DialogHeader>
+                <div class="flex flex-1 min-h-0">
+                  <!-- Left: scenario groups -->
+                  <aside class="w-56 shrink-0 border-r border-border/60 overflow-y-auto bg-muted/20">
+                    <nav class="p-2 space-y-4">
+                      <p v-if="replaysLoading" class="px-2 py-3 text-xs text-muted-foreground">Loading replays…</p>
+                      <template v-else>
+                      <div v-for="group in replaysGroupedByScenario" :key="group.key" class="space-y-1">
+                        <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {{ group.label }}
+                        </p>
+                        <button
+                          v-for="item in group.items"
+                          :key="item.id"
+                          type="button"
+                          class="w-full flex flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                          :class="{ 'bg-accent/80 text-accent-foreground': selectedReplayInModal?.id === item.id }"
+                          @click="selectedReplayInModal = item"
+                        >
+                          <span class="font-medium truncate w-full">{{ item.label }}</span>
+                          <span class="text-[10px] text-muted-foreground flex gap-1.5">
+                            <span v-if="item.outcome" class="capitalize">{{ item.outcome }}</span>
+                            <span v-if="item.yardsGained != null">{{ item.yardsGained }} yd</span>
+                          </span>
+                        </button>
+                      </div>
+                      </template>
+                    </nav>
+                  </aside>
+                  <!-- Center: player -->
+                  <div class="flex-1 min-w-0 flex flex-col bg-muted/30">
+                    <div class="flex-1 min-h-[280px] flex items-center justify-center p-4">
+                      <template v-if="selectedReplayInModal?.url">
+                        <img
+                          :src="selectedReplayInModal.url"
+                          :alt="selectedReplayInModal.label"
+                          class="max-w-full max-h-[60vh] w-auto h-auto object-contain rounded-lg shadow-md"
+                        />
+                      </template>
+                      <div v-else class="flex flex-col items-center gap-3 text-muted-foreground py-12">
+                        <Film class="w-14 h-14 opacity-50" />
+                        <p class="text-sm font-medium">Select a replay</p>
+                        <p class="text-xs max-w-xs text-center">Choose a scenario from the list to play the recording.</p>
+                      </div>
+                    </div>
+                    <div v-if="selectedReplayInModal" class="shrink-0 px-4 py-3 border-t border-border/60 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span v-if="selectedReplayInModal.outcome" class="capitalize">{{ selectedReplayInModal.outcome }}</span>
+                      <span v-if="selectedReplayInModal.yardsGained != null">{{ selectedReplayInModal.yardsGained }} yards</span>
+                      <span>{{ selectedReplayInModal.scenario_group }} · {{ selectedReplayInModal.scenario_label }}</span>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </template>
         <template #fallback>
@@ -593,13 +649,14 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <h2 class="text-lg font-semibold font-display">Run a simulation to see results</h2>
-            <p class="text-sm text-muted-foreground mt-1 max-w-sm">Select a play and configure your scenarios to get started</p>
+            <p class="text-sm text-muted-foreground mt-1">Select a play, choose defense, and run.</p>
           </div>
         </template>
         </ClientOnly>
       </main>
     </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -616,13 +673,45 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/comp
 import { Checkbox } from '~/components/ui/checkbox'
 import { Skeleton } from '~/components/ui/skeleton'
 import PlayPreview from '~/components/play/PlayPreview.vue'
-import { Search, ChevronDown } from 'lucide-vue-next'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { Search, ChevronDown, Play as PlayIcon, Film } from 'lucide-vue-next'
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
 
 interface PlayWithPb extends Play {
   _playbookName?: string
+}
+
+/** Replay / highlight recording from a completed run. Maps to sim_recordings (job_id, scenario_label, highlight_type, outcome, yards_gained, recording_json). */
+export interface PlayLabReplay {
+  id: string
+  job_id?: string
+  scenario_group: string
+  scenario_label: string
+  scenario_key?: string
+  label: string
+  outcome?: string
+  yardsGained?: number
+  thumbnailUrl?: string | null
+  url: string | null
+}
+
+/** Row shape from sim_recordings (Supabase). */
+interface SimRecordingRow {
+  id: string
+  job_id: string
+  scenario_id: string
+  scenario_label: string
+  highlight_type: string
+  outcome: string
+  yards_gained: number
+  recording_json: Record<string, unknown> | null
 }
 
 const attributeTiers: { id: string; label: string; description: string; hint: string }[] = [
@@ -636,8 +725,24 @@ const route = useRoute()
 const client = useSupabaseDB()
 const user = useSupabaseUser()
 const { profile } = useProfile()
-const { hasProAccess, isPaidPro, isTrialing, trialDaysLeft } = usePlanAccess()
+const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft } = usePlanAccess()
+const upgradeModalOpen = useState<boolean>('upgrade-modal-open', () => false)
+function openUpgradeModal() {
+  upgradeModalOpen.value = true
+}
 const { settings: fieldSettings, fetchSettings } = useFieldSettings()
+
+/** Free = no trial, no pro (view past sims only). Upgrade gate only when Free and not viewing a job. */
+const isFree = computed(() => !hasSimulationAccess.value)
+const isViewingPastJob = computed(() => !!route.query.job)
+const showUpgradeGate = computed(() => isFree.value && !isViewingPastJob.value)
+
+/** Plan badge next to title: Pro, Free trial (+ days left), or Free. */
+const planBadgeLabel = computed(() => {
+  if (isPaidPro.value) return 'Pro'
+  if (isTrialing.value) return trialDaysLeft.value > 0 ? `Free trial · ${trialDaysLeft.value} day${trialDaysLeft.value === 1 ? '' : 's'} left` : 'Free trial'
+  return 'Free'
+})
 
 /** Free: Poor, Average, As-Is, Elite. Pro/trial: As-Is, Poor, Average, Elite. */
 const attributeTiersOrdered = computed(() => {
@@ -651,14 +756,140 @@ const isIterationAllowed = (n: number) => n === 1000 || hasProAccess.value
 const maxIterationsForPlan = computed(() => (hasProAccess.value ? 1000000 : 1000))
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
-const { resolveRoster } = useSimRoster(teams)
+const { resolveRoster, resolveRosterWithFallback, countStarters } = useSimRoster(teams)
 const job = reactive(usePlayLabJob())
 const { isOpen: historyPanelOpen, close: closeHistoryPanel } = useSimHistoryPanel()
 const jobHistory = useJobHistory()
 const worstOpen = ref(false)
 const displayedSuccessRate = ref(0)
+/** Replays modal (sidebar + player). */
+const replaysModalOpen = ref(false)
+const selectedReplayInModal = ref<PlayLabReplay | null>(null)
+
+/** Raw rows from sim_recordings (fetched when job has id). */
+const replaysFromDb = ref<SimRecordingRow[]>([])
+const replaysLoading = ref(false)
+
+/** Fetch sim_recordings for current job. */
+async function fetchReplaysForJob(jobId: string) {
+  replaysLoading.value = true
+  replaysFromDb.value = []
+  try {
+    const supabase = useSupabaseClient()
+    const { data, error } = await (supabase as any)
+      .from('sim_recordings')
+      .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, recording_json')
+      .eq('job_id', jobId)
+      .order('highlight_type')
+      .order('yards_gained', { ascending: false })
+    if (error) throw error
+    replaysFromDb.value = (data ?? []).map((r: any) => ({
+      id: r.id,
+      job_id: r.job_id,
+      scenario_id: r.scenario_id,
+      scenario_label: r.scenario_label ?? '',
+      highlight_type: r.highlight_type ?? '',
+      outcome: r.outcome ?? '',
+      yards_gained: r.yards_gained ?? 0,
+      recording_json: r.recording_json ?? null,
+    }))
+  } catch (_) {
+    replaysFromDb.value = []
+  } finally {
+    replaysLoading.value = false
+  }
+}
+
+/** Group DB rows by highlight_type and map to PlayLabReplay. */
+function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; label: string; items: PlayLabReplay[] }[] {
+  const byType = new Map<string, PlayLabReplay[]>()
+  const highlightLabels: Record<string, string> = {
+    touchdown: 'Touchdown',
+    long_pass: 'Long pass',
+    most_yac: 'Most YAC',
+    interception: 'Interception',
+    flag_pulled: 'Flag pulled',
+    sack: 'Sack',
+    safety: 'Safety',
+    out_of_bounds: 'Out of bounds',
+  }
+  for (const r of rows) {
+    const groupLabel = (highlightLabels[r.highlight_type] ?? r.highlight_type.replace(/_/g, ' ')) || 'Other'
+    const url = r.recording_json && typeof r.recording_json === 'object'
+      ? (r.recording_json as any).url ?? (r.recording_json as any).gif_url ?? null
+      : null
+    const item: PlayLabReplay = {
+      id: r.id,
+      job_id: r.job_id,
+      scenario_group: groupLabel,
+      scenario_label: r.scenario_label,
+      scenario_key: r.scenario_id,
+      label: r.scenario_label || `${groupLabel} — ${Math.round(r.yards_gained ?? 0)} yd`,
+      outcome: r.outcome?.toLowerCase().replace(/_/g, ' '),
+      yardsGained: r.yards_gained != null ? Math.round(r.yards_gained) : undefined,
+      url: typeof url === 'string' ? url : null,
+    }
+    if (!byType.has(r.highlight_type)) byType.set(r.highlight_type, [])
+    byType.get(r.highlight_type)!.push(item)
+  }
+  return Array.from(byType.entries()).map(([key, items]) => ({
+    key,
+    label: highlightLabels[key] ?? key.replace(/_/g, ' '),
+    items,
+  }))
+}
+
+/** Dummy fallback when no job or fetch returned empty. */
+const REPLAYS_DUMMY_GROUPED: { key: string; label: string; items: PlayLabReplay[] }[] = [
+  { key: 'by_outcome', label: 'By outcome', items: [
+    { id: 'dummy-1', scenario_group: 'By outcome', scenario_label: 'Touchdown', label: 'Sample TD', outcome: 'touchdown', yardsGained: 35, url: null },
+    { id: 'dummy-2', scenario_group: 'By outcome', scenario_label: 'Interception', label: 'Sample INT', outcome: 'interception', yardsGained: 0, url: null },
+  ]},
+]
+
+const replaysGroupedByScenario = computed(() => {
+  if (!job.jobId) return []
+  if (replaysFromDb.value.length > 0) return groupRecordingsByScenario(replaysFromDb.value)
+  return REPLAYS_DUMMY_GROUPED
+})
+
+const replaysGroupedByScenarioFlat = computed(() => replaysGroupedByScenario.value.flatMap((g) => g.items))
+
+watch(replaysModalOpen, (open) => {
+  if (open) {
+    if (job.jobId) fetchReplaysForJob(job.jobId)
+    selectedReplayInModal.value = replaysGroupedByScenarioFlat.value[0] ?? null
+  } else {
+    selectedReplayInModal.value = null
+  }
+})
+
+watch(() => job.jobId, (jobId) => {
+  if (jobId && replaysModalOpen.value) fetchReplaysForJob(jobId)
+})
+
+/** When grouped replays update (e.g. after fetch), select first if modal is open and current selection is missing. */
+watch(replaysGroupedByScenarioFlat, (flat) => {
+  if (!replaysModalOpen.value || flat.length === 0) return
+  const currentId = selectedReplayInModal.value?.id
+  if (!currentId || !flat.some((r) => r.id === currentId)) {
+    selectedReplayInModal.value = flat[0] ?? null
+  }
+}, { deep: true })
 const configRailed = ref(false)
 const rosterErrors = ref<RosterError[]>([])
+const defenseBasePlayerWarnings = ref<RosterError[]>([])
+
+const primaryTeamId = computed(() =>
+  teams.value.find((t) => t.name !== 'Free Agent')?.id ?? teams.value[0]?.id ?? ''
+)
+
+const defenseStarterCount = computed(() => {
+  if (!primaryTeamId.value) return 0
+  return countStarters(primaryTeamId.value, 'defense')
+})
+
+const hasNoDefenseStarters = computed(() => defenseStarterCount.value === 0)
 
 const configLocked = computed(() => !!job?.jobId)
 
@@ -795,8 +1026,15 @@ const overallSuccessRate = computed(() => {
   return 0
 })
 
+const overallCompletionRate = computed(() => {
+  if (partial.value) return (partial.value.overall_completion_rate ?? 0) * 100
+  const fromResult = (job.result as any)?.overall_completion_rate
+  if (typeof fromResult === 'number') return fromResult * 100
+  return 0
+})
+
 watch(
-  overallSuccessRate,
+  overallCompletionRate,
   (next) => {
     if (typeof requestAnimationFrame === 'undefined') {
       displayedSuccessRate.value = next
@@ -815,8 +1053,36 @@ watch(
   { immediate: true },
 )
 
+const overallTdRate = computed(() => {
+  const buckets = partial.value?.aggregated_by_down ?? {}
+  const entries = Object.values(buckets) as AggregatedStats[]
+  if (!entries.length) return 0
+  let total = 0, tdWeighted = 0
+  for (const e of entries) {
+    const w = e.n_iterations || 0
+    if (!w) continue
+    total += w
+    tdWeighted += (e.outcome_distribution?.TOUCHDOWN ?? 0) * w
+  }
+  return total ? Math.round((tdWeighted / total) * 100) : 0
+})
+
+const overallIntRate = computed(() => {
+  const buckets = partial.value?.aggregated_by_down ?? {}
+  const entries = Object.values(buckets) as AggregatedStats[]
+  if (!entries.length) return 0
+  let total = 0, intWeighted = 0
+  for (const e of entries) {
+    const w = e.n_iterations || 0
+    if (!w) continue
+    total += w
+    intWeighted += (e.outcome_distribution?.INTERCEPTION ?? 0) * w
+  }
+  return total ? Math.round((intWeighted / total) * 100) : 0
+})
+
 const ringColor = computed(() => {
-  const rate = overallSuccessRate.value
+  const rate = overallCompletionRate.value
   if (rate < 40) return 'hsl(var(--destructive))'
   if (rate < 65) return 'hsl(38 92% 50%)'
   return 'hsl(142 76% 36%)'
@@ -909,14 +1175,16 @@ const combinedYardStats = computed(() => {
   let p75 = 0
   let p95 = 0
   for (const e of entries) {
+    const stats = e?.yards_gained_stats
+    if (!stats || typeof stats.mean !== 'number') continue
     const w = e.n_iterations || 0
     if (!w) continue
     total += w
-    mean += e.yards_gained_stats.mean * w
-    median += e.yards_gained_stats.median * w
-    p25 += e.yards_gained_stats.p25 * w
-    p75 += e.yards_gained_stats.p75 * w
-    p95 += e.yards_gained_stats.p95 * w
+    mean += (stats.mean ?? 0) * w
+    median += (stats.median ?? 0) * w
+    p25 += (stats.p25 ?? 0) * w
+    p75 += (stats.p75 ?? 0) * w
+    p95 += (stats.p95 ?? 0) * w
   }
   if (!total) return null
   return {
@@ -924,7 +1192,7 @@ const combinedYardStats = computed(() => {
     median: median / total,
     p25: p25 / total,
     p75: p75 / total,
-    p95: p95 / total,
+    p95: Math.max(p95 / total, 1),
   }
 })
 
@@ -961,6 +1229,8 @@ const OUTCOME_LABELS: Record<string, string> = {
   SACK: 'Sack',
   INTERCEPTION: 'Interception',
   OUT_OF_BOUNDS: 'Out of bounds',
+  PASS_CLOCK_EXPIRED: 'Pass clock expired',
+  SAFETY: 'Safety',
   TIMEOUT: 'Timeout',
 }
 
@@ -1037,26 +1307,23 @@ async function runSimulation() {
   if (!play || !user.value) return
 
   rosterErrors.value = []
+  defenseBasePlayerWarnings.value = []
 
-  // Pick the first real (non-Free Agent) team for roster resolution
-  const teamId = teams.value.find((t) => t.name !== 'Free Agent')?.id ?? teams.value[0]?.id ?? ''
+  const teamId = primaryTeamId.value
 
-  // Resolve offensive roster
+  // Resolve offensive roster (still required — can't run without offensive starters)
   const offResult = await resolveRoster(play.canvas_data, 'offense', teamId)
   if (!offResult.success) {
     rosterErrors.value = offResult.errors
     return
   }
 
-  // Resolve defensive roster from first selected defensive play
+  // Resolve defensive roster — use fallback base players for any missing starters
   const firstDefPlay = defensePlays.value.find((p) => p.id === selectedDefenseIds.value[0])
   if (!firstDefPlay) return
 
-  const defResult = await resolveRoster(firstDefPlay.canvas_data, 'defense', teamId)
-  if (!defResult.success) {
-    rosterErrors.value = defResult.errors
-    return
-  }
+  const defResult = await resolveRosterWithFallback(firstDefPlay.canvas_data, 'defense', teamId)
+  defenseBasePlayerWarnings.value = defResult.warnings
 
   const effectiveIterations = Math.min(nIterations.value, maxIterationsForPlan.value)
   const ok = await job.startJob(
@@ -1077,6 +1344,7 @@ async function runSimulation() {
       defensive_play_id: firstDefPlay.id,
       n_scenarios: selectedDefenseIds.value.length,
       n_iterations: effectiveIterations,
+      auto_generate: true,
     }
   )
   if (ok) {
@@ -1129,37 +1397,48 @@ const BreakdownRow = defineComponent({
     stat: { type: Object as () => AggregatedStats | undefined, required: false },
   },
   setup(props) {
-    return () =>
-      props.stat ? (
+    return () => {
+      if (!props.stat) {
+        return (
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>{props.label}</span>
+              <span>—</span>
+            </div>
+            <Skeleton class="h-1.5 w-full rounded-full" />
+          </div>
+        )
+      }
+      const compRate = props.stat?.completion_rate ?? 0
+      const dist = props.stat?.outcome_distribution as Record<string, number> | undefined
+      const tdPct = dist ? Math.round((dist.TOUCHDOWN ?? 0) * 100) : 0
+      const intPct = dist ? Math.round((dist.INTERCEPTION ?? 0) * 100) : 0
+      const incPct = dist ? Math.round((dist.INCOMPLETE ?? 0) * 100) : 0
+      return (
         <div class="space-y-1">
           <div class="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>{props.label}</span>
-            <span>{Math.round((props.stat?.success_rate ?? 0) * 100)}%</span>
+            <span class="font-medium">{Math.round(compRate * 100)}% comp</span>
           </div>
           <div class="h-1.5 rounded-full bg-muted overflow-hidden">
             <div
-              class={['h-full rounded-full transition-all', barColorClass(props.stat?.success_rate ?? 0)]}
-              style={{ width: `${Math.max(5, (props.stat?.success_rate ?? 0) * 100)}%`, transition: 'width 0.6s ease' }}
+              class={['h-full rounded-full transition-all', barColorClass(compRate)]}
+              style={{ width: `${Math.max(5, compRate * 100)}%`, transition: 'width 0.6s ease' }}
             />
           </div>
-          <div class="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span class="inline-flex items-center rounded-full border border-border/80 px-1.5 py-0.5 truncate max-w-[70%]">
-              {props.stat?.most_common_failure || 'Not enough failures yet'}
-            </span>
-            <span class="text-[10px]">
-              {props.stat?.n_scenarios ?? 0} scens · {(props.stat?.n_iterations ?? 0).toLocaleString()} iters
+          <div class="mt-0.5 flex items-center justify-between gap-1 text-[10px] text-muted-foreground flex-wrap">
+            <div class="flex items-center gap-1.5">
+              {tdPct > 0 && <span class="text-emerald-500">{tdPct}% TD</span>}
+              {intPct > 0 && <span class="text-destructive">{intPct}% INT</span>}
+              {incPct > 0 && <span>{incPct}% INC</span>}
+            </div>
+            <span>
+              {(props.stat?.n_iterations ?? 0).toLocaleString()} runs
             </span>
           </div>
-        </div>
-      ) : (
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>{props.label}</span>
-            <span>—</span>
-          </div>
-          <Skeleton class="h-1.5 w-full rounded-full" />
         </div>
       )
+    }
   },
 })
 </script>

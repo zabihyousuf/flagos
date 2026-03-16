@@ -39,6 +39,32 @@
       </div>
     </section>
 
+    <!-- 2.5 Play Lab ready banner -->
+    <section class="playlab-banner">
+      <div class="playlab-banner-glow" />
+      <div class="landing-container playlab-banner-inner">
+        <div class="playlab-banner-badge">
+          <FlaskConical class="w-4 h-4" />
+          <span>Now live</span>
+        </div>
+        <h2 class="playlab-banner-title font-copernicus">
+          Play Lab is ready to use and test
+        </h2>
+        <p class="playlab-banner-sub">
+          Stress-test your plays across thousands of defensive situations. Pick a play, set your run, and see success rates, yards distribution, and where your play struggles — all powered by our simulation engine.
+        </p>
+        <div class="playlab-banner-ctas">
+          <NuxtLink to="/auth/signup" class="playlab-cta-primary">
+            Try Play Lab free
+            <ArrowRight class="w-4 h-4 ml-2" />
+          </NuxtLink>
+          <NuxtLink to="/auth/login" class="playlab-cta-secondary">
+            I have an account
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
     <!-- 3. Bento Feature Grid -->
     <section class="features-section">
       <div class="landing-container">
@@ -673,6 +699,118 @@ function animateCountUp() {
   transition: background 0.15s, border-color 0.15s;
 }
 .hero-cta-secondary:hover {
+  background: var(--color-accent);
+}
+
+/* ── 2.5 Play Lab ready banner ── */
+.playlab-banner {
+  position: relative;
+  padding: 4rem 1.5rem;
+  background: linear-gradient(180deg, color-mix(in oklch, var(--color-primary) 12%, var(--color-background)) 0%, var(--color-background) 100%);
+  border-top: 1px solid color-mix(in oklch, var(--color-primary) 18%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--color-border) 50%, transparent);
+  overflow: hidden;
+}
+
+.playlab-banner-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 400px;
+  background: radial-gradient(ellipse, color-mix(in oklch, var(--color-primary) 14%, transparent) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.playlab-banner-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.playlab-banner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: color-mix(in oklch, var(--color-primary) 14%, transparent);
+  border: 1px solid color-mix(in oklch, var(--color-primary) 28%, transparent);
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  margin-bottom: 1.25rem;
+}
+
+.playlab-banner-title {
+  font-size: clamp(1.875rem, 4.5vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  color: var(--color-foreground);
+  margin: 0 0 1rem;
+  background: linear-gradient(135deg, var(--color-foreground), color-mix(in oklch, var(--color-foreground) 75%, var(--color-primary)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.playlab-banner-sub {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--color-muted-foreground);
+  margin: 0 0 1.75rem;
+}
+
+.playlab-banner-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.playlab-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  padding: 0.875rem 1.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 4px 14px color-mix(in oklch, var(--color-primary) 35%, transparent);
+}
+
+.playlab-cta-primary:hover {
+  background: color-mix(in oklch, var(--color-primary) 88%, black);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px color-mix(in oklch, var(--color-primary) 40%, transparent);
+}
+
+.playlab-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+  padding: 0.875rem 1.25rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.playlab-cta-secondary:hover {
+  color: var(--color-foreground);
   background: var(--color-accent);
 }
 

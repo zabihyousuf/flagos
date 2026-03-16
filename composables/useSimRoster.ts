@@ -52,7 +52,7 @@ function buildPositionAttributes(
   const attrs = playType === 'offense' ? player.offense_attributes : player.defense_attributes
   const out: Record<string, number> = {}
   for (const key of keys) {
-    out[key] = (attrs as Record<string, number>)?.[key] ?? 5
+    out[key] = (attrs as unknown as Record<string, number>)?.[key] ?? 5
   }
   return out
 }
@@ -70,6 +70,32 @@ function buildSimPlayer(
     canvas_alignment: canvasPlayer.alignment ?? null,
     universal_attributes: buildUniversalAttributes(player),
     position_attributes: buildPositionAttributes(player, playType, position),
+  }
+}
+
+/**
+ * Create a SimPlayer with all-5 default attributes for a canvas slot that has
+ * no real starter assigned. Used so the simulation can still run.
+ */
+function buildBaseSimPlayer(
+  canvasPlayer: CanvasPlayer,
+  playType: 'offense' | 'defense',
+): SimPlayer {
+  const position = canvasPlayer.position || canvasPlayer.designation
+  const keys = getPositionAttrKeys(playType, position)
+  const posAttrs: Record<string, number> = {}
+  for (const k of keys) posAttrs[k] = 5
+  return {
+    canvas_player_id: canvasPlayer.id,
+    player_id: null,
+    position,
+    canvas_alignment: canvasPlayer.alignment ?? null,
+    universal_attributes: {
+      speed: 5, acceleration: 5, stamina: 5, football_iq: 5,
+      agility: 5, playmaking: 5, reaction_time: 5, deceleration: 5,
+      change_of_direction: 5, reach: 5, body_control_balance: 5, field_vision: 5,
+    },
+    position_attributes: posAttrs,
   }
 }
 
@@ -220,5 +246,43 @@ export function useSimRoster(teamsInput: MaybeRef<Team[]>) {
     return { success: errors.length === 0, players, errors }
   }
 
-  return { resolveRoster, resolveRosterWithOverrides }
+  /**
+   * Like resolveRoster but fills unassigned slots with base players (all-5 attrs)
+   * instead of producing errors. Returns `warnings` for slots that used fallback.
+   */
+  async function resolveRosterWithFallback(
+    canvasData: CanvasData,
+    playType: 'offense' | 'defense',
+    teamId: string,
+  ): Promise<ResolveRosterResult & { warnings: RosterError[] }> {
+    const players: SimPlayer[] = []
+    const warnings: RosterError[] = []
+    const canvasPlayers = (canvasData.players ?? []).filter((p) => p.side === playType)
+    const starters = getStartersForTeam(teamsInput, teamId, playType)
+    const assignment = assignStartersToCanvas(canvasPlayers, starters, playType)
+    for (const cp of canvasPlayers) {
+      const assigned = assignment.get(cp.id)
+      if (assigned) {
+        players.push(buildSimPlayer(cp, assigned.player, playType))
+      } else {
+        warnings.push({
+          canvas_player_id: cp.id,
+          position: cp.position || cp.designation,
+          message: `No starter for ${cp.position || cp.designation} — using base player (average attributes)`,
+        })
+        players.push(buildBaseSimPlayer(cp, playType))
+      }
+    }
+    return { success: true, players, errors: [], warnings }
+  }
+
+  /**
+   * Quick count of how many starters exist for a team + play type,
+   * useful for proactive UI warnings without running a full resolve.
+   */
+  function countStarters(teamId: string, playType: 'offense' | 'defense'): number {
+    return getStartersForTeam(teamsInput, teamId, playType).length
+  }
+
+  return { resolveRoster, resolveRosterWithOverrides, resolveRosterWithFallback, countStarters }
 }

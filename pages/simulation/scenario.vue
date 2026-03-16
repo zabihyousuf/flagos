@@ -1,5 +1,18 @@
 <template>
   <div class="flex flex-col h-screen bg-background">
+    <div
+      v-if="!hasSimulationAccess"
+      class="flex flex-1 flex-col items-center justify-center p-8 text-center"
+    >
+      <h2 class="text-2xl font-semibold tracking-tight font-display mb-2">Upgrade to Pro</h2>
+      <p class="text-muted-foreground max-w-md mb-6">
+        Play simulation is available on Pro. Upgrade to run your plays against defenses.
+      </p>
+      <NuxtLink to="/settings?tab=billing">
+        <Button>Upgrade to Pro</Button>
+      </NuxtLink>
+    </div>
+    <template v-else>
     <!-- Header -->
     <div class="border-b bg-card shrink-0">
       <div class="flex items-center justify-between px-6 py-3">
@@ -197,6 +210,7 @@
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -215,6 +229,7 @@ definePageMeta({
   layout: false,
 })
 
+const { hasSimulationAccess } = usePlanAccess()
 const supabase = useSupabaseClient()
 
 // Plays

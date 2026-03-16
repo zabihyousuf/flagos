@@ -10,16 +10,17 @@
           <p class="text-xl font-bold tabular-nums">{{ overallSuccessRate }}%</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">Best scenario</p>
+          <p class="text-xs text-muted-foreground">Best situation</p>
           <p class="text-sm font-medium truncate" :title="bestScenario?.name">{{ bestScenario?.name ?? '—' }}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">Worst scenario</p>
+          <p class="text-xs text-muted-foreground">Worst situation</p>
           <p class="text-sm font-medium truncate" :title="worstScenario?.name">{{ worstScenario?.name ?? '—' }}</p>
         </div>
         <div>
-          <p class="text-xs text-muted-foreground">Iterations</p>
+          <p class="text-xs text-muted-foreground">Total runs</p>
           <p class="text-sm font-medium">{{ result.total_iterations?.toLocaleString() ?? '—' }}</p>
+          <p class="text-[10px] text-muted-foreground/80 mt-0.5">Simulation runs across all situations</p>
         </div>
       </div>
       <p v-if="recommendation" class="text-sm text-muted-foreground border-l-2 border-primary/30 pl-3">{{ recommendation }}</p>
@@ -39,20 +40,20 @@ const props = defineProps<{
 const overallSuccessRate = computed(() => {
   const list = props.result.scenario_results ?? []
   if (list.length === 0) return 0
-  const sum = list.reduce((a, s) => a + s.success_rate, 0)
+  const sum = list.reduce((a: number, s: any) => a + s.success_rate, 0)
   return Math.round(sum / list.length)
 })
 
 const bestScenario = computed(() => {
   const list = props.result.scenario_results ?? []
   if (list.length === 0) return null
-  return list.reduce((a, b) => (b.success_rate > a.success_rate ? b : a))
+  return list.reduce((a: any, b: any) => (b.success_rate > a.success_rate ? b : a))
 })
 
 const worstScenario = computed(() => {
   const list = props.result.scenario_results ?? []
   if (list.length === 0) return null
-  return list.reduce((a, b) => (b.success_rate < a.success_rate ? b : a))
+  return list.reduce((a: any, b: any) => (b.success_rate < a.success_rate ? b : a))
 })
 
 const recommendation = computed(() => {
