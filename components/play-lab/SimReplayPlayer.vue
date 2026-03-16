@@ -121,6 +121,7 @@ interface RecordingData {
   field: FieldGeometry | null
   player_meta: Record<string, PlayerMeta>
   player_traces: Record<string, TracePoint[]>
+  designed_routes?: Record<string, TracePoint[]>
 }
 
 /** Optional display info from the play's canvas (name, number) for labels. */
@@ -428,9 +429,86 @@ function renderFrame() {
     }
   }
 
+  // --- Designed routes (dashed lines) ---
+  const designedRoutes = rec.designed_routes
+  if (designedRoutes) {
+    ctx.save()
+    ctx.setLineDash([4, 3])
+    ctx.lineWidth = 1.5
+    for (const [pid, waypoints] of Object.entries(designedRoutes)) {
+      if (!waypoints || waypoints.length < 2) continue
+      const meta = rec.player_meta[pid]
+      if (!meta) continue
+      const color = POSITION_COLORS[meta.position] ?? (meta.team === 'offense' ? '#60a5fa' : '#f87171')
+      ctx.strokeStyle = isDark
+        ? color + '55'  // 33% opacity in dark mode
+        : color + '44'  // 27% opacity in light mode
+      ctx.beginPath()
+      const first = normToCanvas(waypoints[0].x, waypoints[0].y)
+      ctx.moveTo(first.cx, first.cy)
+      for (let i = 1; i < waypoints.length; i++) {
+        const { cx: wx, cy: wy } = normToCanvas(waypoints[i].x, waypoints[i].y)
+        ctx.lineTo(wx, wy)
+      }
+      ctx.stroke()
+
+      // Arrow at last waypoint
+      if (waypoints.length >= 2) {
+        const last = normToCanvas(waypoints[waypoints.length - 1].x, waypoints[waypoints.length - 1].y)
+        const prev = normToCanvas(waypoints[waypoints.length - 2].x, waypoints[waypoints.length - 2].y)
+        const dx = last.cx - prev.cx
+        const dy = last.cy - prev.cy
+        const len = Math.sqrt(dx * dx + dy * dy)
+        if (len > 1) {
+          const nx = dx / len
+          const ny = dy / len
+          const arrowSize = 5
+          ctx.beginPath()
+          ctx.moveTo(last.cx, last.cy)
+          ctx.lineTo(last.cx - nx * arrowSize + ny * arrowSize * 0.5, last.cy - ny * arrowSize - nx * arrowSize * 0.5)
+          ctx.moveTo(last.cx, last.cy)
+          ctx.lineTo(last.cx - nx * arrowSize - ny * arrowSize * 0.5, last.cy - ny * arrowSize + nx * arrowSize * 0.5)
+          ctx.stroke()
+        }
+      }
+    }
+    ctx.setLineDash([])
+    ctx.restore()
+  }
+
+  // --- Actual trace lines (solid, from start to current tick) ---
+  const currentTick = tick.value
+  ctx.save()
+  ctx.lineWidth = 1.2
+  for (const pid of playerIds.value) {
+    const trace = rec.player_traces[pid]
+    const meta = rec.player_meta[pid]
+    if (!trace || !meta || trace.length < 2) continue
+    // Only draw traces for offense players (routes)
+    if (meta.team !== 'offense') continue
+    const color = POSITION_COLORS[meta.position] ?? '#60a5fa'
+    ctx.strokeStyle = isDark
+      ? color + '88'  // 53% opacity
+      : color + '66'  // 40% opacity
+    const endIdx = Math.min(currentTick, trace.length - 1)
+    if (endIdx < 1) continue
+    ctx.beginPath()
+    const start = normToCanvas(trace[0].x, trace[0].y)
+    ctx.moveTo(start.cx, start.cy)
+    // Sample every 3 ticks for performance
+    for (let i = 3; i <= endIdx; i += 3) {
+      const { cx: tx, cy: ty } = normToCanvas(trace[i].x, trace[i].y)
+      ctx.lineTo(tx, ty)
+    }
+    // Always include the current position
+    const last = normToCanvas(trace[endIdx].x, trace[endIdx].y)
+    ctx.lineTo(last.cx, last.cy)
+    ctx.stroke()
+  }
+  ctx.restore()
+
   // --- Players ---
   const radius = Math.max(10, Math.min(14, fieldW * 0.035))
-  const currentTick = tick.value
 
   for (const pid of playerIds.value) {
     const trace = rec.player_traces[pid]
