@@ -60,7 +60,6 @@ import {
   Users,
   Swords,
   Settings as SettingsIcon,
-  Sparkles,
   FileText,
   FolderOpen,
   Search,
@@ -91,7 +90,6 @@ const staticPages: SearchItem[] = [
   { id: 'page-plays', type: 'page', label: 'Plays', to: '/plays', icon: Swords },
   { id: 'page-squad', type: 'page', label: 'Squad', to: '/squad', icon: Users },
   { id: 'page-settings', type: 'page', label: 'Settings', to: '/settings', icon: SettingsIcon },
-  { id: 'page-whats-new', type: 'page', label: "What's New", to: '/whats-new', icon: Sparkles },
 ]
 
 const dynamicItems = ref<SearchItem[]>([])

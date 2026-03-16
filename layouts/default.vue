@@ -27,13 +27,16 @@
         class="flex flex-col flex-1 min-w-0 overflow-hidden bg-background"
         @click="maybeCloseHistoryPanel"
       >
-      <main class="flex-1 flex flex-col min-h-0 overflow-hidden p-4 pb-2 lg:p-6 lg:pb-3">
+      <main
+        class="flex-1 flex flex-col min-h-0 overflow-hidden p-4 lg:p-6"
+        :class="route.path.startsWith('/blurai/playlab') ? 'pb-0 -mb-5 lg:-mb-6' : 'pb-2 lg:pb-3'"
+      >
         <AppBreadcrumb />
         <div class="flex-1 min-h-0 overflow-y-auto">
           <slot />
         </div>
       </main>
-      <footer class="shrink-0 w-full flex justify-center py-2">
+      <footer class="shrink-0 w-full flex justify-center py-0 -mt-1 mb-2">
         <AppFooter />
       </footer>
       </div>

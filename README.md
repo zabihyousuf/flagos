@@ -250,7 +250,6 @@ Every player has **universal**, **offense**, and **defense** attributes. Each is
 | `/simulation/game`, `/simulation/scenario` | Match Sim and Play Lab (Coming Soon) |
 | `/shared/[token]` | Public shared play view |
 | `/settings` | General, Field, Team, Billing, Account |
-| `/whats-new` | Changelog / what’s new |
 
 ---
 

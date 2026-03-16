@@ -182,10 +182,6 @@
               <SettingsIcon class="w-4 h-4" />
               <span>Settings</span>
             </NuxtLink>
-            <NuxtLink to="/whats-new" class="user-menu-item" @click="userMenuOpen = false">
-              <Sparkles class="w-4 h-4" />
-              <span>What's New</span>
-            </NuxtLink>
             <button type="button" class="user-menu-item w-full text-left" @click="feedbackOpen = true; userMenuOpen = false">
               <MessageSquarePlus class="w-4 h-4" />
               <span>Send Feedback</span>
@@ -242,7 +238,6 @@ import {
   Play,
   FlaskConical,
   Search,
-  Sparkles,
   MessageSquarePlus,
 } from 'lucide-vue-next'
 import {

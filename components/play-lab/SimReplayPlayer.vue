@@ -123,6 +123,13 @@ interface RecordingData {
   player_traces: Record<string, TracePoint[]>
 }
 
+/** Optional display info from the play's canvas (name, number) for labels. */
+export interface PlayerLabelInfo {
+  name?: string
+  number?: number
+  position: string
+}
+
 const props = withDefaults(
   defineProps<{
     recording: RecordingData
@@ -134,8 +141,20 @@ const props = withDefaults(
     autoPlay?: boolean
     /** When playback reaches the end, loop from the start until paused. */
     loop?: boolean
+    /** Player id -> { name, number, position } from play designer (for labels). */
+    playerLabels?: Record<string, PlayerLabelInfo>
+    /** Whether to show names/numbers (play designer setting). */
+    showPlayerNames?: boolean
+    /** What to show in marker: number | position | both | none (play designer setting). */
+    playerLabelType?: 'number' | 'position' | 'both' | 'none'
   }>(),
-  { autoPlay: false, loop: false }
+  {
+    autoPlay: false,
+    loop: false,
+    playerLabels: () => ({}),
+    showPlayerNames: true,
+    playerLabelType: 'position',
+  }
 )
 
 const theme = useTheme()
@@ -151,11 +170,21 @@ const speeds = [0.25, 0.5, 1, 2]
 const totalTicks = computed(() => props.ticks || 0)
 const playerIds = computed(() => Object.keys(props.recording?.player_traces ?? {}))
 
-// Ball flight tracking
+// Event tracking
+const snapEvent = computed(() => props.recording?.events?.find(e => e.type === 'SNAP') ?? null)
 const throwEvent = computed(() => props.recording?.events?.find(e => e.type === 'THROW') ?? null)
 const catchEvent = computed(() => {
   const types = ['CATCH', 'INTERCEPTION', 'INCOMPLETE_PASS', 'BALL_HIT_GROUND']
   return props.recording?.events?.find(e => types.includes(e.type)) ?? null
+})
+/** Find the Center player ID from meta for pre-snap ball holder. */
+const centerPlayerId = computed(() => {
+  const meta = props.recording?.player_meta
+  if (!meta) return null
+  for (const [pid, m] of Object.entries(meta)) {
+    if (m.position === 'C' && m.team === 'offense') return pid
+  }
+  return null
 })
 
 // Animation
@@ -175,6 +204,7 @@ function animate(time: number) {
     if (props.loop && totalTicks.value > 0) {
       tick.value = 0
       tickAccum = 0
+      lastTime = performance.now()
     } else {
       playing.value = false
     }
@@ -413,9 +443,34 @@ function renderFrame() {
     const { cx, cy } = normToCanvas(pos.x, pos.y)
     const color = POSITION_COLORS[meta.position] ?? (meta.team === 'offense' ? '#60a5fa' : '#f87171')
 
-    const isCarrier =
-      (props.carrierId === pid && catchEvent.value && currentTick >= catchEvent.value.tick) ||
-      (props.throwerId === pid && (!throwEvent.value || currentTick < throwEvent.value.tick))
+    // Carrier logic with snap phases:
+    // 1. Before SNAP: Center holds the ball
+    // 2. After SNAP until QB catches snap: ball in flight (no carrier highlight)
+    // 3. QB has ball from snap delivery until THROW
+    // 4. After THROW until catch: ball in flight (no carrier highlight)
+    // 5. After catch: receiver/interceptor is carrier
+    const snapTick = snapEvent.value?.tick ?? 0
+    const snapDeliveryTick = snapTick + 6 // ~0.1s for snap to reach QB
+    const throwTick = throwEvent.value?.tick ?? Infinity
+    const catchTick = catchEvent.value?.tick ?? Infinity
+
+    let isCarrier = false
+    if (currentTick < snapTick) {
+      // Pre-snap: Center holds ball
+      isCarrier = pid === centerPlayerId.value
+    } else if (currentTick >= snapTick && currentTick < snapDeliveryTick) {
+      // Snap in flight — no one is carrier
+      isCarrier = false
+    } else if (currentTick >= snapDeliveryTick && currentTick < throwTick) {
+      // QB has ball
+      isCarrier = pid === props.throwerId
+    } else if (currentTick >= throwTick && currentTick < catchTick) {
+      // Ball in flight after throw — no carrier
+      isCarrier = false
+    } else if (currentTick >= catchTick) {
+      // Receiver/interceptor caught ball
+      isCarrier = pid === props.carrierId
+    }
 
     // Carrier highlight ring
     if (isCarrier) {
@@ -443,26 +498,80 @@ function renderFrame() {
     ctx.stroke()
     ctx.restore()
 
-    // Label
-    ctx.fillStyle = color
-    ctx.font = `700 ${Math.max(8, radius * 0.7)}px system-ui, sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(meta.position, cx, cy)
+    // Label: respect play designer settings (showPlayerNames, playerLabelType, playerLabels)
+    const labelType = props.showPlayerNames !== false ? (props.playerLabelType ?? 'position') : 'position'
+    const info = props.playerLabels?.[pid] ?? { position: meta.position }
+    let labelText = ''
+    if (labelType === 'none') {
+      labelText = ''
+    } else if (labelType === 'number') {
+      labelText = info.number != null ? String(info.number) : meta.position
+    } else if (labelType === 'both') {
+      if (info.name != null && info.number != null) labelText = `${info.name} #${info.number}`
+      else if (info.number != null) labelText = String(info.number)
+      else labelText = meta.position
+    } else {
+      labelText = meta.position
+    }
+    if (labelText) {
+      const maxLen = 12
+      const displayText = labelText.length > maxLen ? labelText.slice(0, maxLen - 1) + '…' : labelText
+      const baseSize = Math.max(8, Math.min(radius * 0.9, 14))
+      const fontSize = displayText.length <= 4 ? baseSize : Math.max(7, baseSize * (4 / Math.max(4, displayText.length)))
+      ctx.fillStyle = color
+      ctx.font = `700 ${fontSize}px system-ui, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(displayText, cx, cy)
+    }
   }
 
-  // --- Ball in flight ---
-  if (throwEvent.value && catchEvent.value && currentTick >= throwEvent.value.tick && currentTick < catchEvent.value.tick) {
-    const te = throwEvent.value
-    const ce = catchEvent.value
-    const flightDuration = ce.tick - te.tick
-    const progress = Math.min(1, (currentTick - te.tick) / Math.max(flightDuration, 1))
-    const bx = te.position[0] + (ce.position[0] - te.position[0]) * progress
-    const by = te.position[1] + (ce.position[1] - te.position[1]) * progress
+  // --- Ball in flight (snap or throw) ---
+  const snapTk = snapEvent.value?.tick ?? 0
+  const snapDelivTk = snapTk + 6
+  const throwTk = throwEvent.value?.tick ?? Infinity
+  const catchTk = catchEvent.value?.tick ?? Infinity
+
+  let ballInFlight = false
+  let ballStartPos: [number, number] | null = null
+  let ballEndPos: [number, number] | null = null
+  let ballProgress = 0
+
+  // Snap in flight: Center → QB
+  if (currentTick >= snapTk && currentTick < snapDelivTk) {
+    const centerId = centerPlayerId.value
+    const qbId = props.throwerId
+    if (centerId && qbId) {
+      const cTrace = rec.player_traces[centerId]
+      const qTrace = rec.player_traces[qbId]
+      if (cTrace && qTrace) {
+        const cPos = cTrace[Math.min(snapTk, cTrace.length - 1)]
+        const qPos = qTrace[Math.min(snapDelivTk, qTrace.length - 1)]
+        if (cPos && qPos) {
+          ballInFlight = true
+          ballStartPos = [cPos.x, cPos.y]
+          ballEndPos = [qPos.x, qPos.y]
+          ballProgress = Math.min(1, (currentTick - snapTk) / Math.max(snapDelivTk - snapTk, 1))
+        }
+      }
+    }
+  }
+
+  // Throw in flight: QB → receiver
+  if (!ballInFlight && throwEvent.value && catchEvent.value && currentTick >= throwTk && currentTick < catchTk) {
+    ballInFlight = true
+    ballStartPos = throwEvent.value.position
+    ballEndPos = catchEvent.value.position
+    const flightDuration = catchTk - throwTk
+    ballProgress = Math.min(1, (currentTick - throwTk) / Math.max(flightDuration, 1))
+  }
+
+  if (ballInFlight && ballStartPos && ballEndPos) {
+    const bx = ballStartPos[0] + (ballEndPos[0] - ballStartPos[0]) * ballProgress
+    const by = ballStartPos[1] + (ballEndPos[1] - ballStartPos[1]) * ballProgress
     const { cx: ballCx, cy: ballCy } = normToCanvas(bx, by)
 
-    // Ball arc (subtle y offset for parabola feel)
-    const arcOffset = Math.sin(progress * Math.PI) * 8
+    const arcOffset = Math.sin(ballProgress * Math.PI) * 8
 
     ctx.save()
     ctx.shadowColor = 'rgba(251,191,36,0.4)'
@@ -490,6 +599,9 @@ onMounted(() => {
     }
   })
   window.addEventListener('keydown', handleKey)
+  if (props.autoPlay && props.recording?.player_traces) {
+    setTimeout(() => { playing.value = true }, 150)
+  }
 })
 
 onUnmounted(() => {
@@ -498,14 +610,14 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKey)
 })
 
-// Re-render when recording data changes; optionally auto-play
+// Re-render when recording data changes; optionally auto-play after short delay
 watch(() => props.recording, () => {
   tick.value = 0
   playing.value = false
   nextTick(() => {
     renderFrame()
     if (props.autoPlay && props.recording?.player_traces) {
-      playing.value = true
+      setTimeout(() => { playing.value = true }, 120)
     }
   })
 }, { deep: false })

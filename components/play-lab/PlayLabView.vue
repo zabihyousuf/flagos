@@ -398,7 +398,39 @@
       <main class="flex-1 min-w-0 flex flex-col bg-background overflow-y-auto min-h-0">
         <EngineStatus />
         <ClientOnly>
-        <template v-if="!job?.jobId">
+        <!-- Loading skeleton when opening a past simulation (only after mount to avoid hydration mismatch) -->
+        <template v-if="isClient && props.jobId && jobPageLoading">
+          <div class="flex-1 p-4 lg:p-6 space-y-6">
+            <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
+              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col gap-3 shadow-md min-w-0 flex-1 space-y-3">
+                <Skeleton class="h-4 w-32" />
+                <Skeleton class="h-3 w-48" />
+                <div class="flex items-center gap-3 flex-wrap">
+                  <Skeleton class="h-3 w-24" />
+                  <Skeleton class="h-1.5 flex-1 max-w-[200px] rounded-full" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <Skeleton class="h-14 rounded-lg" />
+                  <Skeleton class="h-14 rounded-lg" />
+                  <Skeleton class="h-14 rounded-lg" />
+                  <Skeleton class="h-14 rounded-lg" />
+                </div>
+              </div>
+              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md shrink-0">
+                <Skeleton class="h-40 w-40 rounded-full" />
+              </div>
+            </section>
+            <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
+              <Skeleton class="rounded-xl h-[200px]" />
+              <Skeleton class="rounded-xl h-[200px]" />
+              <Skeleton class="rounded-xl h-[160px]" />
+              <Skeleton class="rounded-xl h-[200px]" />
+            </section>
+            <Skeleton class="rounded-xl h-14 w-full" />
+          </div>
+        </template>
+
+        <template v-else-if="!job?.jobId">
           <div class="flex-1 flex flex-col items-center justify-center text-center p-8 min-h-[280px]">
             <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -781,7 +813,18 @@
                     </div>
                     <!-- Replay list -->
                     <nav class="flex-1 min-h-0 overflow-y-auto p-2 space-y-3">
-                      <p v-if="replaysLoading" class="px-2 py-3 text-xs text-muted-foreground">Loading replays...</p>
+                      <template v-if="replaysLoading">
+                        <div class="space-y-0.5">
+                          <Skeleton class="h-3 w-24 rounded px-2" />
+                          <div v-for="i in 6" :key="i" class="flex items-center gap-2 rounded-md px-2 py-1.5">
+                            <Skeleton class="h-1.5 w-1.5 shrink-0 rounded-full" />
+                            <div class="min-w-0 flex-1 space-y-1">
+                              <Skeleton class="h-3 w-full max-w-[140px]" />
+                              <Skeleton class="h-2.5 w-16" />
+                            </div>
+                          </div>
+                        </div>
+                      </template>
                       <template v-else>
                         <div v-if="filteredReplaysGrouped.length === 0" class="px-2 py-6 text-xs text-muted-foreground">
                           {{ replayFilterType || replayFilterOutcome || replayFilterReceiver ? 'No replays match filters.' : 'No replays saved for this run yet.' }}
@@ -830,30 +873,61 @@
                         :receiver-id="selectedReplayInModal.receiver_id"
                         :auto-play="fieldSettings?.replay_auto_play !== false"
                         :loop="fieldSettings?.replay_loop === true"
+                        :player-labels="replayPlayerLabels"
+                        :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
+                        :player-label-type="(fieldSettings?.default_player_label_on_canvas ?? 'position') as 'number' | 'position' | 'both' | 'none'"
                       />
-                      <div class="shrink-0 px-4 py-2.5 border-t border-border/60 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <span
-                          v-if="selectedReplayInModal.outcome"
-                          class="capitalize font-medium px-1.5 py-0.5 rounded-md"
-                          :class="{
-                            'bg-emerald-500/15 text-emerald-600': selectedReplayInModal.outcome === 'touchdown',
-                            'bg-destructive/15 text-destructive': selectedReplayInModal.outcome === 'interception' || selectedReplayInModal.outcome === 'safety',
-                            'bg-amber-500/15 text-amber-600': selectedReplayInModal.outcome === 'flag pulled' || selectedReplayInModal.outcome === 'sack',
-                          }"
-                        >
-                          {{ selectedReplayInModal.outcome }}
-                        </span>
-                        <span v-if="selectedReplayInModal.yardsGained != null" class="tabular-nums">{{ selectedReplayInModal.yardsGained }} yards</span>
-                        <span class="text-muted-foreground/50">{{ selectedReplayInModal.scenario_group }}</span>
-                        <span v-if="selectedReplayInModal.scenario_label" class="text-muted-foreground/40">{{ selectedReplayInModal.scenario_label }}</span>
+                      <div class="shrink-0 px-4 py-2.5 border-t border-border/60 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span
+                            v-if="selectedReplayInModal.outcome"
+                            class="capitalize font-medium px-1.5 py-0.5 rounded-md"
+                            :class="{
+                              'bg-emerald-500/15 text-emerald-600': selectedReplayInModal.outcome === 'touchdown',
+                              'bg-destructive/15 text-destructive': selectedReplayInModal.outcome === 'interception' || selectedReplayInModal.outcome === 'safety',
+                              'bg-amber-500/15 text-amber-600': selectedReplayInModal.outcome === 'flag pulled' || selectedReplayInModal.outcome === 'sack',
+                            }"
+                          >
+                            {{ selectedReplayInModal.outcome }}
+                          </span>
+                          <span v-if="selectedReplayInModal.yardsGained != null" class="tabular-nums">{{ selectedReplayInModal.yardsGained }} yards</span>
+                          <span class="text-muted-foreground/50">{{ selectedReplayInModal.scenario_group }}</span>
+                          <span v-if="selectedReplayInModal.scenario_label" class="text-muted-foreground/40">{{ selectedReplayInModal.scenario_label }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-md text-[11px] font-medium transition-colors"
+                            :class="fieldSettings?.replay_auto_play !== false ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
+                            title="Start playback when you select a replay"
+                            @click="updateSettings({ replay_auto_play: fieldSettings?.replay_auto_play === false })"
+                          >
+                            Auto-play
+                          </button>
+                          <button
+                            type="button"
+                            class="px-2 py-1 rounded-md text-[11px] font-medium transition-colors"
+                            :class="fieldSettings?.replay_loop === true ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
+                            title="Loop replay until paused"
+                            @click="updateSettings({ replay_loop: !fieldSettings?.replay_loop })"
+                          >
+                            Loop
+                          </button>
+                        </div>
                       </div>
                     </template>
                     <div v-else class="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground py-12">
-                      <Film class="w-14 h-14 opacity-50" />
-                      <p v-if="!selectedReplayInModal" class="text-sm font-medium">Select a replay</p>
-                      <p v-else-if="!selectedReplayInModal.recording_json" class="text-sm font-medium">No recording data found</p>
-                      <p v-else class="text-sm font-medium">Recording missing player traces</p>
-                      <p class="text-xs max-w-xs text-center">Choose a scenario from the list to play the recording.</p>
+                      <template v-if="replayRecordingLoading">
+                        <svg class="w-8 h-8 animate-spin opacity-50" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        <p class="text-sm font-medium">Loading replay…</p>
+                      </template>
+                      <template v-else>
+                        <Film class="w-14 h-14 opacity-50" />
+                        <p v-if="!selectedReplayInModal" class="text-sm font-medium">Select a replay</p>
+                        <p v-else-if="!selectedReplayInModal.recording_json" class="text-sm font-medium">No recording data found</p>
+                        <p v-else class="text-sm font-medium">Recording missing player traces</p>
+                        <p class="text-xs max-w-xs text-center">Choose a scenario from the list to play the recording.</p>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -963,7 +1037,7 @@ const upgradeModalOpen = useState<boolean>('upgrade-modal-open', () => false)
 function openUpgradeModal() {
   upgradeModalOpen.value = true
 }
-const { settings: fieldSettings, fetchSettings } = useFieldSettings()
+const { settings: fieldSettings, fetchSettings, updateSettings } = useFieldSettings()
 
 /** Free = no trial, no pro (view past sims only). Upgrade gate only when Free and not viewing a job. */
 const isFree = computed(() => !hasSimulationAccess.value)
@@ -1008,6 +1082,7 @@ const displayedSuccessRate = ref(0)
 /** Replays modal (sidebar + player). */
 const replaysModalOpen = ref(false)
 const selectedReplayInModal = ref<PlayLabReplay | null>(null)
+const replayRecordingLoading = ref(false)
 const replayFilterType = ref('')
 const replayFilterOutcome = ref('')
 const replayFilterReceiver = ref('')
@@ -1015,8 +1090,10 @@ const replaySortBy = ref<'yards' | 'outcome'>('yards')
 /** Master toggle: when false, filter chips are disabled and list shows all replays. */
 const replayFiltersEnabled = ref(true)
 
-/** Raw rows from sim_recordings (fetched when job has id). */
+/** Raw rows from sim_recordings (fetched when job has id). List fetch never includes recording_json. */
 const replaysFromDb = ref<SimRecordingRow[]>([])
+/** Cache of loaded recording_json by replay id so we never re-fetch the same replay. */
+const recordingJsonCache = ref<Map<string, Record<string, unknown>>>(new Map())
 const replaysLoading = ref(false)
 const recordingsCount = computed(() => replaysFromDb.value.length)
 const isJobCompleted = computed(() =>
@@ -1027,7 +1104,8 @@ const showReplaysButton = computed(() => isJobCompleted.value && recordingsCount
 const awaitingReplays = ref(false)
 let replayPollTimer: ReturnType<typeof setTimeout> | null = null
 
-/** Fetch sim_recordings for current job, with optional polling when recordings haven't landed yet. */
+/** Fetch sim_recordings list for current job (metadata only — no recording_json).
+ *  Full recording_json is lazy-loaded when the user selects a specific replay. */
 async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: boolean } = {}) {
   replaysLoading.value = true
   if (poll) awaitingReplays.value = true
@@ -1035,7 +1113,7 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
     const supabase = useSupabaseDB()
     const { data, error } = await supabase
       .from('sim_recordings')
-      .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, ticks, carrier_id, thrower_id, receiver_id, recording_json')
+      .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, ticks, carrier_id, thrower_id, receiver_id')
       .eq('job_id', jobId)
       .order('highlight_type')
       .order('yards_gained', { ascending: false })
@@ -1052,7 +1130,7 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
       carrier_id: r.carrier_id ?? null,
       thrower_id: r.thrower_id ?? null,
       receiver_id: r.receiver_id ?? null,
-      recording_json: typeof r.recording_json === 'string' ? JSON.parse(r.recording_json) : (r.recording_json ?? null),
+      recording_json: null,
     }))
     replaysFromDb.value = rows
 
@@ -1069,17 +1147,37 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
   }
 }
 
+/** Lazy-load full recording_json for a single replay when selected. Uses cache so we never re-fetch. */
+async function fetchRecordingJson(recordingId: string): Promise<Record<string, unknown> | null> {
+  const cached = recordingJsonCache.value.get(recordingId)
+  if (cached) return cached
+  const supabase = useSupabaseDB()
+  const { data, error } = await supabase
+    .from('sim_recordings')
+    .select('recording_json')
+    .eq('id', recordingId)
+    .single()
+  if (error || !data) return null
+  const raw = (data as any).recording_json
+  const json = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? null)
+  if (json) {
+    recordingJsonCache.value = new Map(recordingJsonCache.value).set(recordingId, json)
+  }
+  return json
+}
+
 function stopReplayPolling() {
   if (replayPollTimer) { clearTimeout(replayPollTimer); replayPollTimer = null }
   awaitingReplays.value = false
 }
 
-/** Group DB rows by highlight_type and map to PlayLabReplay. */
-function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; label: string; items: PlayLabReplay[] }[] {
+/** Group DB rows by highlight_type and map to PlayLabReplay. Uses recordingJsonCache so previously loaded replays show without re-fetch. */
+function groupRecordingsByScenario(rows: SimRecordingRow[], cache: Map<string, Record<string, unknown>>): { key: string; label: string; items: PlayLabReplay[] }[] {
   const byType = new Map<string, PlayLabReplay[]>()
   const highlightLabels: Record<string, string> = {
     touchdown: 'Touchdown',
     long_pass: 'Long Pass',
+    longest_throw: 'Longest Throw',
     most_yac: 'Most YAC',
     interception: 'Interception',
     flag_pulled: 'Flag Pulled',
@@ -1091,7 +1189,7 @@ function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; labe
     biggest_yac: 'Biggest YAC',
   }
   for (const r of rows) {
-    const groupLabel = (highlightLabels[r.highlight_type] ?? r.highlight_type.replace(/_/g, ' ')) || 'Other'
+    const groupLabel = (highlightLabels[r.highlight_type] ?? (r.highlight_type ?? '').replace(/_/g, ' ')) || 'Other'
     const item: PlayLabReplay = {
       id: r.id,
       job_id: r.job_id,
@@ -1099,57 +1197,99 @@ function groupRecordingsByScenario(rows: SimRecordingRow[]): { key: string; labe
       scenario_label: r.scenario_label,
       scenario_key: r.scenario_id,
       label: r.scenario_label || `${groupLabel} — ${Math.round(r.yards_gained ?? 0)} yd`,
-      outcome: r.outcome?.toLowerCase().replace(/_/g, ' '),
+      outcome: (r.outcome?.toLowerCase() ?? '').replace(/_/g, ' '),
       yardsGained: r.yards_gained != null ? Math.round(r.yards_gained) : undefined,
       url: null,
       ticks: r.ticks,
       carrier_id: r.carrier_id,
       thrower_id: r.thrower_id,
       receiver_id: r.receiver_id,
-      recording_json: r.recording_json,
+      recording_json: cache.get(r.id) ?? r.recording_json ?? null,
     }
     if (!byType.has(r.highlight_type)) byType.set(r.highlight_type, [])
     byType.get(r.highlight_type)!.push(item)
   }
   return Array.from(byType.entries()).map(([key, items]) => ({
     key,
-    label: highlightLabels[key] ?? key.replace(/_/g, ' '),
+    label: highlightLabels[key] ?? (key ?? '').replace(/_/g, ' '),
     items,
   }))
 }
 
 const replaysGroupedByScenario = computed(() => {
   if (!job.jobId) return []
-  if (replaysFromDb.value.length > 0) return groupRecordingsByScenario(replaysFromDb.value)
+  if (replaysFromDb.value.length > 0) return groupRecordingsByScenario(replaysFromDb.value, recordingJsonCache.value)
   return []
 })
 
 const replaysGroupedByScenarioFlat = computed(() => replaysGroupedByScenario.value.flatMap((g) => g.items))
 
-/** Available highlight types with counts for filter pills. */
+const highlightLabels: Record<string, string> = {
+  touchdown: 'TD', long_pass: 'Long Pass', longest_throw: 'Long Throw',
+  most_yac: 'Most YAC', interception: 'INT', flag_pulled: 'Flag Pull',
+  sack: 'Sack', safety: 'Safety', out_of_bounds: 'OOB',
+  fastest_td: 'Fast TD', most_yards: 'Most Yds', biggest_yac: 'Big YAC',
+}
+
+/** Replays filtered by outcome + receiver only (for highlight pill counts). */
+const itemsForHighlightPills = computed(() => {
+  let items = replaysGroupedByScenarioFlat.value
+  if (!replayFiltersEnabled.value) return items
+  if (replayFilterOutcome.value) {
+    items = items.filter((r) => r.outcome === replayFilterOutcome.value)
+  }
+  if (replayFilterReceiver.value) {
+    const rid = replayFilterReceiver.value === '__none__' ? null : replayFilterReceiver.value
+    items = items.filter((r) => (r.receiver_id ?? null) === rid)
+  }
+  return items
+})
+
+/** Replays filtered by highlight + receiver only (for outcome pill counts). */
+const itemsForOutcomePills = computed(() => {
+  let items = replaysGroupedByScenarioFlat.value
+  if (!replayFiltersEnabled.value) return items
+  if (replayFilterType.value) {
+    items = items.filter((r) => r.highlight_type === replayFilterType.value)
+  }
+  if (replayFilterReceiver.value) {
+    const rid = replayFilterReceiver.value === '__none__' ? null : replayFilterReceiver.value
+    items = items.filter((r) => (r.receiver_id ?? null) === rid)
+  }
+  return items
+})
+
+/** Replays filtered by highlight + outcome only (for receiver pill counts). */
+const itemsForReceiverPills = computed(() => {
+  let items = replaysGroupedByScenarioFlat.value
+  if (!replayFiltersEnabled.value) return items
+  if (replayFilterType.value) {
+    items = items.filter((r) => r.highlight_type === replayFilterType.value)
+  }
+  if (replayFilterOutcome.value) {
+    items = items.filter((r) => r.outcome === replayFilterOutcome.value)
+  }
+  return items
+})
+
+/** Available highlight types with counts (cascaded by outcome + receiver). */
 const availableHighlightTypes = computed(() => {
   const counts = new Map<string, number>()
-  const highlightLabels: Record<string, string> = {
-    touchdown: 'TD', long_pass: 'Long Pass', most_yac: 'Most YAC',
-    interception: 'INT', flag_pulled: 'Flag Pull', sack: 'Sack',
-    safety: 'Safety', out_of_bounds: 'OOB', fastest_td: 'Fast TD',
-    most_yards: 'Most Yds', biggest_yac: 'Big YAC',
-  }
-  for (const r of replaysFromDb.value) {
+  for (const r of itemsForHighlightPills.value) {
     counts.set(r.highlight_type, (counts.get(r.highlight_type) ?? 0) + 1)
   }
   return Array.from(counts.entries()).map(([key, count]) => ({
     key,
-    label: highlightLabels[key] ?? key.replace(/_/g, ' '),
+    label: highlightLabels[key] ?? (key ?? '').replace(/_/g, ' '),
     count,
   }))
 })
 
-/** Available outcomes with counts for filter pills. */
+/** Available outcomes with counts (cascaded by highlight + receiver). */
 const availableOutcomes = computed(() => {
   const counts = new Map<string, number>()
-  for (const r of replaysFromDb.value) {
-    const oc = r.outcome?.toLowerCase().replace(/_/g, ' ') || 'unknown'
+  for (const r of itemsForOutcomePills.value) {
+    const oc = (r.outcome?.toLowerCase() ?? '').replace(/_/g, ' ') || 'unknown'
     counts.set(oc, (counts.get(oc) ?? 0) + 1)
   }
   return Array.from(counts.entries()).map(([key, count]) => ({
@@ -1159,27 +1299,12 @@ const availableOutcomes = computed(() => {
   }))
 })
 
-/** Available receivers (who caught/targeted) with counts for filter pills. */
-const availableReceivers = computed(() => {
-  const counts = new Map<string, number>()
-  const nameMap = receiverNameMap.value
-  for (const r of replaysFromDb.value) {
-    const rid = r.receiver_id ?? '__none__'
-    counts.set(rid, (counts.get(rid) ?? 0) + 1)
-  }
-  return Array.from(counts.entries()).map(([key, count]) => ({
-    key,
-    label: key === '__none__' ? '—' : (nameMap[key] || key.slice(0, 12)),
-    count,
-  })).sort((a, b) => b.count - a.count)
-})
-
-/** Filtered and sorted replays. */
+/** Filtered and sorted replays (all three filters applied). */
 const filteredReplays = computed(() => {
   let items = replaysGroupedByScenarioFlat.value
   if (replayFiltersEnabled.value) {
     if (replayFilterType.value) {
-      items = items.filter((r) => r.scenario_group === (availableHighlightTypes.value.find(h => h.key === replayFilterType.value)?.label ?? replayFilterType.value))
+      items = items.filter((r) => r.highlight_type === replayFilterType.value)
     }
     if (replayFilterOutcome.value) {
       items = items.filter((r) => r.outcome === replayFilterOutcome.value)
@@ -1224,6 +1349,7 @@ watch(replaysModalOpen, (open) => {
 watch(() => job.jobId, (jobId) => {
   stopReplayPolling()
   replaysFromDb.value = []
+  recordingJsonCache.value = new Map()
   if (jobId && isJobCompleted.value) fetchReplaysForJob(jobId)
 })
 
@@ -1236,14 +1362,42 @@ watch(
   }
 )
 
-/** When grouped replays update (e.g. after fetch), select first if modal is open and current selection is missing. */
+/** When grouped replays update (e.g. after fetch), select first if modal is open and current selection is missing.
+ *  Pre-load the first replay's recording so auto-play can start as soon as it's selected. */
 watch(replaysGroupedByScenarioFlat, (flat) => {
   if (!replaysModalOpen.value || flat.length === 0) return
   const currentId = selectedReplayInModal.value?.id
   if (!currentId || !flat.some((r) => r.id === currentId)) {
     selectedReplayInModal.value = flat[0] ?? null
   }
+  // Pre-load first replay so it's ready for auto-play (fetch is cached; watch will use cache if already loading)
+  const first = flat[0]
+  if (first && !recordingJsonCache.value.has(first.id)) {
+    fetchRecordingJson(first.id).then((json) => {
+      if (json && first.recording_json == null) {
+        first.recording_json = json
+        const row = replaysFromDb.value.find((r) => r.id === first.id)
+        if (row) row.recording_json = json
+      }
+    })
+  }
 }, { deep: true })
+
+/** Lazy-load recording_json when a replay is selected (and not already cached). */
+watch(selectedReplayInModal, async (replay) => {
+  if (!replay || replay.recording_json) return
+  replayRecordingLoading.value = true
+  try {
+    const json = await fetchRecordingJson(replay.id)
+    if (json && selectedReplayInModal.value?.id === replay.id) {
+      replay.recording_json = json
+      const row = replaysFromDb.value.find((r) => r.id === replay.id)
+      if (row) row.recording_json = json
+    }
+  } finally {
+    replayRecordingLoading.value = false
+  }
+})
 const configRailed = ref(false)
 const rosterErrors = ref<RosterError[]>([])
 const defenseBasePlayerWarnings = ref<RosterError[]>([])
@@ -1312,6 +1466,9 @@ async function loadJobById(id: string) {
   }
 }
 
+const jobPageLoading = ref(false)
+const isClient = ref(false)
+
 watch(
   () => props.jobId,
   async (id, oldId) => {
@@ -1325,12 +1482,19 @@ watch(
         nScenarios.value = 100
         hasSelectedIterations.value = false
         hasSelectedScenarios.value = false
+        recordingJsonCache.value = new Map()
       }
+      jobPageLoading.value = false
       return
     }
-    // When viewing a previous simulation, rail the configuration panel by default.
+    if (id !== oldId) recordingJsonCache.value = new Map()
     configRailed.value = true
-    await loadJobById(id)
+    jobPageLoading.value = true
+    try {
+      await loadJobById(id)
+    } finally {
+      jobPageLoading.value = false
+    }
   },
   { immediate: true },
 )
@@ -1397,6 +1561,78 @@ const filteredDefensePlays = computed(() => {
 })
 
 const selectedPlay = computed(() => offensivePlays.value.find((p) => p.id === selectedPlayId.value) ?? null)
+
+/** Map canvas_player_id → display name using ALL players from the offensive play's canvas data. */
+const receiverNameMap = computed<Record<string, string>>(() => {
+  const play = selectedPlay.value
+  if (!play?.canvas_data?.players) return {}
+  const map: Record<string, string> = {}
+  for (const cp of play.canvas_data.players) {
+    const label = cp.name
+      ? `${cp.name}${cp.number ? ' #' + cp.number : ''}`
+      : cp.designation
+        ? `${cp.designation}${cp.number ? ' #' + cp.number : ''}`
+        : `${cp.position || 'Player'}${cp.number ? ' #' + cp.number : ''}`
+    map[cp.id] = label
+  }
+  return map
+})
+
+/** Ordered receiver canvas ids from the play (non-QB players in canvas order) for index-based label fallback during partial results. */
+const orderedReceiverIdsFromPlay = computed<string[]>(() => {
+  const play = selectedPlay.value
+  if (!play?.canvas_data?.players) return []
+  return play.canvas_data.players
+    .filter((p) => p.position !== 'QB')
+    .map((p) => p.id)
+})
+
+/** Player id → { name, number, position } for replay player labels (from play designer canvas). */
+const replayPlayerLabels = computed<Record<string, { name?: string; number?: number; position: string }>>(() => {
+  const play = selectedPlay.value
+  if (!play?.canvas_data?.players) return {}
+  const map: Record<string, { name?: string; number?: number; position: string }> = {}
+  for (const cp of play.canvas_data.players) {
+    map[cp.id] = {
+      name: cp.name ?? undefined,
+      number: cp.number != null ? cp.number : undefined,
+      position: cp.position || '?',
+    }
+  }
+  return map
+})
+
+/** Available receivers with counts (cascaded by highlight + outcome). */
+const availableReceivers = computed(() => {
+  const counts = new Map<string, number>()
+  const nameMap = receiverNameMap.value
+  for (const r of itemsForReceiverPills.value) {
+    const rid = r.receiver_id ?? '__none__'
+    counts.set(rid, (counts.get(rid) ?? 0) + 1)
+  }
+  return Array.from(counts.entries()).map(([key, count]) => ({
+    key,
+    label: key === '__none__' ? '—' : (nameMap[key] || key.slice(0, 12)),
+    count,
+  })).sort((a, b) => b.count - a.count)
+})
+
+// When cascading filters remove the current selection from another dimension, clear that selection (must be after availableReceivers)
+watch(availableHighlightTypes, (types) => {
+  if (replayFilterType.value && !types.some((t) => t.key === replayFilterType.value)) {
+    replayFilterType.value = ''
+  }
+}, { deep: true })
+watch(availableOutcomes, (outcomes) => {
+  if (replayFilterOutcome.value && !outcomes.some((o) => o.key === replayFilterOutcome.value)) {
+    replayFilterOutcome.value = ''
+  }
+}, { deep: true })
+watch(availableReceivers, (receivers) => {
+  if (replayFilterReceiver.value && !receivers.some((r) => r.key === replayFilterReceiver.value)) {
+    replayFilterReceiver.value = ''
+  }
+}, { deep: true })
 
 const canRun = computed(() => {
   if (!selectedPlayId.value || !selectedPlay.value) return false
@@ -1562,28 +1798,18 @@ const rushRows = computed(() => {
   return order.map((o) => ({ ...o, stat: src[o.key] as AggregatedStats | undefined }))
 })
 
-/** Map canvas_player_id → display name using ALL players from the offensive play's canvas data. */
-const receiverNameMap = computed<Record<string, string>>(() => {
-  const play = selectedPlay.value
-  if (!play?.canvas_data?.players) return {}
-  const map: Record<string, string> = {}
-  for (const cp of play.canvas_data.players) {
-    const label = cp.name
-      ? `${cp.name}${cp.number ? ' #' + cp.number : ''}`
-      : cp.designation
-        ? `${cp.designation}${cp.number ? ' #' + cp.number : ''}`
-        : `${cp.position || 'Player'}${cp.number ? ' #' + cp.number : ''}`
-    map[cp.id] = label
-  }
-  return map
-})
-
 const receiverRows = computed(() => {
   const stats = partial.value?.per_receiver ?? []
-  return stats.map((rs, idx) => ({
-    ...rs,
-    label: receiverNameMap.value[rs.receiver_id] || `Receiver ${idx + 1}`,
-  }))
+  const nameMap = receiverNameMap.value
+  const orderedIds = orderedReceiverIdsFromPlay.value
+  return stats.map((rs, idx) => {
+    const byId = nameMap[rs.receiver_id]
+    const byIndex = orderedIds[idx] != null ? nameMap[orderedIds[idx]] : undefined
+    return {
+      ...rs,
+      label: byId || byIndex || `Receiver ${idx + 1}`,
+    }
+  })
 })
 
 const combinedYardStats = computed(() => {
@@ -1662,7 +1888,7 @@ function mostCommonFailure(scenario: any): string {
   const failures = Object.entries(dist).filter(([k]) => k !== 'TOUCHDOWN')
   if (failures.length === 0) return 'No failures recorded'
   const [key] = failures.reduce((best, cur) => (cur[1] > best[1] ? cur : best))
-  return OUTCOME_LABELS[key] ?? key.replace(/_/g, ' ').toLowerCase()
+  return OUTCOME_LABELS[key] ?? (key != null ? String(key).replace(/_/g, ' ').toLowerCase() : 'unknown')
 }
 
 watch(
@@ -1802,6 +2028,7 @@ function exportResults() {
 }
 
 onMounted(() => {
+  isClient.value = true
   fetchSettings()
   fetchPlayers()
   fetchTeams()
