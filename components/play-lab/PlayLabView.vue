@@ -47,6 +47,10 @@
               </span>
             </div>
           </div>
+          <div v-if="awaitingReplays" class="shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-medium">
+            <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+            Waiting for replays…
+          </div>
           <Button
             v-if="showReplaysButton"
             variant="secondary"
@@ -73,7 +77,12 @@
           >
             <div v-show="!configRailed" class="p-4 lg:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 min-w-0">
           <div class="flex items-center justify-between gap-2">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Simulation</h2>
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Simulation Form</h2>
+              <NuxtLink v-if="!isPaidPro" to="/settings?tab=billing">
+                <Button variant="outline" size="sm" class="h-6 px-2 text-[10px] font-semibold uppercase tracking-wide">Upgrade</Button>
+              </NuxtLink>
+            </div>
             <TooltipProvider v-if="job?.jobId">
               <Tooltip>
                 <TooltipTrigger as-child>
@@ -274,7 +283,7 @@
                       nScenarios === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : isScenarioAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
                     ]"
                     :disabled="configLocked || !isScenarioAllowed(n)"
-                    @click="isScenarioAllowed(n) && (nScenarios = n)"
+                    @click="isScenarioAllowed(n) && (nScenarios = n, hasSelectedScenarios.value = true)"
                   >
                     {{ n >= 1000 ? (n / 1000) + 'K' : n }}
                   </button>
@@ -306,9 +315,9 @@
                       nIterations === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : isIterationAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
                     ]"
                     :disabled="configLocked || !isIterationAllowed(n)"
-                    @click="isIterationAllowed(n) && (nIterations = n)"
+                    @click="isIterationAllowed(n) && (nIterations = n, hasSelectedIterations.value = true)"
                   >
-                    {{ n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : n >= 1e3 ? '1K' : '100' }}
+                    {{ n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : n >= 1e3 ? '1K' : n >= 100 ? '100' : n.toLocaleString() }}
                   </button>
                 </div>
               </div>
@@ -316,7 +325,10 @@
                 <NuxtLink to="/settings?tab=billing" class="text-primary hover:underline">Upgrade to Pro</NuxtLink> for up to 5K scenarios and 100K iterations.
               </p>
             </div>
-            <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm space-y-1">
+            <div
+              v-if="hasSelectedScenarios && hasSelectedIterations"
+              class="rounded-lg p-2.5 bg-muted/20 shadow-sm space-y-1"
+            >
               <div class="flex items-center justify-between">
                 <p class="text-xs font-medium text-muted-foreground">Total simulations</p>
                 <p class="text-xs font-semibold">{{ totalSimulations.toLocaleString() }}</p>
@@ -440,7 +452,8 @@
 
                 <div class="flex items-center gap-3 flex-wrap">
                   <span class="text-[11px] text-muted-foreground shrink-0">
-                    {{ scenariosCompleted.toLocaleString() }} of {{ scenariosTotal.toLocaleString() }} runs complete
+                    {{ totalSimsCompleted.toLocaleString() }} of {{ totalSimsTarget.toLocaleString() }} sims complete
+                    <span class="opacity-60">({{ scenariosCompleted.toLocaleString() }}/{{ scenariosTotal.toLocaleString() }} scenarios)</span>
                   </span>
                   <div class="h-1.5 rounded-full bg-muted overflow-hidden flex-1 min-w-[80px] max-w-[200px]">
                     <div
@@ -475,7 +488,7 @@
                   v-if="job?.status?.state === 'COMPLETED' && scenariosTotal > 0"
                   class="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary shadow-sm"
                 >
-                  Complete — {{ scenariosTotal.toLocaleString() }} runs
+                  Complete — {{ totalSimsTarget.toLocaleString() }} sims across {{ scenariosTotal.toLocaleString() }} scenarios
                 </div>
                 <p
                   v-if="job?.status?.clamped && job?.status?.clamped_iterations != null"
@@ -648,37 +661,161 @@
             <!-- Replays modal: left sidebar grouped by scenario, center = player -->
             <Dialog v-model:open="replaysModalOpen">
               <DialogContent class="w-[98vw] max-w-[calc(100%-2rem)] sm:max-w-[1800px] h-[92vh] max-h-[92vh] p-0 gap-0 overflow-hidden flex flex-col" :show-close-button="true">
-                <DialogHeader class="shrink-0 px-4 pt-4 pb-2 border-b border-border/60">
-                  <DialogTitle class="text-base font-medium">Replays</DialogTitle>
+                <DialogHeader class="shrink-0 px-4 pt-4 pb-3 border-b border-border/60">
+                  <div class="flex items-center justify-between gap-2">
+                    <div>
+                      <DialogTitle class="text-base font-medium">
+                        Replays
+                        <span class="text-xs font-normal text-muted-foreground ml-1">
+                          ({{ filteredReplays.length }})
+                        </span>
+                      </DialogTitle>
+                      <p class="text-[11px] text-muted-foreground mt-0.5">
+                        Filter and sort saved replays for this simulation run.
+                      </p>
+                    </div>
+                  </div>
                 </DialogHeader>
                 <div class="flex flex-1 min-h-0">
-                  <!-- Left: scenario groups -->
-                  <aside class="w-56 shrink-0 border-r border-border/60 overflow-y-auto bg-muted/20">
-                    <nav class="p-2 space-y-4">
-                      <p v-if="replaysLoading" class="px-2 py-3 text-xs text-muted-foreground">Loading replays…</p>
-                      <template v-else>
-                      <div v-if="replaysGroupedByScenarioFlat.length === 0" class="px-2 py-6 text-xs text-muted-foreground">
-                        No replays saved for this run yet.
-                      </div>
-                      <div v-for="group in replaysGroupedByScenario" :key="group.key" class="space-y-1">
-                        <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {{ group.label }}
-                        </p>
+                  <!-- Left: filter + replay list -->
+                  <aside class="w-64 shrink-0 border-r border-border/60 flex flex-col bg-muted/20">
+                    <!-- Filters -->
+                    <div class="shrink-0 p-3 space-y-3 border-b border-border/40">
+                      <div class="flex items-center justify-between gap-2">
                         <button
-                          v-for="item in group.items"
-                          :key="item.id"
                           type="button"
-                          class="w-full flex flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                          :class="{ 'bg-accent/80 text-accent-foreground': selectedReplayInModal?.id === item.id }"
-                          @click="selectedReplayInModal = item"
+                          class="text-[11px] font-semibold uppercase tracking-wider transition-colors rounded px-1 -mx-1"
+                          :class="replayFiltersEnabled ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/60 hover:text-muted-foreground'"
+                          @click="replayFiltersEnabled = !replayFiltersEnabled; if (!replayFiltersEnabled) { replayFilterType = ''; replayFilterOutcome = ''; replayFilterReceiver = '' }"
                         >
-                          <span class="font-medium truncate w-full">{{ item.label }}</span>
-                          <span class="text-[10px] text-muted-foreground flex gap-1.5">
-                            <span v-if="item.outcome" class="capitalize">{{ item.outcome }}</span>
-                            <span v-if="item.yardsGained != null">{{ item.yardsGained }} yd</span>
-                          </span>
+                          Filters {{ replayFiltersEnabled ? 'on' : 'off' }}
                         </button>
+                        <div class="flex items-center gap-1.5">
+                          <!-- Sort toggle -->
+                          <button
+                            type="button"
+                            class="text-[10px] px-2 py-0.5 rounded-full bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            @click="replaySortBy = replaySortBy === 'yards' ? 'outcome' : 'yards'"
+                          >
+                            Sort: {{ replaySortBy === 'yards' ? 'Yards' : 'Outcome' }}
+                          </button>
+                          <button
+                            v-if="replayFiltersEnabled && (replayFilterType || replayFilterOutcome || replayFilterReceiver)"
+                            type="button"
+                            class="text-[10px] px-2 py-0.5 rounded-full bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                            @click="replayFilterType = ''; replayFilterOutcome = ''; replayFilterReceiver = ''"
+                          >
+                            Clear
+                          </button>
+                        </div>
                       </div>
+                      <div
+                        class="space-y-2 transition-opacity"
+                        :class="replayFiltersEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'"
+                      >
+                        <!-- Highlight type filter pills -->
+                        <div>
+                          <p class="text-[10px] font-medium text-muted-foreground mb-1">
+                            Highlight
+                          </p>
+                          <div class="flex flex-wrap gap-1">
+                            <button
+                              v-for="ht in availableHighlightTypes"
+                              :key="ht.key"
+                              type="button"
+                              class="text-[10px] px-1.5 py-0.5 rounded-full transition-colors"
+                              :class="replayFilterType === ht.key
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
+                              :disabled="!replayFiltersEnabled"
+                              @click="replayFilterType = replayFilterType === ht.key ? '' : ht.key"
+                            >
+                              {{ ht.label }} <span class="opacity-70">({{ ht.count }})</span>
+                            </button>
+                          </div>
+                        </div>
+                        <!-- Outcome filter pills -->
+                        <div>
+                          <p class="text-[10px] font-medium text-muted-foreground mb-1">
+                            Outcome
+                          </p>
+                          <div class="flex flex-wrap gap-1">
+                            <button
+                              v-for="oc in availableOutcomes"
+                              :key="oc.key"
+                              type="button"
+                              class="text-[10px] px-1.5 py-0.5 rounded-full transition-colors"
+                              :class="replayFilterOutcome === oc.key
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
+                              :disabled="!replayFiltersEnabled"
+                              @click="replayFilterOutcome = replayFilterOutcome === oc.key ? '' : oc.key"
+                            >
+                              {{ oc.label }} <span class="opacity-70">({{ oc.count }})</span>
+                            </button>
+                          </div>
+                        </div>
+                        <!-- Receiver filter pills -->
+                        <div>
+                          <p class="text-[10px] font-medium text-muted-foreground mb-1">
+                            Receiver
+                          </p>
+                          <div class="flex flex-wrap gap-1">
+                            <button
+                              v-for="rec in availableReceivers"
+                              :key="rec.key"
+                              type="button"
+                              class="text-[10px] px-1.5 py-0.5 rounded-full transition-colors truncate max-w-[120px]"
+                              :class="replayFilterReceiver === rec.key
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
+                              :disabled="!replayFiltersEnabled"
+                              :title="rec.label"
+                              @click="replayFilterReceiver = replayFilterReceiver === rec.key ? '' : rec.key"
+                            >
+                              {{ rec.label }} <span class="opacity-70">({{ rec.count }})</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- Replay list -->
+                    <nav class="flex-1 min-h-0 overflow-y-auto p-2 space-y-3">
+                      <p v-if="replaysLoading" class="px-2 py-3 text-xs text-muted-foreground">Loading replays...</p>
+                      <template v-else>
+                        <div v-if="filteredReplaysGrouped.length === 0" class="px-2 py-6 text-xs text-muted-foreground">
+                          {{ replayFilterType || replayFilterOutcome || replayFilterReceiver ? 'No replays match filters.' : 'No replays saved for this run yet.' }}
+                        </div>
+                        <div v-for="group in filteredReplaysGrouped" :key="group.key" class="space-y-0.5">
+                          <p class="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                            {{ group.label }} <span class="font-normal">({{ group.items.length }})</span>
+                          </p>
+                          <button
+                            v-for="item in group.items"
+                            :key="item.id"
+                            type="button"
+                            class="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                            :class="{ 'bg-accent/80 text-accent-foreground': selectedReplayInModal?.id === item.id }"
+                            @click="selectedReplayInModal = item"
+                          >
+                            <span
+                              class="shrink-0 w-1.5 h-1.5 rounded-full"
+                              :class="{
+                                'bg-emerald-500': item.outcome === 'touchdown',
+                                'bg-destructive': item.outcome === 'interception' || item.outcome === 'safety',
+                                'bg-amber-500': item.outcome === 'flag pulled' || item.outcome === 'sack',
+                                'bg-muted-foreground/40': !['touchdown', 'interception', 'safety', 'flag pulled', 'sack'].includes(item.outcome ?? ''),
+                              }"
+                            />
+                            <div class="min-w-0 flex-1">
+                              <p class="text-xs font-medium truncate">{{ item.scenario_label || item.scenario_group }}</p>
+                              <p class="text-[10px] text-muted-foreground flex gap-1.5">
+                                <span v-if="item.outcome" class="capitalize">{{ item.outcome }}</span>
+                                <span v-if="item.yardsGained != null" class="tabular-nums">{{ item.yardsGained }} yd</span>
+                              </p>
+                            </div>
+                          </button>
+                        </div>
                       </template>
                     </nav>
                   </aside>
@@ -691,12 +828,24 @@
                         :carrier-id="selectedReplayInModal.carrier_id"
                         :thrower-id="selectedReplayInModal.thrower_id"
                         :receiver-id="selectedReplayInModal.receiver_id"
+                        :auto-play="fieldSettings?.replay_auto_play !== false"
+                        :loop="fieldSettings?.replay_loop === true"
                       />
-                      <div class="shrink-0 px-4 py-2.5 border-t border-border/60 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span v-if="selectedReplayInModal.outcome" class="capitalize font-medium">{{ selectedReplayInModal.outcome }}</span>
-                        <span v-if="selectedReplayInModal.yardsGained != null">{{ selectedReplayInModal.yardsGained }} yards</span>
-                        <span>{{ selectedReplayInModal.scenario_group }}</span>
-                        <span v-if="selectedReplayInModal.scenario_label" class="text-muted-foreground/60">{{ selectedReplayInModal.scenario_label }}</span>
+                      <div class="shrink-0 px-4 py-2.5 border-t border-border/60 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span
+                          v-if="selectedReplayInModal.outcome"
+                          class="capitalize font-medium px-1.5 py-0.5 rounded-md"
+                          :class="{
+                            'bg-emerald-500/15 text-emerald-600': selectedReplayInModal.outcome === 'touchdown',
+                            'bg-destructive/15 text-destructive': selectedReplayInModal.outcome === 'interception' || selectedReplayInModal.outcome === 'safety',
+                            'bg-amber-500/15 text-amber-600': selectedReplayInModal.outcome === 'flag pulled' || selectedReplayInModal.outcome === 'sack',
+                          }"
+                        >
+                          {{ selectedReplayInModal.outcome }}
+                        </span>
+                        <span v-if="selectedReplayInModal.yardsGained != null" class="tabular-nums">{{ selectedReplayInModal.yardsGained }} yards</span>
+                        <span class="text-muted-foreground/50">{{ selectedReplayInModal.scenario_group }}</span>
+                        <span v-if="selectedReplayInModal.scenario_label" class="text-muted-foreground/40">{{ selectedReplayInModal.scenario_label }}</span>
                       </div>
                     </template>
                     <div v-else class="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground py-12">
@@ -753,6 +902,10 @@ import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose } from 'luc
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
+
+const props = defineProps<{
+  jobId?: string | null
+}>()
 
 interface PlayWithPb extends Play {
   _playbookName?: string
@@ -814,7 +967,7 @@ const { settings: fieldSettings, fetchSettings } = useFieldSettings()
 
 /** Free = no trial, no pro (view past sims only). Upgrade gate only when Free and not viewing a job. */
 const isFree = computed(() => !hasSimulationAccess.value)
-const isViewingPastJob = computed(() => !!route.query.job)
+const isViewingPastJob = computed(() => !!props.jobId)
 const showUpgradeGate = computed(() => isFree.value && !isViewingPastJob.value)
 
 /** Plan badge next to title: Pro, Free trial (+ days left), or Free. */
@@ -830,14 +983,14 @@ const attributeTiersOrdered = computed(() => {
   return order.map((id) => attributeTiers.find((t) => t.id === id)).filter(Boolean) as typeof attributeTiers
 })
 
-const iterationOptions = [100, 1000, 10000, 100000]
+const iterationOptions = [10, 100, 1000, 10000, 100000]
 const isIterationAllowed = (n: number) => {
   if (isPaidPro.value) return true
   if (isTrialing.value) return n === 100
   return n === 100
 }
 const maxIterationsForPlan = computed(() => (isPaidPro.value ? 100000 : 100))
-const scenarioOptions = [500, 1000, 2000, 5000]
+const scenarioOptions = [100, 500, 1000, 2000, 5000]
 const isScenarioAllowed = (n: number) => {
   if (isPaidPro.value) return true
   if (isTrialing.value) return n === 500
@@ -855,6 +1008,12 @@ const displayedSuccessRate = ref(0)
 /** Replays modal (sidebar + player). */
 const replaysModalOpen = ref(false)
 const selectedReplayInModal = ref<PlayLabReplay | null>(null)
+const replayFilterType = ref('')
+const replayFilterOutcome = ref('')
+const replayFilterReceiver = ref('')
+const replaySortBy = ref<'yards' | 'outcome'>('yards')
+/** Master toggle: when false, filter chips are disabled and list shows all replays. */
+const replayFiltersEnabled = ref(true)
 
 /** Raw rows from sim_recordings (fetched when job has id). */
 const replaysFromDb = ref<SimRecordingRow[]>([])
@@ -865,10 +1024,13 @@ const isJobCompleted = computed(() =>
 )
 const showReplaysButton = computed(() => isJobCompleted.value && recordingsCount.value > 0)
 
-/** Fetch sim_recordings for current job. */
-async function fetchReplaysForJob(jobId: string) {
+const awaitingReplays = ref(false)
+let replayPollTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Fetch sim_recordings for current job, with optional polling when recordings haven't landed yet. */
+async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: boolean } = {}) {
   replaysLoading.value = true
-  replaysFromDb.value = []
+  if (poll) awaitingReplays.value = true
   try {
     const supabase = useSupabaseDB()
     const { data, error } = await supabase
@@ -878,7 +1040,7 @@ async function fetchReplaysForJob(jobId: string) {
       .order('highlight_type')
       .order('yards_gained', { ascending: false })
     if (error) throw error
-    replaysFromDb.value = (data ?? []).map((r: any) => ({
+    const rows = (data ?? []).map((r: any) => ({
       id: r.id,
       job_id: r.job_id,
       scenario_id: r.scenario_id,
@@ -892,11 +1054,24 @@ async function fetchReplaysForJob(jobId: string) {
       receiver_id: r.receiver_id ?? null,
       recording_json: typeof r.recording_json === 'string' ? JSON.parse(r.recording_json) : (r.recording_json ?? null),
     }))
+    replaysFromDb.value = rows
+
+    if (poll && rows.length === 0 && jobId === job.jobId) {
+      replayPollTimer = setTimeout(() => fetchReplaysForJob(jobId, { poll: true }), 3000)
+      return
+    }
+    awaitingReplays.value = false
   } catch (_) {
     replaysFromDb.value = []
+    awaitingReplays.value = false
   } finally {
     replaysLoading.value = false
   }
+}
+
+function stopReplayPolling() {
+  if (replayPollTimer) { clearTimeout(replayPollTimer); replayPollTimer = null }
+  awaitingReplays.value = false
 }
 
 /** Group DB rows by highlight_type and map to PlayLabReplay. */
@@ -951,6 +1126,92 @@ const replaysGroupedByScenario = computed(() => {
 
 const replaysGroupedByScenarioFlat = computed(() => replaysGroupedByScenario.value.flatMap((g) => g.items))
 
+/** Available highlight types with counts for filter pills. */
+const availableHighlightTypes = computed(() => {
+  const counts = new Map<string, number>()
+  const highlightLabels: Record<string, string> = {
+    touchdown: 'TD', long_pass: 'Long Pass', most_yac: 'Most YAC',
+    interception: 'INT', flag_pulled: 'Flag Pull', sack: 'Sack',
+    safety: 'Safety', out_of_bounds: 'OOB', fastest_td: 'Fast TD',
+    most_yards: 'Most Yds', biggest_yac: 'Big YAC',
+  }
+  for (const r of replaysFromDb.value) {
+    counts.set(r.highlight_type, (counts.get(r.highlight_type) ?? 0) + 1)
+  }
+  return Array.from(counts.entries()).map(([key, count]) => ({
+    key,
+    label: highlightLabels[key] ?? key.replace(/_/g, ' '),
+    count,
+  }))
+})
+
+/** Available outcomes with counts for filter pills. */
+const availableOutcomes = computed(() => {
+  const counts = new Map<string, number>()
+  for (const r of replaysFromDb.value) {
+    const oc = r.outcome?.toLowerCase().replace(/_/g, ' ') || 'unknown'
+    counts.set(oc, (counts.get(oc) ?? 0) + 1)
+  }
+  return Array.from(counts.entries()).map(([key, count]) => ({
+    key,
+    label: key.charAt(0).toUpperCase() + key.slice(1),
+    count,
+  }))
+})
+
+/** Available receivers (who caught/targeted) with counts for filter pills. */
+const availableReceivers = computed(() => {
+  const counts = new Map<string, number>()
+  const nameMap = receiverNameMap.value
+  for (const r of replaysFromDb.value) {
+    const rid = r.receiver_id ?? '__none__'
+    counts.set(rid, (counts.get(rid) ?? 0) + 1)
+  }
+  return Array.from(counts.entries()).map(([key, count]) => ({
+    key,
+    label: key === '__none__' ? '—' : (nameMap[key] || key.slice(0, 12)),
+    count,
+  })).sort((a, b) => b.count - a.count)
+})
+
+/** Filtered and sorted replays. */
+const filteredReplays = computed(() => {
+  let items = replaysGroupedByScenarioFlat.value
+  if (replayFiltersEnabled.value) {
+    if (replayFilterType.value) {
+      items = items.filter((r) => r.scenario_group === (availableHighlightTypes.value.find(h => h.key === replayFilterType.value)?.label ?? replayFilterType.value))
+    }
+    if (replayFilterOutcome.value) {
+      items = items.filter((r) => r.outcome === replayFilterOutcome.value)
+    }
+    if (replayFilterReceiver.value) {
+      const rid = replayFilterReceiver.value === '__none__' ? null : replayFilterReceiver.value
+      items = items.filter((r) => (r.receiver_id ?? null) === rid)
+    }
+  }
+  const sorted = [...items]
+  if (replaySortBy.value === 'yards') {
+    sorted.sort((a, b) => (b.yardsGained ?? 0) - (a.yardsGained ?? 0))
+  } else {
+    sorted.sort((a, b) => (a.outcome ?? '').localeCompare(b.outcome ?? ''))
+  }
+  return sorted
+})
+
+/** Filtered replays re-grouped by highlight type. */
+const filteredReplaysGrouped = computed(() => {
+  const byGroup = new Map<string, PlayLabReplay[]>()
+  for (const item of filteredReplays.value) {
+    if (!byGroup.has(item.scenario_group)) byGroup.set(item.scenario_group, [])
+    byGroup.get(item.scenario_group)!.push(item)
+  }
+  return Array.from(byGroup.entries()).map(([key, items]) => ({
+    key,
+    label: key,
+    items,
+  }))
+})
+
 watch(replaysModalOpen, (open) => {
   if (open) {
     if (job.jobId && isJobCompleted.value) fetchReplaysForJob(job.jobId)
@@ -961,7 +1222,7 @@ watch(replaysModalOpen, (open) => {
 })
 
 watch(() => job.jobId, (jobId) => {
-  // Reset recordings when job changes
+  stopReplayPolling()
   replaysFromDb.value = []
   if (jobId && isJobCompleted.value) fetchReplaysForJob(jobId)
 })
@@ -970,7 +1231,7 @@ watch(
   () => job.status?.state,
   (state) => {
     if (state === 'COMPLETED' && job.jobId) {
-      fetchReplaysForJob(job.jobId)
+      fetchReplaysForJob(job.jobId, { poll: true })
     }
   }
 )
@@ -1007,41 +1268,69 @@ const defenseSearchQuery = ref('')
 const defenseDropdownOpen = ref(false)
 const selectedDefenseIds = ref<string[]>([])
 const attributeTier = ref('as_is')
-const nIterations = ref(100)
-const nScenarios = ref(2000)
+const nIterations = ref(10)
+const nScenarios = ref(100)
+const hasSelectedIterations = ref(false)
+const hasSelectedScenarios = ref(false)
 
 function maybeCloseHistoryPanel() {
   if (historyPanelOpen.value) closeHistoryPanel()
 }
 
+const playsReady = ref(false)
+let playsReadyPromise: Promise<void> | null = null
+
+function ensurePlaysLoaded(): Promise<void> {
+  if (playsReady.value) return Promise.resolve()
+  if (!playsReadyPromise) {
+    playsReadyPromise = fetchPlays().then(() => { playsReady.value = true })
+  }
+  return playsReadyPromise
+}
+
+async function loadJobById(id: string) {
+  if (job.jobId === id) return
+  await ensurePlaysLoaded()
+  const status = await job.getJobStatus(id)
+  if (status?.state === 'COMPLETED' || status?.state === 'FAILED') {
+    const ok = await job.loadResult(id)
+    if (ok && job.loadedJobStatus?.job_metadata) {
+      const meta = job.loadedJobStatus.job_metadata
+      if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
+      if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
+      if (meta.n_iterations) {
+        nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
+        hasSelectedIterations.value = true
+      }
+      if (meta.n_scenarios) {
+        nScenarios.value = Math.min(meta.n_scenarios, maxScenariosForPlan.value)
+        hasSelectedScenarios.value = true
+      }
+    }
+  } else if (status) {
+    job.attachToJob(id)
+  }
+}
+
 watch(
-  () => route.query.job,
-  async (queryJobId, oldJobId) => {
-    if (!queryJobId || typeof queryJobId !== 'string') {
-      if (oldJobId) {
+  () => props.jobId,
+  async (id, oldId) => {
+    if (!id) {
+      if (oldId) {
         job.reset()
         configRailed.value = false
         selectedPlayId.value = ''
         selectedDefenseIds.value = []
-        nIterations.value = 100
-        nScenarios.value = 2000
+        nIterations.value = 10
+        nScenarios.value = 100
+        hasSelectedIterations.value = false
+        hasSelectedScenarios.value = false
       }
       return
     }
-    if (job.jobId === queryJobId) return
-    const status = await job.getJobStatus(queryJobId)
-    if (status?.state === 'COMPLETED' || status?.state === 'FAILED') {
-      const ok = await job.loadResult(queryJobId)
-      if (ok && job.loadedJobStatus?.job_metadata) {
-        const meta = job.loadedJobStatus.job_metadata
-        if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
-        if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
-        if (meta.n_iterations) nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
-        if (meta.n_scenarios) nScenarios.value = Math.min(meta.n_scenarios, maxScenariosForPlan.value)
-      }
-    } else {
-      job.attachToJob(queryJobId)
-    }
+    // When viewing a previous simulation, rail the configuration panel by default.
+    configRailed.value = true
+    await loadJobById(id)
   },
   { immediate: true },
 )
@@ -1129,6 +1418,8 @@ const partial = computed(() => job.partialResult)
 
 const scenariosCompleted = computed(() => partial.value?.scenarios_completed ?? 0)
 const scenariosTotal = computed(() => partial.value?.scenarios_total ?? 0)
+const totalSimsCompleted = computed(() => scenariosCompleted.value * nIterations.value)
+const totalSimsTarget = computed(() => scenariosTotal.value * nIterations.value)
 
 const progressFraction = computed(() => {
   const total = scenariosTotal.value || 0
@@ -1271,30 +1562,27 @@ const rushRows = computed(() => {
   return order.map((o) => ({ ...o, stat: src[o.key] as AggregatedStats | undefined }))
 })
 
-/** Map canvas_player_id → display name using the offensive play's canvas data. */
+/** Map canvas_player_id → display name using ALL players from the offensive play's canvas data. */
 const receiverNameMap = computed<Record<string, string>>(() => {
   const play = selectedPlay.value
   if (!play?.canvas_data?.players) return {}
   const map: Record<string, string> = {}
-  const wrs = play.canvas_data.players
-    .filter((cp: any) => cp.position === 'WR')
-    .sort((a: any, b: any) => (a.readOrder ?? 99) - (b.readOrder ?? 99))
-  wrs.forEach((cp: any, idx: number) => {
+  for (const cp of play.canvas_data.players) {
     const label = cp.name
       ? `${cp.name}${cp.number ? ' #' + cp.number : ''}`
-      : cp.designation && cp.designation !== 'WR'
+      : cp.designation
         ? `${cp.designation}${cp.number ? ' #' + cp.number : ''}`
-        : `WR${idx + 1}`
+        : `${cp.position || 'Player'}${cp.number ? ' #' + cp.number : ''}`
     map[cp.id] = label
-  })
+  }
   return map
 })
 
 const receiverRows = computed(() => {
   const stats = partial.value?.per_receiver ?? []
-  return stats.map((rs) => ({
+  return stats.map((rs, idx) => ({
     ...rs,
-    label: receiverNameMap.value[rs.receiver_id] || rs.receiver_id.slice(0, 8),
+    label: receiverNameMap.value[rs.receiver_id] || `Receiver ${idx + 1}`,
   }))
 })
 
@@ -1392,7 +1680,7 @@ watch(
 watch(
   () => route.path,
   (path) => {
-    if (path !== '/simulation/play-lab') closeHistoryPanel()
+    if (!path.startsWith('/blurai/playlab')) closeHistoryPanel()
   },
 )
 
@@ -1486,18 +1774,20 @@ async function runSimulation() {
   if (ok) {
     configRailed.value = true
     job.startPolling()
-    if (job.jobId) await navigateTo({ path: '/simulation/play-lab', query: { job: job.jobId } })
+    if (job.jobId) await navigateTo(`/blurai/playlab/${job.jobId}`)
   }
 }
 
-function handleCancel() {
-  job.cancelJob()
+async function handleCancel() {
+  await job.cancelJob()
+  configRailed.value = false
+  navigateTo('/blurai/playlab')
 }
 
 function handleRunAgain() {
   job.reset()
   configRailed.value = false
-  navigateTo({ path: '/simulation/play-lab', query: {} }, { replace: true })
+  navigateTo('/blurai/playlab')
 }
 
 function exportResults() {
@@ -1511,26 +1801,16 @@ function exportResults() {
   URL.revokeObjectURL(a.href)
 }
 
-function handlePlayLabReset() {
-  job.reset()
-  configRailed.value = false
-  selectedPlayId.value = ''
-  selectedDefenseIds.value = []
-  nIterations.value = 100
-  nScenarios.value = 2000
-}
-
 onMounted(() => {
   fetchSettings()
   fetchPlayers()
   fetchTeams()
-  fetchPlays()
+  ensurePlaysLoaded()
   job.probeEngine()
-  window.addEventListener('playlab:reset', handlePlayLabReset)
 })
 
-onUnmounted(() => {
-  window.removeEventListener('playlab:reset', handlePlayLabReset)
+onBeforeUnmount(() => {
+  stopReplayPolling()
 })
 
 watch(

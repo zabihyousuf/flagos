@@ -38,6 +38,10 @@ export interface FieldSettings {
   default_defense_starter_count?: number
   /** Appearance: light, dark, or system (follow OS) */
   theme?: 'light' | 'dark' | 'system'
+  /** When true, selecting a replay in Play Lab starts playback automatically. */
+  replay_auto_play?: boolean
+  /** When true, replay loops until paused or another replay is selected. */
+  replay_loop?: boolean
   created_at: string
   updated_at: string
 }

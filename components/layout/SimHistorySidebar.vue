@@ -23,6 +23,16 @@
         </div>
         <div class="flex items-center gap-1 shrink-0">
           <button
+            v-if="batchSimJobs.length > 0"
+            type="button"
+            class="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            aria-label="Delete all"
+            :disabled="isRefreshing"
+            @click="deleteAll"
+          >
+            <Trash2 class="w-4 h-4" />
+          </button>
+          <button
             type="button"
             class="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             aria-label="Refresh"
@@ -176,7 +186,7 @@ import { useJobHistory } from '~/composables/useJobHistory'
 import { usePlayLabJob } from '~/composables/usePlayLabJob'
 
 const { isOpen, close } = useSimHistoryPanel()
-const { jobs, loading, error, fetchJobs, deleteJob: deleteJobFromDb } = useJobHistory()
+const { jobs, loading, error, fetchJobs, deleteJob: deleteJobFromDb, deleteAllJobs } = useJobHistory()
 const { jobId: currentJobId } = usePlayLabJob()
 
 const isRefreshing = computed(() => loading.value)
@@ -262,8 +272,25 @@ async function deleteJob(jobId: string) {
   })
   if (!ok) return
   await deleteJobFromDb(jobId)
-  if (route.query.job === jobId) {
-    navigateTo('/simulation/play-lab')
+  const currentId = route.params.id as string | undefined
+  if (currentId === jobId) {
+    navigateTo('/blurai/playlab')
+  }
+}
+
+async function deleteAll() {
+  const count = batchSimJobs.value.length
+  const ok = await confirm({
+    title: 'Delete all simulations',
+    description: `This will permanently remove all ${count} simulation${count === 1 ? '' : 's'} and their results. This action cannot be undone.`,
+    actionLabel: 'Delete all',
+    variant: 'destructive',
+  })
+  if (!ok) return
+  const success = await deleteAllJobs()
+  if (success) {
+    const currentId = route.params.id as string | undefined
+    if (currentId) navigateTo('/blurai/playlab')
   }
 }
 

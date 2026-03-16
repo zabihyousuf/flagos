@@ -64,7 +64,7 @@ watch(isTrialing, (v) => {
 
 function onSelectHistoryJob(job: { job_id: string }) {
   closeHistoryPanel()
-  navigateTo({ path: '/simulation/play-lab', query: { job: job.job_id } })
+  navigateTo(`/blurai/playlab/${job.job_id}`)
 }
 
 function maybeCloseHistoryPanel() {

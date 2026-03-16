@@ -29,7 +29,7 @@
         <div class="flex gap-3">
           <Button
             :disabled="engine.rateLimited"
-            @click="$router.push('/simulation/play-lab')"
+            @click="$router.push('/blurai/playlab')"
           >
             Try Play Lab
           </Button>

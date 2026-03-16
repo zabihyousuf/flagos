@@ -11,6 +11,12 @@
       >
         {{ seg.label }}
       </NuxtLink>
+      <span
+        v-else-if="seg.gradient"
+        class="breadcrumb-ai-gradient"
+      >
+        {{ seg.label }}
+      </span>
       <span v-else class="font-medium text-foreground">{{ seg.label }}</span>
     </template>
   </nav>
@@ -25,6 +31,8 @@ const { breadcrumbTitle } = useBreadcrumbs()
 interface BreadcrumbSegment {
   label: string
   to?: string
+  /** When true, segment is not a link and uses Blur.AI gradient styling */
+  gradient?: boolean
 }
 
 const segments = computed<BreadcrumbSegment[]>(() => {
@@ -41,8 +49,24 @@ const segments = computed<BreadcrumbSegment[]>(() => {
     '/whats-new': "What's New",
     '/simulation/game': 'Match Sim',
     '/simulation/scenario': 'Play Lab',
-    '/simulation/play-lab': 'Play Lab',
     '/simulation/engine-picks': 'Engine Picks',
+  }
+
+  // Play Lab: Dashboard > Blur.AI (disabled, gradient) > Play Lab [> Result]
+  if (path === '/blurai/playlab') {
+    return [
+      { label: 'Dashboard', to: '/dashboard' },
+      { label: 'BLUR.AI', gradient: true },
+      { label: 'Play Lab' },
+    ]
+  }
+  if (path.match(/^\/blurai\/playlab\/[^/]+$/)) {
+    return [
+      { label: 'Dashboard', to: '/dashboard' },
+      { label: 'BLUR.AI', gradient: true },
+      { label: 'Play Lab', to: '/blurai/playlab' },
+      { label: breadcrumbTitle.value || 'Result' },
+    ]
   }
 
   if (topLevel[path]) {
@@ -84,3 +108,31 @@ function formatSegmentLabel(part: string): string {
   return part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' ')
 }
 </script>
+
+<style scoped>
+@keyframes breadcrumb-ai-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.breadcrumb-ai-gradient {
+  background: linear-gradient(
+    to right,
+    #3b82f6,
+    #6366f1,
+    #8b5cf6,
+    #d946ef,
+    #ec4899,
+    #6366f1,
+    #3b82f6
+  );
+  background-size: 400% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: breadcrumb-ai-gradient 8s ease-in-out infinite;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+</style>

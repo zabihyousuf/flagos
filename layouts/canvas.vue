@@ -2,6 +2,7 @@
   <div class="flex h-screen overflow-hidden bg-background">
     <!-- Sidebar is still visible but content area has no padding -->
     <AppSidebar />
+    <SimHistorySidebar @select-job="onSelectHistoryJob" />
     <div class="flex flex-col flex-1 min-w-0 w-full h-full overflow-hidden relative">
       <main class="flex-1 min-h-0 relative p-0 overflow-hidden">
         <slot />
@@ -17,6 +18,12 @@
 useTheme()
 const router = useRouter()
 const { open: openSearch } = useAppSearch()
+const { close: closeHistoryPanel } = useSimHistoryPanel()
+
+function onSelectHistoryJob(job: { job_id: string }) {
+  closeHistoryPanel()
+  navigateTo(`/blurai/playlab/${job.job_id}`)
+}
 
 function handleKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'n') {

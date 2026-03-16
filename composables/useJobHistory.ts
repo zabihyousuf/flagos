@@ -92,11 +92,43 @@ export function useJobHistory() {
     }
   }
 
+  /** Delete all simulation jobs for the current user. */
+  async function deleteAllJobs(): Promise<boolean> {
+    if (!user.value) return false
+    try {
+      const { data: jobRows, error: fetchErr } = await client
+        .from('sim_jobs')
+        .select('id')
+        .eq('user_id', user.value.id)
+
+      if (fetchErr) throw fetchErr
+      const jobIds = (jobRows ?? []).map((r: any) => r.id)
+      if (jobIds.length === 0) {
+        jobs.value = []
+        return true
+      }
+      await client.from('sim_recordings').delete().in('job_id', jobIds)
+      await client.from('sim_results').delete().in('job_id', jobIds)
+      const { error: err } = await client
+        .from('sim_jobs')
+        .delete()
+        .eq('user_id', user.value.id)
+
+      if (err) throw err
+      jobs.value = []
+      return true
+    } catch (e: any) {
+      error.value = e.message ?? 'Failed to delete all jobs'
+      return false
+    }
+  }
+
   return {
     jobs,
     loading,
     error,
     fetchJobs,
     deleteJob,
+    deleteAllJobs,
   }
 }

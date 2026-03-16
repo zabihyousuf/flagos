@@ -264,6 +264,37 @@
               </div>
             </div>
 
+            <!-- Play Lab replays -->
+            <div class="general-row">
+              <Label class="general-label">Play Lab replays</Label>
+              <div class="general-control space-y-3">
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    class="mt-1 rounded border-input"
+                    :checked="settings.replay_auto_play !== false"
+                    @change="updateSettings({ replay_auto_play: (event?.target as HTMLInputElement)?.checked })"
+                  />
+                  <div>
+                    <span class="text-sm font-medium">Auto-play when selected</span>
+                    <p class="text-xs text-muted-foreground mt-0.5">Start playback as soon as you click a replay in the Replays modal.</p>
+                  </div>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    class="mt-1 rounded border-input"
+                    :checked="settings.replay_loop === true"
+                    @change="updateSettings({ replay_loop: (event?.target as HTMLInputElement)?.checked })"
+                  />
+                  <div>
+                    <span class="text-sm font-medium">Loop replay</span>
+                    <p class="text-xs text-muted-foreground mt-0.5">When playback reaches the end, start over until you pause or select another replay.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <!-- Help & support -->
             <div class="general-row">
               <Label class="general-label">Help & support</Label>

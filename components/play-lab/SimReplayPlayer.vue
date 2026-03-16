@@ -123,13 +123,20 @@ interface RecordingData {
   player_traces: Record<string, TracePoint[]>
 }
 
-const props = defineProps<{
-  recording: RecordingData
-  ticks: number
-  carrierId?: string | null
-  throwerId?: string | null
-  receiverId?: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    recording: RecordingData
+    ticks: number
+    carrierId?: string | null
+    throwerId?: string | null
+    receiverId?: string | null
+    /** Start playback automatically when a replay is selected. */
+    autoPlay?: boolean
+    /** When playback reaches the end, loop from the start until paused. */
+    loop?: boolean
+  }>(),
+  { autoPlay: false, loop: false }
+)
 
 const theme = useTheme()
 
@@ -165,7 +172,12 @@ function animate(time: number) {
   tickAccum -= advance
   tick.value = Math.min(tick.value + advance, totalTicks.value)
   if (tick.value >= totalTicks.value) {
-    playing.value = false
+    if (props.loop && totalTicks.value > 0) {
+      tick.value = 0
+      tickAccum = 0
+    } else {
+      playing.value = false
+    }
   }
   renderFrame()
   if (playing.value) {
@@ -486,11 +498,16 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKey)
 })
 
-// Re-render when recording data changes
+// Re-render when recording data changes; optionally auto-play
 watch(() => props.recording, () => {
   tick.value = 0
   playing.value = false
-  nextTick(() => renderFrame())
+  nextTick(() => {
+    renderFrame()
+    if (props.autoPlay && props.recording?.player_traces) {
+      playing.value = true
+    }
+  })
 }, { deep: false })
 
 watch(() => theme.resolvedDark.value, () => renderFrame())

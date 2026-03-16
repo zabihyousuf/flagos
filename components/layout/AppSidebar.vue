@@ -57,17 +57,17 @@
     <!-- Navigation -->
     <nav class="sidebar-nav">
       <template v-for="(group, index) in visibleNavGroups" :key="index">
-        <div v-if="!collapsed && (group.label || group.badge || (group.label === 'blur.ai' && blurAiPlanBadge))" class="sidebar-group-label flex items-center gap-2">
-          <span :class="{ 'ai-gradient-text': group.label === 'blur.ai' }">{{ group.label }}</span>
+        <div v-if="!collapsed && (group.label || group.badge || (group.label === 'BLUR.AI' && blurAiPlanBadge))" class="sidebar-group-label flex items-center gap-2">
+          <span :class="{ 'ai-gradient-text': group.label === 'BLUR.AI' }">{{ group.label }}</span>
           <button
-            v-if="group.label === 'blur.ai' && blurAiPlanBadge === 'Upgrade'"
+            v-if="group.label === 'BLUR.AI' && blurAiPlanBadge === 'Upgrade'"
             type="button"
             class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal sidebar-nav-chip--upgrade cursor-pointer hover:opacity-90 transition-opacity"
             @click.stop="upgradeModalOpen = true"
           >
             Upgrade
           </button>
-          <span v-else-if="group.label === 'blur.ai' && blurAiPlanBadge" class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal" :class="blurAiPlanBadge === 'Pro' ? 'sidebar-nav-chip--pro' : 'sidebar-nav-chip--trial'">{{ blurAiPlanBadge }}</span>
+          <span v-else-if="group.label === 'BLUR.AI' && blurAiPlanBadge" class="sidebar-nav-chip px-1.5 py-0.5 rounded text-[11px] font-semibold normal-case tracking-normal" :class="blurAiPlanBadge === 'Pro' ? 'sidebar-nav-chip--pro' : 'sidebar-nav-chip--trial'">{{ blurAiPlanBadge }}</span>
           <span v-else-if="group.badge" class="px-1.5 py-0.5 rounded text-[12px] font-bold bg-primary/10 text-primary normal-case tracking-normal">
             {{ group.badge }}
           </span>
@@ -85,12 +85,12 @@
                 <component :is="item.icon" class="sidebar-nav-icon transition-transform duration-150 ease-out" :class="historyPanelOpen ? 'rotate-180' : ''" />
               </button>
               <div
-                v-else-if="item.to === '/simulation/play-lab' && !item.disabled && !collapsed"
+                v-else-if="item.to === '/blurai/playlab' && !item.disabled && !collapsed"
                 class="sidebar-nav-button-group"
                 :class="{ active: isActive(item.to) }"
               >
                 <a
-                  href="/simulation/play-lab"
+                  href="/blurai/playlab"
                   class="sidebar-nav-button-group-main"
                   @click.prevent="goToPlayLab()"
                 >
@@ -109,9 +109,9 @@
                   <ChevronRight class="w-4 h-4" />
                 </button>
               </div>
-              <template v-else-if="item.to === '/simulation/play-lab' && !item.disabled && collapsed">
+              <template v-else-if="item.to === '/blurai/playlab' && !item.disabled && collapsed">
                 <a
-                  href="/simulation/play-lab"
+                  href="/blurai/playlab"
                   class="sidebar-nav-item"
                   :class="{ active: isActive(item.to) }"
                   @click.prevent="goToPlayLab()"
@@ -339,7 +339,7 @@ const blurAiPlanBadge = computed(() => {
 
 function navItemChip(item: NavItem): 'Pro' | 'Trial!' | 'Free' | 'Upgrade' | null {
   if (item.isHistoryTrigger) return null
-  if (item.to === '/simulation/play-lab') return null
+  if (item.to === '/blurai/playlab') return null
   if (item.proOnly && !hasProAccess.value) return hasSimulationAccess.value ? 'Pro' : 'Upgrade'
   return null
 }
@@ -380,10 +380,10 @@ const navGroups: NavGroup[] = [
     ]
   },
   {
-    label: 'blur.ai',
+    label: 'BLUR.AI',
     items: [
       { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
-      { to: '/simulation/play-lab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times across many defensive situations (down, distance, zone, coverage) to see when each works best.' },
+      { to: '/blurai/playlab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times across many defensive situations (down, distance, zone, coverage) to see when each works best.' },
       { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
     ]
   }
@@ -402,7 +402,7 @@ const sortedNavGroups = computed<NavGroup[]>(() =>
       if (aDisabled === bDisabled) return 0
       return aDisabled ? 1 : -1
     })
-    if (group.label !== 'blur.ai') {
+    if (group.label !== 'BLUR.AI') {
       return { ...group, items: sortedByEnabled }
     }
     // Within blur.ai, keep enabled-first ordering, then float the currently active route to the top of that enabled block
@@ -419,11 +419,11 @@ const sortedNavGroups = computed<NavGroup[]>(() =>
 const displayNavGroups = computed<NavGroup[]>(() => {
   if (!collapsed.value) return sortedNavGroups.value
   return sortedNavGroups.value.map((group) => {
-    if (group.label !== 'blur.ai') return group
+    if (group.label !== 'BLUR.AI') return group
     const items: NavItem[] = []
     for (const item of group.items) {
       items.push(item)
-      if (item.to === '/simulation/play-lab') {
+      if (item.to === '/blurai/playlab') {
         items.push({ to: '__history__', label: 'Simulation history', icon: ChevronRight, isHistoryTrigger: true })
       }
     }
@@ -449,13 +449,7 @@ function openQuickPlay() {
 }
 
 function goToPlayLab() {
-  const route = useRoute()
-  if (route.path === '/simulation/play-lab') {
-    navigateTo({ path: '/simulation/play-lab', query: {} }, { replace: true })
-    window.dispatchEvent(new CustomEvent('playlab:reset'))
-  } else {
-    navigateTo('/simulation/play-lab')
-  }
+  navigateTo('/blurai/playlab')
 }
 
 async function handleLogout() {

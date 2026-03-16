@@ -292,6 +292,8 @@ export const DEFAULT_FIELD_SETTINGS = {
   default_offense_starter_count: 5,
   default_defense_starter_count: 5,
   theme: 'system' as const,
+  replay_auto_play: true,
+  replay_loop: false,
 }
 
 export const FIELD_COLORS = {
