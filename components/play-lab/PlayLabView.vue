@@ -18,7 +18,7 @@
     </div>
     <template v-else>
     <div class="flex flex-1 min-h-0 min-w-0 flex-col">
-      <div class="shrink-0 px-4 pt-4 lg:px-6 lg:pt-6 space-y-2">
+      <div class="shrink-0 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div class="flex flex-wrap items-center gap-2">
@@ -39,7 +39,8 @@
                 {{ planBadgeLabel }}
               </component>
             </div>
-            <div v-if="!isPaidPro" class="flex flex-wrap items-center gap-1.5 mt-2">
+            <p class="text-muted-foreground text-sm mt-1">Simulate plays against defenses and analyze results.</p>
+            <div v-if="!isPaidPro" class="flex flex-wrap items-center gap-1.5 mt-1.5">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
               >
@@ -66,16 +67,16 @@
           </Button>
         </div>
       </div>
-      <div class="flex flex-1 min-h-0 flex-col lg:flex-row gap-4 lg:gap-6 p-4 lg:p-6">
+      <div class="flex flex-1 min-h-0 flex-col lg:flex-row gap-4 lg:gap-6 pt-4 lg:pt-5 pb-5 lg:pb-6">
         <div
           class="flex items-stretch gap-0 shrink-0 transition-[width] duration-200 ease-out"
           :class="configRailed ? 'w-12' : 'w-full lg:w-[30%]'"
         >
           <aside
-            class="w-full min-w-0 rounded-xl bg-card overflow-hidden shadow-md flex flex-col"
+            class="w-full min-w-0 rounded-xl bg-card shadow-md flex flex-col min-h-0"
             @click.stop
           >
-            <div v-show="!configRailed" class="p-4 lg:p-6 space-y-4 overflow-y-auto flex-1 min-h-0 min-w-0">
+            <div v-show="!configRailed" class="p-4 lg:p-6 pb-6 space-y-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 min-w-0 rounded-xl">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Simulation Form</h2>
@@ -259,8 +260,8 @@
               <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">500 scenarios · 100 iterations</span>
             </div>
             <div class="space-y-1.5">
-              <span class="text-xs font-medium">Scenarios</span>
-              <p class="text-[10px] text-muted-foreground leading-snug">Unique game situations (down, distance, field position, coverage) to test against.</p>
+              <span class="text-xs font-medium">Scenarios per defense</span>
+              <p class="text-[10px] text-muted-foreground leading-snug">Unique game situations (down, distance, field position, coverage) generated per defensive play.{{ nDefensePlays > 1 ? ' Max 1K when multiple defenses selected.' : '' }}</p>
               <div class="flex gap-1.5 items-end flex-wrap">
                 <div
                   v-for="n in scenarioOptions"
@@ -280,10 +281,11 @@
                     :class="[
                       !isScenarioAllowed(n) && 'opacity-50 cursor-not-allowed',
                       configLocked && 'pointer-events-none opacity-60',
+                      (nDefensePlays > 1 && n > 1000) && 'opacity-50 cursor-not-allowed',
                       nScenarios === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : isScenarioAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
                     ]"
-                    :disabled="configLocked || !isScenarioAllowed(n)"
-                    @click="isScenarioAllowed(n) && (nScenarios = n, hasSelectedScenarios.value = true)"
+                    :disabled="configLocked || !isScenarioAllowed(n) || (nDefensePlays > 1 && n > 1000)"
+                    @click="isScenarioAllowed(n) && !(nDefensePlays > 1 && n > 1000) && (nScenarios = n, hasSelectedScenarios = true)"
                   >
                     {{ n >= 1000 ? (n / 1000) + 'K' : n }}
                   </button>
@@ -333,7 +335,7 @@
                 <p class="text-xs font-medium text-muted-foreground">Total simulations</p>
                 <p class="text-xs font-semibold">{{ totalSimulations.toLocaleString() }}</p>
               </div>
-              <p class="text-[10px] text-muted-foreground">{{ nScenarios.toLocaleString() }} scenarios &times; {{ nIterations.toLocaleString() }} iterations &bull; {{ iterationTimeHint }}</p>
+              <p class="text-[10px] text-muted-foreground">{{ nDefensePlays }} defense{{ nDefensePlays > 1 ? 's' : '' }} &times; {{ nScenarios.toLocaleString() }} scenarios &times; {{ nIterations.toLocaleString() }} iterations &bull; {{ iterationTimeHint }}</p>
             </div>
             <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm">
               <p class="text-xs font-medium text-muted-foreground mb-1">Field settings</p>
@@ -400,7 +402,7 @@
         <ClientOnly>
         <!-- Loading skeleton when opening a past simulation (only after mount to avoid hydration mismatch) -->
         <template v-if="isClient && props.jobId && jobPageLoading">
-          <div class="flex-1 p-4 lg:p-6 space-y-6">
+          <div class="flex-1 pb-14 space-y-6">
             <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
               <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col gap-3 shadow-md min-w-0 flex-1 space-y-3">
                 <Skeleton class="h-4 w-32" />
@@ -448,7 +450,7 @@
         </template>
 
         <template v-else>
-          <div class="flex-1 p-4 lg:p-6 space-y-6">
+          <div class="flex-1 pb-14 space-y-6">
             <!-- Row 1: Status card (left) + Progress circle (right), side by side via flex -->
             <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
               <!-- Left: play name + description row with action buttons on same row, then progress bar and info -->
@@ -571,6 +573,89 @@
               </div>
             </section>
 
+            <!-- Blur AI tactical breakdown -->
+            <section
+              v-if="job?.status?.state === 'COMPLETED' || job?.loadedJobStatus?.state === 'COMPLETED'"
+              class="rounded-xl bg-gradient-to-br from-indigo-500/[0.06] via-card/80 to-violet-500/[0.06] border border-indigo-500/10 shadow-md overflow-hidden"
+            >
+              <div class="px-5 py-4 lg:px-6">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/10">
+                      <Sparkles class="w-4 h-4 text-indigo-500" :class="{ 'animate-pulse': insightsStreaming }" />
+                    </div>
+                    <div>
+                      <h3 class="text-sm font-semibold">
+                        Blur AI
+                        <span v-if="insightsStreaming && insightsData.length === 0" class="text-xs font-normal text-muted-foreground ml-1.5">Analyzing...</span>
+                      </h3>
+                      <p class="text-[11px] text-muted-foreground mt-0.5">Tactical breakdown from your simulation</p>
+                    </div>
+                  </div>
+                  <button
+                    v-if="insightsData.length > 0 && !insightsStreaming"
+                    type="button"
+                    class="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                    @click="fetchInsights(true)"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+
+                <!-- Initial loading skeleton (before any items arrive) -->
+                <div v-if="insightsLoading && insightsData.length === 0" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div v-for="i in 5" :key="i" class="rounded-xl px-4 py-3.5 space-y-2 bg-muted/20 border border-border/20">
+                    <div class="flex items-center gap-2">
+                      <Skeleton class="h-5 w-5 rounded" />
+                      <Skeleton class="h-3.5 w-24" />
+                    </div>
+                    <Skeleton class="h-3 w-full max-w-[220px]" />
+                  </div>
+                </div>
+
+                <!-- Error state -->
+                <p v-else-if="insightsError && insightsData.length === 0" class="mt-3 text-xs text-destructive">
+                  {{ insightsError }}
+                  <button type="button" class="underline ml-1" @click="fetchInsights">Retry</button>
+                </p>
+
+                <!-- Streamed / completed insights list -->
+                <div v-if="insightsData.length > 0" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div
+                    v-for="(insight, idx) in insightsData"
+                    :key="idx"
+                    class="rounded-xl px-4 py-3.5 space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-500"
+                    :class="{
+                      'bg-emerald-500/[0.07] border border-emerald-500/10': insight.sentiment === 'positive',
+                      'bg-rose-500/[0.07] border border-rose-500/10': insight.sentiment === 'negative',
+                      'bg-muted/40 border border-border/40': insight.sentiment === 'neutral',
+                    }"
+                    :style="{ animationDelay: `${idx * 150}ms`, animationFillMode: 'both' }"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg leading-none">{{ insight.icon }}</span>
+                      <p class="text-xs font-semibold leading-tight">{{ insight.title }}</p>
+                    </div>
+                    <p class="text-[11px] leading-relaxed text-muted-foreground">{{ insight.detail }}</p>
+                  </div>
+                  <!-- Skeleton placeholder for remaining streaming items -->
+                  <template v-if="insightsStreaming && insightsData.length < 6">
+                    <div
+                      v-for="i in Math.min(6 - insightsData.length, 3)"
+                      :key="'skel-' + i"
+                      class="rounded-xl px-4 py-3.5 space-y-2 bg-muted/20 border border-border/20 animate-pulse"
+                    >
+                      <div class="flex items-center gap-2">
+                        <Skeleton class="h-5 w-5 rounded" />
+                        <Skeleton class="h-3.5 w-24" />
+                      </div>
+                      <Skeleton class="h-3 w-full max-w-[220px]" />
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </section>
+
             <!-- PART 2: Breakdown panels (more space for data) -->
             <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
               <div class="rounded-xl bg-card/80 p-5 lg:p-6 space-y-4 shadow-md">
@@ -598,10 +683,11 @@
               </div>
 
               <div class="rounded-xl bg-card/80 p-4 space-y-3 shadow-md">
-                <h3 class="text-sm font-medium">Vs Rush</h3>
-                <div class="space-y-2">
+                <h3 class="text-sm font-medium">Vs Defense</h3>
+                <div v-if="defenseRows.length === 0" class="text-xs text-muted-foreground">No results yet</div>
+                <div v-else class="space-y-2">
                   <BreakdownRow
-                    v-for="row in rushRows"
+                    v-for="row in defenseRows"
                     :key="row.key"
                     :label="row.label"
                     :stat="row.stat"
@@ -665,7 +751,7 @@
                 >
                   <div class="flex items-center justify-between gap-2">
                     <p class="text-xs font-medium truncate">
-                      {{ s.label || 'Situation' }}
+                      {{ formatScenarioDisplay(s.label ?? '', s.defense_play_label) || 'Situation' }}
                     </p>
                     <span class="text-[11px] text-muted-foreground">
                       {{ Math.round((s.completion_rate ?? s.success_rate ?? 0) * 100) }}% comp
@@ -851,7 +937,7 @@
                               }"
                             />
                             <div class="min-w-0 flex-1">
-                              <p class="text-xs font-medium truncate">{{ item.scenario_label || item.scenario_group }}</p>
+                              <p class="text-xs font-medium truncate">{{ formatScenarioDisplay(item.scenario_label, item.defense_play_label) || item.scenario_group }}</p>
                               <p class="text-[10px] text-muted-foreground flex gap-1.5">
                                 <span v-if="item.outcome" class="capitalize">{{ item.outcome }}</span>
                                 <span v-if="item.yardsGained != null" class="tabular-nums">{{ item.yardsGained }} yd</span>
@@ -891,8 +977,7 @@
                             {{ selectedReplayInModal.outcome }}
                           </span>
                           <span v-if="selectedReplayInModal.yardsGained != null" class="tabular-nums">{{ selectedReplayInModal.yardsGained }} yards</span>
-                          <span class="text-muted-foreground/50">{{ selectedReplayInModal.scenario_group }}</span>
-                          <span v-if="selectedReplayInModal.scenario_label" class="text-muted-foreground/40">{{ selectedReplayInModal.scenario_label }}</span>
+                          <span class="text-muted-foreground/70">{{ formatScenarioDisplay(selectedReplayInModal.scenario_label, selectedReplayInModal.defense_play_label) }}</span>
                         </div>
                         <div class="flex items-center gap-1.5">
                           <button
@@ -972,7 +1057,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose } from 'lucide-vue-next'
+import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose, Sparkles } from 'lucide-vue-next'
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
@@ -985,12 +1070,13 @@ interface PlayWithPb extends Play {
   _playbookName?: string
 }
 
-/** Replay / highlight recording from a completed run. Maps to sim_recordings (job_id, scenario_label, highlight_type, outcome, yards_gained, recording_json). */
+/** Replay / highlight recording from a completed run. Maps to sim_recordings (job_id, scenario_label, defense_play_label, highlight_type, outcome, yards_gained, recording_json). */
 export interface PlayLabReplay {
   id: string
   job_id?: string
   scenario_group: string
   scenario_label: string
+  defense_play_label?: string
   scenario_key?: string
   label: string
   outcome?: string
@@ -1005,12 +1091,22 @@ export interface PlayLabReplay {
   recording_json?: Record<string, unknown> | null
 }
 
+/** Format for UI: "Scenario · [where we are] · [defense play]" instead of raw "1st & 10 — Own Territory — 0 Rushers — Soft Coverage". */
+function formatScenarioDisplay(scenarioLabel: string, defensePlayLabel?: string): string {
+  const parts = (scenarioLabel || '').split(' — ')
+  const where = parts.slice(0, 2).filter(Boolean).join(', ').trim() || 'Scenario'
+  const defense = (defensePlayLabel ?? '').trim()
+  if (defense) return `Scenario · ${where} · ${defense}`
+  return `Scenario · ${where}`
+}
+
 /** Row shape from sim_recordings (Supabase). */
 interface SimRecordingRow {
   id: string
   job_id: string
   scenario_id: string
   scenario_label: string
+  defense_play_label?: string | null
   highlight_type: string
   outcome: string
   yards_gained: number
@@ -1079,6 +1175,93 @@ const { isOpen: historyPanelOpen, close: closeHistoryPanel } = useSimHistoryPane
 const jobHistory = useJobHistory()
 const worstOpen = ref(false)
 const displayedSuccessRate = ref(0)
+
+interface InsightItem { icon: string; title: string; detail: string; sentiment: 'positive' | 'negative' | 'neutral' }
+const insightsData = ref<InsightItem[]>([])
+const insightsLoading = ref(false)
+const insightsStreaming = ref(false)
+const insightsError = ref<string | null>(null)
+let insightsAbort: AbortController | null = null
+
+async function fetchInsights(regenerate = false) {
+  if (!job.jobId || !partial.value) return
+
+  insightsAbort?.abort()
+  const ac = new AbortController()
+  insightsAbort = ac
+
+  insightsLoading.value = true
+  insightsStreaming.value = true
+  insightsError.value = null
+  insightsData.value = []
+
+  try {
+    const playName = selectedPlay.value?.name ?? job.loadedJobStatus?.job_metadata?.offensive_play_name ?? 'Unknown'
+    const defenseName = defensePlays.value.find((p) => p.id === selectedDefenseIds.value[0])?.name
+      ?? job.loadedJobStatus?.job_metadata?.defensive_play_name ?? 'Unknown'
+
+    const res = await fetch('/api/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_id: job.jobId,
+        result_data: partial.value,
+        play_name: playName,
+        defense_name: defenseName,
+        receiver_names: receiverNameMap.value,
+        regenerate,
+      }),
+      signal: ac.signal,
+    })
+
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(errText || `HTTP ${res.status}`)
+    }
+
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data: ')) continue
+        const payload = trimmed.slice(6)
+        if (payload === '[DONE]') continue
+        try {
+          const parsed = JSON.parse(payload)
+          if (parsed.error) throw new Error(parsed.error)
+          if (parsed.icon && parsed.title) {
+            insightsData.value = [...insightsData.value, parsed as InsightItem]
+            insightsLoading.value = false
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') return
+    insightsError.value = err?.message ?? 'Failed to generate insights'
+  } finally {
+    insightsLoading.value = false
+    insightsStreaming.value = false
+    if (insightsAbort === ac) insightsAbort = null
+  }
+}
+
+async function loadCachedInsights() {
+  if (!job.jobId) return
+  const supabase = useSupabaseDB()
+  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).single()
+  if (data?.insights) insightsData.value = data.insights as InsightItem[]
+}
 /** Replays modal (sidebar + player). */
 const replaysModalOpen = ref(false)
 const selectedReplayInModal = ref<PlayLabReplay | null>(null)
@@ -1113,7 +1296,7 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
     const supabase = useSupabaseDB()
     const { data, error } = await supabase
       .from('sim_recordings')
-      .select('id, job_id, scenario_id, scenario_label, highlight_type, outcome, yards_gained, ticks, carrier_id, thrower_id, receiver_id')
+      .select('id, job_id, scenario_id, scenario_label, defense_play_label, highlight_type, outcome, yards_gained, ticks, carrier_id, thrower_id, receiver_id')
       .eq('job_id', jobId)
       .order('highlight_type')
       .order('yards_gained', { ascending: false })
@@ -1123,6 +1306,7 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
       job_id: r.job_id,
       scenario_id: r.scenario_id,
       scenario_label: r.scenario_label ?? '',
+      defense_play_label: r.defense_play_label ?? null,
       highlight_type: r.highlight_type ?? '',
       outcome: r.outcome ?? '',
       yards_gained: r.yards_gained ?? 0,
@@ -1190,13 +1374,15 @@ function groupRecordingsByScenario(rows: SimRecordingRow[], cache: Map<string, R
   }
   for (const r of rows) {
     const groupLabel = (highlightLabels[r.highlight_type] ?? (r.highlight_type ?? '').replace(/_/g, ' ')) || 'Other'
+    const scenarioDisplay = formatScenarioDisplay(r.scenario_label, r.defense_play_label ?? undefined)
     const item: PlayLabReplay = {
       id: r.id,
       job_id: r.job_id,
       scenario_group: groupLabel,
       scenario_label: r.scenario_label,
+      defense_play_label: r.defense_play_label ?? undefined,
       scenario_key: r.scenario_id,
-      label: r.scenario_label || `${groupLabel} — ${Math.round(r.yards_gained ?? 0)} yd`,
+      label: scenarioDisplay || `${groupLabel} — ${Math.round(r.yards_gained ?? 0)} yd`,
       outcome: (r.outcome?.toLowerCase() ?? '').replace(/_/g, ' '),
       yardsGained: r.yards_gained != null ? Math.round(r.yards_gained) : undefined,
       url: null,
@@ -1348,16 +1534,32 @@ watch(replaysModalOpen, (open) => {
 
 watch(() => job.jobId, (jobId) => {
   stopReplayPolling()
+  insightsAbort?.abort()
   replaysFromDb.value = []
   recordingJsonCache.value = new Map()
-  if (jobId && isJobCompleted.value) fetchReplaysForJob(jobId)
+  insightsData.value = []
+  insightsError.value = null
+  insightsStreaming.value = false
+  if (!jobId) {
+    jobReceiverNameMap.value = {}
+    jobOrderedReceiverIds.value = []
+  }
+  if (jobId && isJobCompleted.value) {
+    fetchReplaysForJob(jobId)
+    loadCachedInsights()
+  }
 })
 
 watch(
   () => job.status?.state,
-  (state) => {
+  (state, oldState) => {
     if (state === 'COMPLETED' && job.jobId) {
       fetchReplaysForJob(job.jobId, { poll: true })
+      if (oldState && oldState !== 'COMPLETED') {
+        fetchInsights()
+      } else {
+        loadCachedInsights()
+      }
     }
   }
 )
@@ -1442,25 +1644,38 @@ function ensurePlaysLoaded(): Promise<void> {
   return playsReadyPromise
 }
 
+function applyJobMetadataAndPlay(meta: { offensive_play_id?: string; defensive_play_id?: string; n_iterations?: number; n_scenarios?: number } | undefined) {
+  if (!meta) return
+  if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
+  const play = offensivePlays.value.find((p) => p.id === meta.offensive_play_id) ?? null
+  if (play) {
+    jobReceiverNameMap.value = buildReceiverNameMap(play)
+    jobOrderedReceiverIds.value = buildOrderedReceiverIds(play)
+  }
+  if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
+  if (meta.n_iterations) {
+    nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
+    hasSelectedIterations.value = true
+  }
+  if (meta.n_scenarios) {
+    nScenarios.value = Math.min(meta.n_scenarios, maxScenariosForPlan.value)
+    hasSelectedScenarios.value = true
+  }
+}
+
 async function loadJobById(id: string) {
-  if (job.jobId === id) return
+  if (job.jobId === id) {
+    if (job.loadedJobStatus?.job_metadata) applyJobMetadataAndPlay(job.loadedJobStatus.job_metadata)
+    return
+  }
   await ensurePlaysLoaded()
   const status = await job.getJobStatus(id)
   if (status?.state === 'COMPLETED' || status?.state === 'FAILED') {
     const ok = await job.loadResult(id)
-    if (ok && job.loadedJobStatus?.job_metadata) {
-      const meta = job.loadedJobStatus.job_metadata
-      if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
-      if (meta.defensive_play_id) selectedDefenseIds.value = [meta.defensive_play_id]
-      if (meta.n_iterations) {
-        nIterations.value = Math.min(meta.n_iterations, maxIterationsForPlan.value)
-        hasSelectedIterations.value = true
-      }
-      if (meta.n_scenarios) {
-        nScenarios.value = Math.min(meta.n_scenarios, maxScenariosForPlan.value)
-        hasSelectedScenarios.value = true
-      }
-    }
+    if (ok && job.loadedJobStatus?.job_metadata) applyJobMetadataAndPlay(job.loadedJobStatus.job_metadata)
+  } else if (status?.job_metadata) {
+    applyJobMetadataAndPlay(status.job_metadata)
+    job.attachToJob(id)
   } else if (status) {
     job.attachToJob(id)
   }
@@ -1483,11 +1698,23 @@ watch(
         hasSelectedIterations.value = false
         hasSelectedScenarios.value = false
         recordingJsonCache.value = new Map()
+        jobReceiverNameMap.value = {}
+        jobOrderedReceiverIds.value = []
+        insightsAbort?.abort()
+        insightsData.value = []
+        insightsError.value = null
+        insightsStreaming.value = false
       }
       jobPageLoading.value = false
       return
     }
-    if (id !== oldId) recordingJsonCache.value = new Map()
+    if (id !== oldId) {
+      recordingJsonCache.value = new Map()
+      insightsAbort?.abort()
+      insightsData.value = []
+      insightsError.value = null
+      insightsStreaming.value = false
+    }
     configRailed.value = true
     jobPageLoading.value = true
     try {
@@ -1562,9 +1789,12 @@ const filteredDefensePlays = computed(() => {
 
 const selectedPlay = computed(() => offensivePlays.value.find((p) => p.id === selectedPlayId.value) ?? null)
 
-/** Map canvas_player_id → display name using ALL players from the offensive play's canvas data. */
-const receiverNameMap = computed<Record<string, string>>(() => {
-  const play = selectedPlay.value
+/** Pinned receiver name map for the current job so names show immediately (no refresh) when result arrives or when opening a past job. */
+const jobReceiverNameMap = ref<Record<string, string>>({})
+/** Pinned ordered receiver ids for the current job (for index-based labels). */
+const jobOrderedReceiverIds = ref<string[]>([])
+
+function buildReceiverNameMap(play: { canvas_data?: { players?: Array<{ id: string; name?: string; number?: number; designation?: string; position?: string }> } } | null): Record<string, string> {
   if (!play?.canvas_data?.players) return {}
   const map: Record<string, string> = {}
   for (const cp of play.canvas_data.players) {
@@ -1576,15 +1806,23 @@ const receiverNameMap = computed<Record<string, string>>(() => {
     map[cp.id] = label
   }
   return map
+}
+
+function buildOrderedReceiverIds(play: { canvas_data?: { players?: Array<{ id: string; position?: string }> } } | null): string[] {
+  if (!play?.canvas_data?.players) return []
+  return play.canvas_data.players.filter((p) => p.position !== 'QB').map((p) => p.id)
+}
+
+/** Map canvas_player_id → display name. Uses pinned job map when we have one so names show without refresh. */
+const receiverNameMap = computed<Record<string, string>>(() => {
+  if (job.jobId && Object.keys(jobReceiverNameMap.value).length > 0) return jobReceiverNameMap.value
+  return buildReceiverNameMap(selectedPlay.value)
 })
 
-/** Ordered receiver canvas ids from the play (non-QB players in canvas order) for index-based label fallback during partial results. */
+/** Ordered receiver canvas ids for index-based label fallback. Uses pinned job list when we have one. */
 const orderedReceiverIdsFromPlay = computed<string[]>(() => {
-  const play = selectedPlay.value
-  if (!play?.canvas_data?.players) return []
-  return play.canvas_data.players
-    .filter((p) => p.position !== 'QB')
-    .map((p) => p.id)
+  if (job.jobId && jobOrderedReceiverIds.value.length > 0) return jobOrderedReceiverIds.value
+  return buildOrderedReceiverIds(selectedPlay.value)
 })
 
 /** Player id → { name, number, position } for replay player labels (from play designer canvas). */
@@ -1641,7 +1879,12 @@ const canRun = computed(() => {
   return true
 })
 
-const totalSimulations = computed(() => nIterations.value * nScenarios.value)
+const nDefensePlays = computed(() => Math.max(1, selectedDefenseIds.value.length))
+// Auto-clamp scenarios to 1K max when multiple defenses selected
+watch(nDefensePlays, (count) => {
+  if (count > 1 && nScenarios.value > 1000) nScenarios.value = 1000
+})
+const totalSimulations = computed(() => nDefensePlays.value * nScenarios.value * nIterations.value)
 const iterationTimeHint = computed(() => {
   const total = totalSimulations.value
   if (total <= 200_000) return '~1 minute'
@@ -1788,14 +2031,40 @@ const fieldZoneRows = computed(() => {
   return order.map((o) => ({ ...o, stat: src[o.key] as AggregatedStats | undefined }))
 })
 
-const rushRows = computed(() => {
-  const src = partial.value?.aggregated_by_rush_count ?? {}
-  const order: { key: string; label: string }[] = [
-    { key: '0', label: 'No Rush' },
-    { key: '1', label: '1 Rusher' },
-    { key: '2', label: '2 Rushers' },
-  ]
-  return order.map((o) => ({ ...o, stat: src[o.key] as AggregatedStats | undefined }))
+const defenseRows = computed(() => {
+  const scenarios = partial.value?.per_scenario ?? []
+  // Group scenarios by defense_play_label (set by backend for each source defense)
+  const grouped: Record<string, { runs: number; successes: number; completions: number; yards: number[]; outcomes: Record<string, number> }> = {}
+  for (const s of scenarios as any[]) {
+    const key = s.defense_play_label || s.label || 'Defense'
+    if (!grouped[key]) grouped[key] = { runs: 0, successes: 0, completions: 0, yards: [], outcomes: {} }
+    const g = grouped[key]
+    const n = s.n_runs ?? 0
+    g.runs += n
+    g.successes += (s.success_rate ?? 0) * n
+    g.completions += (s.completion_rate ?? 0) * n
+    const mean = s.yards_gained_stats?.mean ?? 0
+    for (let i = 0; i < n; i++) g.yards.push(mean)
+    for (const [outcome, rate] of Object.entries(s.outcome_distribution ?? {})) {
+      g.outcomes[outcome] = (g.outcomes[outcome] ?? 0) + (rate as number) * n
+    }
+  }
+  return Object.entries(grouped).map(([label, g]) => ({
+    key: label,
+    label,
+    stat: {
+      n_scenarios: Object.keys(grouped).length,
+      n_iterations: g.runs,
+      success_rate: g.runs > 0 ? g.successes / g.runs : 0,
+      completion_rate: g.runs > 0 ? g.completions / g.runs : 0,
+      yards_gained_stats: {
+        mean: g.runs > 0 ? g.yards.reduce((a, b) => a + b, 0) / g.yards.length : 0,
+        median: 0, std: 0, p25: 0, p75: 0, p95: 0,
+      },
+      outcome_distribution: g.runs > 0 ? Object.fromEntries(Object.entries(g.outcomes).map(([k, v]) => [k, v / g.runs])) : {},
+      most_common_failure: '',
+    } as AggregatedStats,
+  }))
 })
 
 const receiverRows = computed(() => {
@@ -1868,7 +2137,14 @@ function yardScale(v: number) {
 
 const worstScenarios = computed(() => {
   const list = partial.value?.worst_10_scenarios ?? []
-  return [...list].sort((a, b) => (a.success_rate ?? 0) - (b.success_rate ?? 0))
+  return [...list].sort((a, b) => {
+    const rateA = a.completion_rate ?? a.success_rate ?? 0
+    const rateB = b.completion_rate ?? b.success_rate ?? 0
+    if (rateA !== rateB) return rateA - rateB
+    const labelA = formatScenarioDisplay(a.label ?? '', a.defense_play_label) || ''
+    const labelB = formatScenarioDisplay(b.label ?? '', b.defense_play_label) || ''
+    return labelA.localeCompare(labelB)
+  })
 })
 
 const OUTCOME_LABELS: Record<string, string> = {
@@ -1966,20 +2242,35 @@ async function runSimulation() {
     return
   }
 
-  // Resolve defensive roster — use fallback base players for any missing starters
-  const firstDefPlay = defensePlays.value.find((p) => p.id === selectedDefenseIds.value[0])
-  if (!firstDefPlay) return
+  // Resolve defensive rosters for ALL selected defensive plays
+  const selectedDefPlays = selectedDefenseIds.value
+    .map((id) => defensePlays.value.find((p) => p.id === id))
+    .filter(Boolean) as typeof defensePlays.value
+  if (selectedDefPlays.length === 0) return
 
-  const defResult = await resolveRosterWithFallback(firstDefPlay.canvas_data, 'defense', teamId)
-  defenseBasePlayerWarnings.value = defResult.warnings
+  const defScenarios: { scenario_id: string; defensive_play: typeof play.canvas_data; defensive_players: any[]; label: string }[] = []
+  const allWarnings: string[] = []
+  for (const defPlay of selectedDefPlays) {
+    const defResult = await resolveRosterWithFallback(defPlay.canvas_data, 'defense', teamId)
+    allWarnings.push(...defResult.warnings)
+    defScenarios.push({
+      scenario_id: defPlay.id,
+      defensive_play: defPlay.canvas_data,
+      defensive_players: defResult.players,
+      label: defPlay.name,
+    })
+  }
+  defenseBasePlayerWarnings.value = allWarnings
 
   const effectiveIterations = Math.min(nIterations.value, maxIterationsForPlan.value)
-  const effectiveScenarios = Math.min(nScenarios.value, maxScenariosForPlan.value)
+  const effectiveScenarios = Math.min(nScenarios.value, nDefensePlays.value > 1 ? 1000 : maxScenariosForPlan.value)
+  const defPlayNames = selectedDefPlays.map((p) => p.name).join(', ')
   const ok = await job.startJob(
     {
       offensive_play: play.canvas_data,
-      defensive_play: firstDefPlay.canvas_data,
-      defensive_players: defResult.players,
+      defensive_play: null,
+      defensive_players: [],
+      defensive_scenarios: defScenarios,
       field_settings: fs,
       offensive_players: offResult.players,
       n_iterations: effectiveIterations,
@@ -1990,14 +2281,16 @@ async function runSimulation() {
     {
       offensive_play_name: play.name,
       offensive_play_id: play.id,
-      defensive_play_name: firstDefPlay.name,
-      defensive_play_id: firstDefPlay.id,
-      n_scenarios: effectiveScenarios,
+      defensive_play_name: defPlayNames,
+      defensive_play_id: selectedDefPlays[0].id,
+      n_scenarios: effectiveScenarios * selectedDefPlays.length,
       n_iterations: effectiveIterations,
       auto_generate: true,
     }
   )
   if (ok) {
+    jobReceiverNameMap.value = buildReceiverNameMap(play)
+    jobOrderedReceiverIds.value = buildOrderedReceiverIds(play)
     configRailed.value = true
     job.startPolling()
     if (job.jobId) await navigateTo(`/blurai/playlab/${job.jobId}`)
@@ -2038,6 +2331,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopReplayPolling()
+  insightsAbort?.abort()
 })
 
 watch(

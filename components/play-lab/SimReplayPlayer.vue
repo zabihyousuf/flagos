@@ -359,7 +359,7 @@ function renderFrame() {
     ctx.stroke()
 
     if (isMajor) {
-      const displayYd = yd <= playableYd / 2 ? yd : playableYd - yd
+      const displayYd = Math.round(yd <= playableYd / 2 ? yd : playableYd - yd)
       if (displayYd > 0) {
         ctx.fillStyle = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(59,130,246,0.45)'
         ctx.font = `600 ${Math.max(9, fieldW * 0.028)}px system-ui, sans-serif`

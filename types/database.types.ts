@@ -85,6 +85,8 @@ export type Database = {
           first_down: number | null
           id: string
           line_of_scrimmage: number
+          replay_auto_play: boolean | null
+          replay_loop: boolean | null
           show_ghost_defense_by_default: boolean | null
           show_player_names_on_canvas: boolean | null
           sidebar_start_collapsed: boolean | null
@@ -105,6 +107,8 @@ export type Database = {
           first_down?: number | null
           id?: string
           line_of_scrimmage?: number
+          replay_auto_play?: boolean | null
+          replay_loop?: boolean | null
           show_ghost_defense_by_default?: boolean | null
           show_player_names_on_canvas?: boolean | null
           sidebar_start_collapsed?: boolean | null
@@ -125,6 +129,8 @@ export type Database = {
           first_down?: number | null
           id?: string
           line_of_scrimmage?: number
+          replay_auto_play?: boolean | null
+          replay_loop?: boolean | null
           show_ghost_defense_by_default?: boolean | null
           show_player_names_on_canvas?: boolean | null
           sidebar_start_collapsed?: boolean | null
@@ -343,6 +349,41 @@ export type Database = {
             columns: ["play_id"]
             isOneToOne: false
             referencedRelation: "plays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_insights: {
+        Row: {
+          created_at: string
+          id: string
+          insights: Json
+          job_id: string
+          model: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          insights?: Json
+          job_id: string
+          model?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          insights?: Json
+          job_id?: string
+          model?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_insights_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "sim_jobs"
             referencedColumns: ["id"]
           },
         ]

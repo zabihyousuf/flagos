@@ -1,10 +1,18 @@
 import type { CanvasData, CanvasPlayer, FieldSettings, SimPlayer } from '~/lib/types'
 import type { RosterError } from '~/composables/useSimRoster'
 
+export interface DefensiveScenarioPayload {
+  scenario_id: string
+  defensive_play: CanvasData
+  defensive_players: SimPlayer[]
+  label: string
+}
+
 export interface PlayLabBatchRequest {
   offensive_play: CanvasData
   defensive_play: CanvasData | null
   defensive_players: SimPlayer[]
+  defensive_scenarios: DefensiveScenarioPayload[]
   field_settings: FieldSettings
   offensive_players: SimPlayer[]
   n_iterations: number
@@ -336,10 +344,18 @@ export function usePlayLabJob() {
       return true
     }
 
+    const engineScenarios = (request.defensive_scenarios ?? []).map((ds) => ({
+      scenario_id: ds.scenario_id,
+      defensive_play: toEngineCanvasData(ds.defensive_play),
+      defensive_players: ds.defensive_players,
+      label: ds.label,
+    }))
+
     const { ok, data, status: httpStatus } = await engine.post<{ job_id: string }>('/api/v1/sim/play/batch', {
       offensive_play: toEngineCanvasData(request.offensive_play),
       defensive_play: request.defensive_play ? toEngineCanvasData(request.defensive_play) : null,
       defensive_players: request.defensive_players,
+      defensive_scenarios: engineScenarios,
       field_settings: toEngineFieldSettings(request.field_settings),
       offensive_players: request.offensive_players,
       n_iterations: request.n_iterations,
@@ -355,6 +371,7 @@ export function usePlayLabJob() {
     if (!data?.job_id) return false
     jobId.value = data.job_id
     status.value = { job_id: data.job_id, state: 'PENDING' }
+    loadedJobStatus.value = { job_id: data.job_id, state: 'PENDING', job_metadata: metadata }
     if (import.meta.client) {
       elapsedTimer = setInterval(() => {
         elapsedSeconds.value += 1
