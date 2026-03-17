@@ -522,42 +522,6 @@
               <p class="text-sm font-medium text-foreground tabular-nums">Time remaining: {{ trialCountdownExact ?? '—' }}</p>
               <p class="text-xs text-muted-foreground mt-0.5">Your trial ends automatically; upgrade to Pro before then to keep access.</p>
             </div>
-            <div v-if="showDevProOverride" class="mt-4 flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                class="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 dark:hover:border-amber-500"
-                @click="startDevTrial"
-              >
-                {{ hasSimulationAccess ? 'Restart' : 'Start' }} free trial (3 days, dev only)
-              </Button>
-              <Button
-                v-if="isTrialing"
-                variant="outline"
-                class="border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
-                @click="stopDevTrial"
-              >
-                Stop trial (dev only)
-              </Button>
-            </div>
-          </div>
-
-          <!-- Dev only: activate Pro for testing -->
-          <div v-if="showDevProOverride" class="mb-8 p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <p class="text-sm font-medium text-foreground">Activate Pro (dev only)</p>
-                <p class="text-xs text-muted-foreground mt-0.5">Treat this session as Pro for testing. Persists across reloads.</p>
-              </div>
-              <label class="flex items-center gap-2 cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  :checked="devProOverride"
-                  class="rounded border-input"
-                  @change="setDevProOverride(($event.target as HTMLInputElement).checked)"
-                />
-                <span class="text-sm text-muted-foreground">Pro override on</span>
-              </label>
-            </div>
           </div>
 
           <!-- Tier cards -->
@@ -771,6 +735,69 @@
           </AlertDialogContent>
         </AlertDialog>
       </template>
+
+      <!-- Developer Tab (dev only) -->
+      <template v-if="isDev && activeTab === 'developer'">
+        <div class="settings-panel">
+          <div class="config-header">
+            <h2 class="text-lg font-semibold tracking-tight font-display">Developer</h2>
+            <p class="text-muted-foreground text-sm">Dev-only tools for testing. This tab only appears in dev.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div class="p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
+              <p class="text-sm font-medium text-foreground mb-1">Welcome plan modal</p>
+              <p class="text-xs text-muted-foreground mb-3">Re-open the subscribe / trial prompt modal.</p>
+              <Button
+                variant="outline"
+                class="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                @click="showWelcomePlanModal"
+              >
+                Show welcome plan modal
+              </Button>
+            </div>
+
+            <div class="p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
+              <p class="text-sm font-medium text-foreground mb-2">Trial (dev only)</p>
+              <div class="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  class="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:border-amber-400 dark:hover:border-amber-500"
+                  @click="startDevTrial"
+                >
+                  {{ hasSimulationAccess ? 'Restart' : 'Start' }} free trial (3 days)
+                </Button>
+                <Button
+                  v-if="isTrialing"
+                  variant="outline"
+                  class="border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
+                  @click="stopDevTrial"
+                >
+                  Stop trial
+                </Button>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <p class="text-sm font-medium text-foreground">Activate Pro (dev only)</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">Treat this session as Pro for testing. Persists across reloads.</p>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    :checked="devProOverride"
+                    class="rounded border-input"
+                    @change="setDevProOverride(($event.target as HTMLInputElement).checked)"
+                  />
+                  <span class="text-sm text-muted-foreground">Pro override on</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
     <p class="shrink-0 py-3 px-4 xl:px-6 text-xs text-muted-foreground border-t border-border">v0.1.0</p>
     </div>
@@ -784,7 +811,7 @@ import { Label } from '~/components/ui/label'
 import { Button } from '~/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import type { ThemePreference } from '~/composables/useTheme'
-import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor, Trash2, BookOpen } from 'lucide-vue-next'
+import { Ruler, Shield as ShieldIcon, User, LogOut, Settings2, Swords, Maximize2, Fullscreen, CreditCard, Check, X, Sparkles, Sun, Moon, Monitor, Trash2, BookOpen, FlaskConical } from 'lucide-vue-next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -796,22 +823,26 @@ import {
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
 
-const tabs = [
-  { id: 'general' as const, label: 'General', icon: Settings2 },
-  { id: 'account' as const, label: 'Account', icon: User },
-  { id: 'field' as const, label: 'Field', icon: Ruler },
-  { id: 'team' as const, label: 'Team', icon: ShieldIcon },
-  { id: 'billing' as const, label: 'Pricing & Billing', icon: CreditCard },
-]
-
+const isDev = import.meta.dev
+const tabs = computed(() => {
+  const base = [
+    { id: 'general' as const, label: 'General', icon: Settings2 },
+    { id: 'account' as const, label: 'Account', icon: User },
+    { id: 'field' as const, label: 'Field', icon: Ruler },
+    { id: 'team' as const, label: 'Team', icon: ShieldIcon },
+    { id: 'billing' as const, label: 'Pricing & Billing', icon: CreditCard },
+  ]
+  if (isDev) base.push({ id: 'developer' as const, label: 'Developer', icon: FlaskConical })
+  return base
+})
+const tabIds = computed(() => (isDev ? ['general', 'account', 'field', 'team', 'billing', 'developer'] : ['general', 'account', 'field', 'team', 'billing']) as readonly string[])
+const activeTab = ref<'general' | 'account' | 'field' | 'team' | 'billing' | 'developer'>('general')
 const route = useRoute()
-const tabIds = ['general', 'account', 'field', 'team', 'billing'] as const
-const activeTab = ref<'general' | 'account' | 'field' | 'team' | 'billing'>('general')
 
 watch(
   () => route.query.tab,
   (tab) => {
-    if (tab && tabIds.includes(tab as any)) activeTab.value = tab as typeof activeTab.value
+    if (tab && tabIds.value.includes(tab)) activeTab.value = tab as typeof activeTab.value
   },
   { immediate: true }
 )
@@ -821,6 +852,7 @@ const { showTutorial } = useTutorial()
 const { settings, loading, fetchSettings, updateSettings } = useFieldSettings()
 const { profile, fetchProfile, updateProfile } = useProfile()
 const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft, trialHoursLeft, trialMinutesLeft, trialCountdownExact, TRIAL_DAYS, devProOverride, setDevProOverride, startDevTrial, stopDevTrial } = usePlanAccess()
+const { showPrompt: showWelcomePlanModal } = useWelcomePlanPrompt()
 const runtimeConfig = useRuntimeConfig()
 const showDevProOverride = computed(() => !!(runtimeConfig.public as { showDevProOverride?: boolean }).showDevProOverride)
 const theme = useTheme()

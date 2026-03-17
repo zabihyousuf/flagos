@@ -40,11 +40,11 @@
               </component>
             </div>
             <p class="text-muted-foreground text-sm mt-1">Simulate plays against defenses and analyze results.</p>
-            <div v-if="!isPaidPro" class="flex flex-wrap items-center gap-1.5 mt-1.5">
+            <div v-if="hasSimulationAccess" class="flex flex-wrap items-center gap-1.5 mt-1.5">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
               >
-                500 scenarios · 100 iterations
+                {{ runConfigLabel }}
               </span>
             </div>
           </div>
@@ -257,7 +257,12 @@
           <div class="space-y-2">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Run configuration</h2>
-              <span v-if="!isPaidPro" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide">500 scenarios · 100 iterations</span>
+              <span
+                v-if="hasSimulationAccess"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase tracking-wide"
+              >
+                {{ runConfigLabel }}
+              </span>
             </div>
             <div class="space-y-1.5">
               <span class="text-xs font-medium">Scenarios per defense</span>
@@ -495,7 +500,15 @@
                       :style="progressBarStyle"
                     />
                   </div>
-                  <span v-if="!job?.isLoadedResult" class="text-[11px] text-muted-foreground shrink-0">{{ formatElapsed(job?.elapsedSeconds ?? 0) }}</span>
+                  <span
+                    v-if="!job?.isLoadedResult"
+                    class="text-[11px] text-muted-foreground shrink-0 tabular-nums"
+                  >
+                    {{ formatElapsed(job?.elapsedSeconds ?? 0) }}
+                    <span v-if="totalSimsTarget > 0" class="opacity-60 ml-1">
+                      · {{ progressPercent }}%
+                    </span>
+                  </span>
                 </div>
 
                 <!-- Key stats summary -->
@@ -738,6 +751,21 @@
                 />
               </button>
               <div v-if="worstOpen" class="px-5 pb-5 lg:px-6 lg:pb-6 space-y-3">
+                <div v-if="worstScenarios.length > 0" class="flex items-center justify-between gap-2 pb-1">
+                  <span class="text-[11px] text-muted-foreground">Sort by</span>
+                  <div class="flex rounded-lg border border-border bg-muted/30 p-0.5">
+                    <button
+                      v-for="opt in worstSortOptions"
+                      :key="opt.value"
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors"
+                      :class="worstSortBy === opt.value ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+                      @click="worstSortBy = opt.value"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                </div>
                 <div
                   v-if="!worstScenarios.length"
                   class="text-xs text-muted-foreground py-2"
@@ -745,8 +773,8 @@
                   Waiting for enough data to identify weak spots…
                 </div>
                 <div
-                  v-for="s in worstScenarios"
-                  :key="s.scenario_id"
+                  v-for="(s, idx) in worstScenarios"
+                  :key="`worst-${idx}-${s.scenario_id ?? ''}-${s.defense_play_label ?? ''}`"
                   class="rounded-lg bg-background/60 px-3 py-2.5 space-y-1.5 shadow-sm"
                 >
                   <div class="flex items-center justify-between gap-2">
@@ -1153,20 +1181,34 @@ const attributeTiersOrdered = computed(() => {
   return order.map((id) => attributeTiers.find((t) => t.id === id)).filter(Boolean) as typeof attributeTiers
 })
 
-const iterationOptions = [10, 100, 1000, 10000, 100000]
+const iterationOptions = [10, 100, 1000]
 const isIterationAllowed = (n: number) => {
   if (isPaidPro.value) return true
-  if (isTrialing.value) return n === 100
-  return n === 100
+  // Free trial users: only 10 iterations option is selectable
+  if (isTrialing.value) return n === 10
+  // Free (no trial): form is effectively disabled via configLocked / plan gating
+  return false
 }
-const maxIterationsForPlan = computed(() => (isPaidPro.value ? 100000 : 100))
-const scenarioOptions = [100, 500, 1000, 2000, 5000]
+const maxIterationsForPlan = computed(() => (isPaidPro.value ? 100000 : 10))
+const scenarioOptions = [100, 500, 1000]
 const isScenarioAllowed = (n: number) => {
   if (isPaidPro.value) return true
-  if (isTrialing.value) return n === 500
-  return n === 500
+  // Free trial users: only 100 scenarios per defense are selectable
+  if (isTrialing.value) return n === 100
+  // Free (no trial): form is effectively disabled via configLocked / plan gating
+  return false
 }
-const maxScenariosForPlan = computed(() => (isPaidPro.value ? 5000 : 500))
+const maxScenariosForPlan = computed(() => (isPaidPro.value ? 5000 : 100))
+
+const runConfigLabel = computed(() => {
+  const fmt = (n: number) => {
+    if (n >= 100000) return '100K'
+    if (n >= 10000) return `${n / 1000}K`
+    if (n >= 1000) return `${n / 1000}K`
+    return n.toLocaleString()
+  }
+  return `${fmt(nScenarios.value)} scenarios · ${fmt(nIterations.value)} iterations`
+})
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
 const { resolveRoster, resolveRosterWithFallback, countStarters } = useSimRoster(teams)
@@ -1174,6 +1216,14 @@ const job = reactive(usePlayLabJob())
 const { isOpen: historyPanelOpen, close: closeHistoryPanel } = useSimHistoryPanel()
 const jobHistory = useJobHistory()
 const worstOpen = ref(false)
+type WorstSortKey = 'worst' | 'best' | 'name' | 'sims'
+const worstSortBy = ref<WorstSortKey>('worst')
+const worstSortOptions: { value: WorstSortKey; label: string }[] = [
+  { value: 'worst', label: 'Worst first' },
+  { value: 'best', label: 'Best first' },
+  { value: 'name', label: 'Name' },
+  { value: 'sims', label: 'Most sims' },
+]
 const displayedSuccessRate = ref(0)
 
 interface InsightItem { icon: string; title: string; detail: string; sentiment: 'positive' | 'negative' | 'neutral' }
@@ -1906,6 +1956,8 @@ const progressFraction = computed(() => {
   return Math.min(1, Math.max(0, scenariosCompleted.value / total))
 })
 
+const progressPercent = computed(() => Math.round(progressFraction.value * 100))
+
 const overallSuccessRate = computed(() => {
   if (partial.value) return (partial.value.overall_success_rate ?? 0) * 100
   const fromResult = (job.result as any)?.overall_success_rate
@@ -2137,13 +2189,32 @@ function yardScale(v: number) {
 
 const worstScenarios = computed(() => {
   const list = partial.value?.worst_10_scenarios ?? []
+  const key = worstSortBy.value
   return [...list].sort((a, b) => {
     const rateA = a.completion_rate ?? a.success_rate ?? 0
     const rateB = b.completion_rate ?? b.success_rate ?? 0
-    if (rateA !== rateB) return rateA - rateB
     const labelA = formatScenarioDisplay(a.label ?? '', a.defense_play_label) || ''
     const labelB = formatScenarioDisplay(b.label ?? '', b.defense_play_label) || ''
-    return labelA.localeCompare(labelB)
+    const runsA = a.n_runs ?? 0
+    const runsB = b.n_runs ?? 0
+    if (key === 'worst') {
+      if (rateA !== rateB) return rateA - rateB
+      return labelA.localeCompare(labelB)
+    }
+    if (key === 'best') {
+      if (rateA !== rateB) return rateB - rateA
+      return labelA.localeCompare(labelB)
+    }
+    if (key === 'name') {
+      const c = labelA.localeCompare(labelB)
+      if (c !== 0) return c
+      return rateA - rateB
+    }
+    if (key === 'sims') {
+      if (runsB !== runsA) return runsB - runsA
+      return rateA - rateB
+    }
+    return 0
   })
 })
 

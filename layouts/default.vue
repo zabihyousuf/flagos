@@ -45,6 +45,13 @@
     <ConfirmDialog />
     <AppSearchCommand />
     <TutorialModal />
+    <WelcomePlanModal
+      :open="welcomePlanOpen"
+      @update:open="(v: boolean) => { if (!v) welcomePlanOnDismiss() }"
+      @subscribe="welcomePlanOnSubscribe"
+      @start-trial="welcomePlanOnStartTrial"
+      @dismiss="welcomePlanOnDismiss"
+    />
   </div>
 </template>
 
@@ -76,8 +83,38 @@ function maybeCloseHistoryPanel() {
 
 const { open } = useQuickPlay()
 const { shouldShowTutorial, showTutorial } = useTutorial()
-const { profile, fetchProfile } = useProfile()
+const { profile, fetchProfile, updateProfile } = useProfile()
 const { open: openSearch } = useAppSearch()
+const { open: welcomePlanOpen, shouldShowPrompt: shouldShowWelcomePlan, showPrompt: welcomePlanShow, closePrompt: welcomePlanClose } = useWelcomePlanPrompt()
+const { startDevTrial } = usePlanAccess()
+
+async function markWelcomePlanSeen() {
+  if (!profile.value) return
+  await updateProfile({ welcome_plan_prompt_seen_at: new Date().toISOString() })
+  welcomePlanClose()
+}
+
+function welcomePlanOnSubscribe() {
+  markWelcomePlanSeen().then(() => navigateTo('/settings?tab=billing'))
+}
+
+async function welcomePlanOnStartTrial() {
+  if (import.meta.dev) startDevTrial()
+  await markWelcomePlanSeen()
+}
+
+function welcomePlanOnDismiss() {
+  markWelcomePlanSeen()
+}
+
+// Show welcome plan prompt for first-time users once profile is loaded
+watch(
+  () => [shouldShowWelcomePlan.value, profile.value],
+  ([should, p]) => {
+    if (should && p) welcomePlanShow()
+  },
+  { immediate: true }
+)
 
 // Register ⌘N / Ctrl+N and ⌘K / Ctrl+K keyboard shortcuts
 // Show tutorial for first-time users once profile is loaded

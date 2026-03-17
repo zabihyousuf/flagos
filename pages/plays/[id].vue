@@ -662,6 +662,9 @@ async function handleSaveData(data: CanvasData) {
   }
   await saveCanvasData(currentPlay.value.id, payload)
   canvasRef.value?.setDirty?.(false)
+  toast.success('Play saved', {
+    description: 'Your changes have been saved.',
+  })
 }
 
 // ─── Draft Logic ───
@@ -738,6 +741,8 @@ function handleSaveClick() {
   }
 }
 
+import { toast } from 'vue-sonner'
+
 async function onConfirmSave(data: { playbookId: string, name: string }) {
   if (!currentPlay.value) return
   
@@ -767,9 +772,15 @@ async function onConfirmSave(data: { playbookId: string, name: string }) {
       
       saveDialogOpen.value = false
       router.replace(`/plays/${newPlay.id}`)
+      toast.success('Play saved', {
+        description: 'Your play was saved to the selected playbook.',
+      })
     }
   } catch (e) {
     console.error('Failed to save play:', e)
+    toast.error('Failed to save play', {
+      description: 'Please try again in a moment.',
+    })
   } finally {
     isSaving.value = false
   }

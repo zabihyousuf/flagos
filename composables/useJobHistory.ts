@@ -58,6 +58,7 @@ export function useJobHistory() {
         progress_label: row.progress_label || undefined,
         error: row.error || undefined,
         job_type: row.job_type,
+        created_at: row.created_at || undefined,
         completed_at: row.completed_at || undefined,
         job_metadata: row.job_metadata || undefined,
         overall_success_rate: rateMap.get(row.id),

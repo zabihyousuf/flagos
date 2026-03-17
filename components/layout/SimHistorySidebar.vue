@@ -104,8 +104,14 @@
                     <p class="text-sm font-medium text-foreground truncate pr-7">
                       {{ job.job_metadata?.offensive_play_name ?? 'Play' }}
                     </p>
-                    <p class="text-xs text-muted-foreground">
-                      {{ job.state === 'RUNNING' ? 'Running…' : 'Queued' }}
+                    <p class="text-xs text-muted-foreground flex items-center gap-1">
+                      <span>{{ job.state === 'RUNNING' ? 'Running…' : 'Queued' }}</span>
+                      <span
+                        v-if="job.progress_percent != null"
+                        class="tabular-nums text-[11px] text-muted-foreground/80"
+                      >
+                        · {{ Math.round(job.progress_percent) }}%
+                      </span>
                     </p>
                     <span class="text-xs text-muted-foreground">
                       {{ formatIterations(job.job_metadata?.n_iterations) }}

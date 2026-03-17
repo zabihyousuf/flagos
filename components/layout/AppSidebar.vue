@@ -153,7 +153,7 @@
 
     <!-- Footer: User Profile -->
     <div class="sidebar-footer">
-      <div class="sidebar-user-wrapper" ref="userMenuRef">
+      <div class="sidebar-user-wrapper" ref="userMenuRef" :class="{ 'user-menu-open': userMenuOpen }">
         <button
           class="sidebar-user-btn"
           @click="userMenuOpen = !userMenuOpen"

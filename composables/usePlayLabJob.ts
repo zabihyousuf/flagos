@@ -21,12 +21,14 @@ export interface PlayLabBatchRequest {
   auto_generate?: boolean
 }
 
-function toEngineRoute(cp: CanvasPlayer): { x: number; y: number }[] {
+function toEngineRoute(cp: CanvasPlayer): { type: string; points: { x: number; y: number }[] }[] {
   if (!cp.route?.segments) return []
-  return cp.route.segments.flatMap((seg) => seg.points ?? []).map((pt) => ({
-    x: pt.x,
-    y: 1.0 - pt.y,
-  }))
+  return cp.route.segments
+    .filter((seg) => seg.points && seg.points.length > 0)
+    .map((seg) => ({
+      type: seg.type ?? 'straight',
+      points: seg.points.map((pt) => ({ x: pt.x, y: 1.0 - pt.y })),
+    }))
 }
 
 const VALID_ALIGNMENTS = new Set(['tight', 'normal', 'off'])
@@ -96,6 +98,7 @@ function normalizeJobStatus(raw: Record<string, any>): JobStatus {
     clamped: raw.clamped,
     clamped_iterations: raw.clamped_iterations,
     job_type: raw.job_type,
+    created_at: raw.created_at,
     completed_at: raw.completed_at,
     job_metadata: raw.job_metadata,
     overall_success_rate: raw.overall_success_rate,
@@ -124,6 +127,7 @@ export interface JobStatus {
   clamped?: boolean
   clamped_iterations?: number
   job_type?: string
+  created_at?: string
   completed_at?: string
   job_metadata?: JobMetadata
   overall_success_rate?: number
@@ -384,13 +388,26 @@ export function usePlayLabJob() {
     if (!jobId.value || useStub) return
     const { data, error } = await supabase
       .from('sim_jobs')
-      .select('id, job_type, status, progress, progress_label, error, completed_at, job_metadata')
+      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
       .eq('id', jobId.value)
       .single()
     if (error || !data) return
     const normalized = normalizeJobStatus(data)
     console.log('[poll-status]', normalized.state, normalized.progress_percent?.toFixed(0) + '%', normalized.progress_label)
     status.value = normalized
+
+    // Keep elapsedSeconds aligned with real job age so it doesn't reset when navigating away and back.
+    if (normalized.created_at && (!normalized.completed_at || normalized.state === 'RUNNING')) {
+      try {
+        const started = new Date(normalized.created_at).getTime()
+        const now = Date.now()
+        if (!Number.isNaN(started) && now >= started) {
+          elapsedSeconds.value = Math.floor((now - started) / 1000)
+        }
+      } catch {
+        // ignore parsing errors; timer will just keep local seconds
+      }
+    }
     if (normalized.state === 'COMPLETED' || normalized.state === 'FAILED' || normalized.state === 'CANCELLED') {
       clearTimers()
     }
@@ -454,7 +471,7 @@ export function usePlayLabJob() {
     if (useStub) return null
     const { data, error } = await supabase
       .from('sim_jobs')
-      .select('id, job_type, status, progress, progress_label, error, completed_at, job_metadata')
+      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
       .eq('id', id)
       .single()
     if (error || !data) return null
@@ -499,7 +516,7 @@ export function usePlayLabJob() {
     const [jobRes, resultRes] = await Promise.all([
       supabase
         .from('sim_jobs')
-        .select('id, job_type, status, progress, progress_label, error, completed_at, job_metadata')
+        .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
         .eq('id', id)
         .single(),
       supabase
