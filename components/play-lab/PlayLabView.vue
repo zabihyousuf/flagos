@@ -40,13 +40,6 @@
               </component>
             </div>
             <p class="text-muted-foreground text-sm mt-1">Simulate plays against defenses and analyze results.</p>
-            <div v-if="hasSimulationAccess" class="flex flex-wrap items-center gap-1.5 mt-1.5">
-              <span
-                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted/80 text-muted-foreground"
-              >
-                {{ runConfigLabel }}
-              </span>
-            </div>
           </div>
           <div v-if="awaitingReplays" class="shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-medium">
             <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
@@ -406,7 +399,7 @@
         <EngineStatus />
         <ClientOnly>
         <!-- Loading skeleton when opening a past simulation (only after mount to avoid hydration mismatch) -->
-        <template v-if="isClient && props.jobId && jobPageLoading">
+        <template v-if="isClient && effectiveJobId && jobPageLoading">
           <div class="flex-1 pb-14 space-y-6">
             <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
               <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col gap-3 shadow-md min-w-0 flex-1 space-y-3">
@@ -672,10 +665,28 @@
             <!-- PART 2: Breakdown panels (more space for data) -->
             <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
               <div class="rounded-xl bg-card/80 p-5 lg:p-6 space-y-4 shadow-md">
-                <h3 class="text-sm font-medium">By Down</h3>
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-medium">By Down</h3>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground">
+                        <ArrowUpDown class="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-56">
+                      <DropdownMenuItem
+                        v-for="opt in downSortOptions"
+                        :key="opt.value"
+                        @click="downSortBy = opt.value"
+                      >
+                        <span :class="{ 'font-medium': downSortBy === opt.value }">{{ opt.label }}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <div class="space-y-2">
                   <BreakdownRow
-                    v-for="row in downRows"
+                    v-for="row in sortedDownRows"
                     :key="row.key"
                     :label="row.label"
                     :stat="row.stat"
@@ -684,10 +695,28 @@
               </div>
 
               <div class="rounded-xl bg-card/80 p-5 lg:p-6 space-y-4 shadow-md">
-                <h3 class="text-sm font-medium">By Field Zone</h3>
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-medium">By Field Zone</h3>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground">
+                        <ArrowUpDown class="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-56">
+                      <DropdownMenuItem
+                        v-for="opt in fieldZoneSortOptions"
+                        :key="opt.value"
+                        @click="fieldZoneSortBy = opt.value"
+                      >
+                        <span :class="{ 'font-medium': fieldZoneSortBy === opt.value }">{{ opt.label }}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <div class="space-y-2">
                   <BreakdownRow
-                    v-for="row in fieldZoneRows"
+                    v-for="row in sortedFieldZoneRows"
                     :key="row.key"
                     :label="row.label"
                     :stat="row.stat"
@@ -696,11 +725,29 @@
               </div>
 
               <div class="rounded-xl bg-card/80 p-4 space-y-3 shadow-md">
-                <h3 class="text-sm font-medium">Vs Defense</h3>
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-medium">Vs Defense</h3>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground">
+                        <ArrowUpDown class="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-56">
+                      <DropdownMenuItem
+                        v-for="opt in defenseSortOptions"
+                        :key="opt.value"
+                        @click="defenseSortBy = opt.value"
+                      >
+                        <span :class="{ 'font-medium': defenseSortBy === opt.value }">{{ opt.label }}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <div v-if="defenseRows.length === 0" class="text-xs text-muted-foreground">No results yet</div>
                 <div v-else class="space-y-2">
                   <BreakdownRow
-                    v-for="row in defenseRows"
+                    v-for="row in sortedDefenseRows"
                     :key="row.key"
                     :label="row.label"
                     :stat="row.stat"
@@ -709,10 +756,28 @@
               </div>
 
               <div class="rounded-xl bg-card/80 p-5 lg:p-6 space-y-4 shadow-md">
-                <h3 class="text-sm font-medium">By Receiver</h3>
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-medium">By Receiver</h3>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                      <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground">
+                        <ArrowUpDown class="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-56">
+                      <DropdownMenuItem
+                        v-for="opt in receiverSortOptions"
+                        :key="opt.value"
+                        @click="receiverSortBy = opt.value"
+                      >
+                        <span :class="{ 'font-medium': receiverSortBy === opt.value }">{{ opt.label }}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <div v-if="receiverRows.length === 0" class="text-xs text-muted-foreground">No receiver data yet</div>
                 <div v-else class="space-y-3">
-                  <div v-for="row in receiverRows" :key="row.receiver_id" class="space-y-1">
+                  <div v-for="row in sortedReceiverRows" :key="row.receiver_id" class="space-y-1">
                     <div class="flex items-center justify-between text-[11px] text-muted-foreground">
                       <span class="font-medium text-foreground">{{ row.label }}</span>
                       <span class="font-medium">{{ Math.round(row.completion_rate * 100) }}% comp</span>
@@ -1072,6 +1137,7 @@ import { Input } from '~/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
@@ -1085,7 +1151,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose, Sparkles } from 'lucide-vue-next'
+import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose, Sparkles, ArrowUpDown } from 'lucide-vue-next'
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
@@ -1153,6 +1219,16 @@ const attributeTiers: { id: string; label: string; description: string; hint: st
 ]
 
 const route = useRoute()
+/** Resolve job ID from prop or route so refresh on /blurai/playlab/:id keeps the job. */
+const effectiveJobId = computed(() => {
+  const fromProp = props.jobId
+  if (fromProp) return fromProp
+  const fromParam = route.params?.id
+  if (fromParam && typeof fromParam === 'string') return fromParam
+  if (Array.isArray(fromParam) && fromParam[0]) return fromParam[0]
+  const match = typeof route.path === 'string' ? route.path.match(/\/playlab\/([^/]+)/) : null
+  return match?.[1] ?? null
+})
 const client = useSupabaseDB()
 const user = useSupabaseUser()
 const { profile } = useProfile()
@@ -1165,7 +1241,7 @@ const { settings: fieldSettings, fetchSettings, updateSettings } = useFieldSetti
 
 /** Free = no trial, no pro (view past sims only). Upgrade gate only when Free and not viewing a job. */
 const isFree = computed(() => !hasSimulationAccess.value)
-const isViewingPastJob = computed(() => !!props.jobId)
+const isViewingPastJob = computed(() => !!effectiveJobId.value)
 const showUpgradeGate = computed(() => isFree.value && !isViewingPastJob.value)
 
 /** Plan badge next to title: Pro, Free trial (+ days left), or Free. */
@@ -1201,13 +1277,13 @@ const isScenarioAllowed = (n: number) => {
 const maxScenariosForPlan = computed(() => (isPaidPro.value ? 5000 : 100))
 
 const runConfigLabel = computed(() => {
+  const total = nDefensePlays.value * nScenarios.value * nIterations.value
   const fmt = (n: number) => {
-    if (n >= 100000) return '100K'
-    if (n >= 10000) return `${n / 1000}K`
-    if (n >= 1000) return `${n / 1000}K`
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K`
     return n.toLocaleString()
   }
-  return `${fmt(nScenarios.value)} scenarios · ${fmt(nIterations.value)} iterations`
+  return `${fmt(total)} sims`
 })
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
@@ -1224,6 +1300,47 @@ const worstSortOptions: { value: WorstSortKey; label: string }[] = [
   { value: 'name', label: 'Name' },
   { value: 'sims', label: 'Most sims' },
 ]
+
+/** Sort keys for breakdown cards */
+type DownSortKey = 'default' | 'completion_asc' | 'completion_desc' | 'yards_asc' | 'yards_desc'
+type FieldZoneSortKey = 'default' | 'completion_asc' | 'completion_desc' | 'yards_asc' | 'yards_desc'
+type DefenseSortKey = 'name_asc' | 'name_desc' | 'completion_asc' | 'completion_desc' | 'yards_desc'
+type ReceiverSortKey = 'name_asc' | 'name_desc' | 'completion_asc' | 'completion_desc' | 'yards_asc' | 'yards_desc' | 'targets_desc'
+const downSortBy = ref<DownSortKey>('default')
+const fieldZoneSortBy = ref<FieldZoneSortKey>('default')
+const defenseSortBy = ref<DefenseSortKey>('completion_asc')
+const receiverSortBy = ref<ReceiverSortKey>('completion_asc')
+const downSortOptions: { value: DownSortKey; label: string }[] = [
+  { value: 'default', label: 'Down order (4th→1st)' },
+  { value: 'completion_asc', label: 'Completion % (low→high)' },
+  { value: 'completion_desc', label: 'Completion % (high→low)' },
+  { value: 'yards_asc', label: 'Avg yards (low→high)' },
+  { value: 'yards_desc', label: 'Avg yards (high→low)' },
+]
+const fieldZoneSortOptions: { value: FieldZoneSortKey; label: string }[] = [
+  { value: 'default', label: 'Zone order' },
+  { value: 'completion_asc', label: 'Completion % (low→high)' },
+  { value: 'completion_desc', label: 'Completion % (high→low)' },
+  { value: 'yards_asc', label: 'Avg yards (low→high)' },
+  { value: 'yards_desc', label: 'Avg yards (high→low)' },
+]
+const defenseSortOptions: { value: DefenseSortKey; label: string }[] = [
+  { value: 'completion_asc', label: 'Worst comp % first' },
+  { value: 'completion_desc', label: 'Best comp % first' },
+  { value: 'yards_desc', label: 'Most yards first' },
+  { value: 'name_asc', label: 'Name A–Z' },
+  { value: 'name_desc', label: 'Name Z–A' },
+]
+const receiverSortOptions: { value: ReceiverSortKey; label: string }[] = [
+  { value: 'completion_asc', label: 'Worst comp % first' },
+  { value: 'completion_desc', label: 'Best comp % first' },
+  { value: 'yards_desc', label: 'Most yards first' },
+  { value: 'yards_asc', label: 'Least yards first' },
+  { value: 'targets_desc', label: 'Most targets first' },
+  { value: 'name_asc', label: 'Name A–Z' },
+  { value: 'name_desc', label: 'Name Z–A' },
+]
+
 const displayedSuccessRate = ref(0)
 
 interface InsightItem { icon: string; title: string; detail: string; sentiment: 'positive' | 'negative' | 'neutral' }
@@ -1309,7 +1426,7 @@ async function fetchInsights(regenerate = false) {
 async function loadCachedInsights() {
   if (!job.jobId) return
   const supabase = useSupabaseDB()
-  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).single()
+  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).maybeSingle()
   if (data?.insights) insightsData.value = data.insights as InsightItem[]
 }
 /** Replays modal (sidebar + player). */
@@ -1614,6 +1731,22 @@ watch(
   }
 )
 
+/** When partial result becomes available and job is completed, ensure Blur AI card has data (cache or generate). */
+watch(
+  () => ({
+    partial: job.partialResult,
+    state: job.status?.state,
+    hasInsights: insightsData.value.length > 0,
+  }),
+  ({ partial, state, hasInsights }) => {
+    if (!partial || state !== 'COMPLETED' || hasInsights || !job.jobId) return
+    loadCachedInsights().then(() => {
+      if (insightsData.value.length === 0) fetchInsights()
+    })
+  },
+  { immediate: true },
+)
+
 /** When grouped replays update (e.g. after fetch), select first if modal is open and current selection is missing.
  *  Pre-load the first replay's recording so auto-play can start as soon as it's selected. */
 watch(replaysGroupedByScenarioFlat, (flat) => {
@@ -1689,7 +1822,10 @@ let playsReadyPromise: Promise<void> | null = null
 function ensurePlaysLoaded(): Promise<void> {
   if (playsReady.value) return Promise.resolve()
   if (!playsReadyPromise) {
-    playsReadyPromise = fetchPlays().then(() => { playsReady.value = true })
+    playsReadyPromise = fetchPlays().then((ok) => {
+      if (ok) playsReady.value = true
+      else playsReadyPromise = null
+    })
   }
   return playsReadyPromise
 }
@@ -1721,8 +1857,19 @@ async function loadJobById(id: string) {
   await ensurePlaysLoaded()
   const status = await job.getJobStatus(id)
   if (status?.state === 'COMPLETED' || status?.state === 'FAILED') {
-    const ok = await job.loadResult(id)
-    if (ok && job.loadedJobStatus?.job_metadata) applyJobMetadataAndPlay(job.loadedJobStatus.job_metadata)
+    let ok = await job.loadResult(id)
+    if (!ok) {
+      // Retry once after a short delay (replication lag / transient error)
+      await new Promise((r) => setTimeout(r, 1500))
+      ok = await job.loadResult(id)
+    }
+    if (ok && job.loadedJobStatus?.job_metadata) {
+      applyJobMetadataAndPlay(job.loadedJobStatus.job_metadata)
+    } else if (!ok) {
+      // Fallback: attach to job so polling picks up the result eventually
+      if (status?.job_metadata) applyJobMetadataAndPlay(status.job_metadata)
+      job.attachToJob(id)
+    }
   } else if (status?.job_metadata) {
     applyJobMetadataAndPlay(status.job_metadata)
     job.attachToJob(id)
@@ -1734,8 +1881,18 @@ async function loadJobById(id: string) {
 const jobPageLoading = ref(false)
 const isClient = ref(false)
 
+/** When on index (no job in URL) but we have an active job in state, sync URL so refresh restores it. */
 watch(
-  () => props.jobId,
+  () => ({ routeId: effectiveJobId.value, stateJobId: job.jobId }),
+  ({ routeId, stateJobId }) => {
+    if (routeId || !stateJobId) return
+    if (import.meta.client) navigateTo(`/blurai/playlab/${stateJobId}`)
+  },
+  { immediate: true },
+)
+
+watch(
+  effectiveJobId,
   async (id, oldId) => {
     if (!id) {
       if (oldId) {
@@ -2133,6 +2290,55 @@ const receiverRows = computed(() => {
   })
 })
 
+function sortBreakdownRows<T extends { key: string; label: string; stat?: AggregatedStats }>(
+  rows: T[],
+  key: string,
+): T[] {
+  const copy = [...rows]
+  if (key === 'default') return copy
+  const comp = (a: T, b: T) => {
+    const rateA = a.stat?.completion_rate ?? 0
+    const rateB = b.stat?.completion_rate ?? 0
+    const yardsA = a.stat?.yards_gained_stats?.mean ?? 0
+    const yardsB = b.stat?.yards_gained_stats?.mean ?? 0
+    if (key === 'completion_asc') return rateA - rateB
+    if (key === 'completion_desc') return rateB - rateA
+    if (key === 'yards_asc') return yardsA - yardsB
+    if (key === 'yards_desc') return yardsB - yardsA
+    return 0
+  }
+  return copy.sort(comp)
+}
+
+const sortedDownRows = computed(() => sortBreakdownRows(downRows.value, downSortBy.value))
+const sortedFieldZoneRows = computed(() => sortBreakdownRows(fieldZoneRows.value, fieldZoneSortBy.value))
+
+const sortedDefenseRows = computed(() => {
+  const rows = defenseRows.value
+  const key = defenseSortBy.value
+  const copy = [...rows]
+  if (key === 'name_asc') return copy.sort((a, b) => a.label.localeCompare(b.label))
+  if (key === 'name_desc') return copy.sort((a, b) => b.label.localeCompare(a.label))
+  if (key === 'completion_asc') return copy.sort((a, b) => (a.stat?.completion_rate ?? 0) - (b.stat?.completion_rate ?? 0))
+  if (key === 'completion_desc') return copy.sort((a, b) => (b.stat?.completion_rate ?? 0) - (a.stat?.completion_rate ?? 0))
+  if (key === 'yards_desc') return copy.sort((a, b) => (b.stat?.yards_gained_stats?.mean ?? 0) - (a.stat?.yards_gained_stats?.mean ?? 0))
+  return copy
+})
+
+const sortedReceiverRows = computed(() => {
+  const rows = receiverRows.value
+  const key = receiverSortBy.value
+  const copy = [...rows]
+  if (key === 'name_asc') return copy.sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''))
+  if (key === 'name_desc') return copy.sort((a, b) => (b.label ?? '').localeCompare(a.label ?? ''))
+  if (key === 'completion_asc') return copy.sort((a, b) => (a.completion_rate ?? 0) - (b.completion_rate ?? 0))
+  if (key === 'completion_desc') return copy.sort((a, b) => (b.completion_rate ?? 0) - (a.completion_rate ?? 0))
+  if (key === 'yards_asc') return copy.sort((a, b) => (a.yards_gained_mean ?? 0) - (b.yards_gained_mean ?? 0))
+  if (key === 'yards_desc') return copy.sort((a, b) => (b.yards_gained_mean ?? 0) - (a.yards_gained_mean ?? 0))
+  if (key === 'targets_desc') return copy.sort((a, b) => (b.targets ?? 0) - (a.targets ?? 0))
+  return copy
+})
+
 const combinedYardStats = computed(() => {
   const buckets = partial.value?.aggregated_by_down ?? {}
   const entries = Object.values(buckets) as AggregatedStats[]
@@ -2274,26 +2480,29 @@ function formatElapsed(seconds: number) {
   return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`
 }
 
-async function fetchPlays() {
-  if (!user.value) return
-  const { data: off } = await client
+async function fetchPlays(): Promise<boolean> {
+  if (!user.value) return false
+  const { data: off, error: offErr } = await client
     .from('plays')
     .select('*, playbooks!inner(name)')
     .eq('user_id', user.value.id)
     .eq('play_type', 'offense')
     .order('name')
+  if (offErr) return false
   if (off) {
     allOffensivePlays.value = off.map((p: any) => ({ ...p, _playbookName: p.playbooks?.name }))
   }
-  const { data: def } = await client
+  const { data: def, error: defErr } = await client
     .from('plays')
     .select('*, playbooks!inner(name)')
     .eq('user_id', user.value.id)
     .eq('play_type', 'defense')
     .order('name')
+  if (defErr) return false
   if (def) {
     allDefensePlays.value = def.map((p: any) => ({ ...p, _playbookName: p.playbooks?.name }))
   }
+  return true
 }
 
 async function runSimulation() {
@@ -2400,9 +2609,21 @@ onMounted(() => {
   job.probeEngine()
 })
 
+let _authSub: { unsubscribe: () => void } | null = null
+if (import.meta.client) {
+  const { data } = client.auth.onAuthStateChange(() => {
+    if (!playsReady.value) {
+      playsReadyPromise = null
+      ensurePlaysLoaded()
+    }
+  })
+  _authSub = data.subscription
+}
+
 onBeforeUnmount(() => {
   stopReplayPolling()
   insightsAbort?.abort()
+  _authSub?.unsubscribe()
 })
 
 watch(

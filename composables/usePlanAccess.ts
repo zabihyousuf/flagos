@@ -26,9 +26,18 @@ export function usePlanAccess() {
   /** Shared so layout can show banner again when trial is restarted from settings. */
   const trialBannerDismissed = useState<boolean>('trial-banner-dismissed', () => false)
 
-  if (import.meta.client && import.meta.dev) {
-    const stored = getDevTrialEndsAtFromStorage()
-    if (stored && !devTrialEndsAt.value) devTrialEndsAt.value = stored
+  /** Defer localStorage read to onMounted so first client render matches server (avoids hydration mismatch). */
+  onMounted(() => {
+    if (import.meta.client && import.meta.dev) {
+      const stored = getDevTrialEndsAtFromStorage()
+      if (stored && !devTrialEndsAt.value) devTrialEndsAt.value = stored
+    }
+  })
+
+  /** Server timestamp for hydration: same "now" on server and first client render to avoid mismatch. */
+  const serverTrialNow = useState<number | null>('plan-access-server-now', () => null)
+  if (import.meta.server) {
+    serverTrialNow.value = Date.now()
   }
 
   /** Reactive "now" so trial state updates every second without refresh. */
@@ -41,7 +50,8 @@ export function usePlanAccess() {
     }, 1000)
     onUnmounted(() => clearInterval(id))
   })
-  const nowForTrial = () => (import.meta.server ? Date.now() : countdownNow.value || Date.now())
+  const nowForTrial = () =>
+    import.meta.server ? Date.now() : (countdownNow.value || (serverTrialNow.value ?? Date.now()))
 
   const trialEndsAt = computed(() => {
     if (import.meta.dev && devTrialEndsAt.value) {

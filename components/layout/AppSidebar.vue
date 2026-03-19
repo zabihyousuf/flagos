@@ -28,6 +28,10 @@
         <NuxtLink to="/settings" class="utility-btn" title="Settings">
           <SettingsIcon class="w-4 h-4" />
         </NuxtLink>
+        <NuxtLink to="/notifications" class="utility-btn notification-btn" title="Notifications">
+          <Bell class="w-4 h-4" />
+          <span v-if="unreadCount > 0" class="notif-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+        </NuxtLink>
         <button class="utility-btn" @click="toggleCollapse" title="Collapse sidebar">
           <PanelLeftClose class="w-4 h-4" />
         </button>
@@ -239,6 +243,7 @@ import {
   FlaskConical,
   Search,
   MessageSquarePlus,
+  Bell,
 } from 'lucide-vue-next'
 import {
   Tooltip,
@@ -265,6 +270,10 @@ const hovering = ref(false)
 const userMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const feedbackOpen = ref(false)
+
+// Notifications
+const { unreadCount, init: initNotifications } = useNotifications()
+
 /** Shared state so Play Lab (and others) can open the upgrade modal. */
 const upgradeModalOpen = useState<boolean>('upgrade-modal-open', () => false)
 
@@ -278,6 +287,7 @@ onMounted(() => {
   }
   document.addEventListener('click', handleClickOutside)
   fetchProfile()
+  initNotifications()
 })
 
 onUnmounted(() => {
@@ -614,6 +624,28 @@ async function handleLogout() {
 .utility-btn:hover {
   background: var(--color-accent);
   color: var(--color-foreground);
+}
+
+/* ── Notification Bell ─────────────────────────────────────────── */
+.notification-btn {
+  position: relative;
+}
+
+.notif-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: var(--color-destructive);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* ── Quick Play ────────────────────────────────────────────────── */

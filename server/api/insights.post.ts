@@ -109,7 +109,7 @@ export default defineEventHandler(async (event) => {
       .from('sim_insights')
       .select('insights')
       .eq('job_id', job_id)
-      .single()
+      .maybeSingle()
 
     if (existing?.insights) {
       setResponseHeader(event, 'Content-Type', 'text/event-stream')
