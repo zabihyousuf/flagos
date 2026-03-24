@@ -170,6 +170,7 @@ export interface AggregatedStats {
   yards_gained_stats: AggregatedYardStats
   outcome_distribution: Record<string, number>
   most_common_failure: string
+  avg_time_to_throw_seconds?: number | null
 }
 
 export interface ReceiverStats {
@@ -188,6 +189,8 @@ export interface PartialBatchSimResult {
   is_partial: boolean
   overall_success_rate: number
   overall_completion_rate: number
+  avg_time_to_throw_seconds?: number | null
+  redzone_td_rate: number
   per_scenario: any[]
   aggregated_by_down: Record<string, AggregatedStats>
   aggregated_by_field_zone: Record<string, AggregatedStats>
@@ -205,6 +208,8 @@ function resultToPartial(data: any): PartialBatchSimResult {
     is_partial: data.is_partial ?? false,
     overall_success_rate: data.overall_success_rate ?? 0,
     overall_completion_rate: data.overall_completion_rate ?? 0,
+    avg_time_to_throw_seconds: data.avg_time_to_throw_seconds ?? null,
+    redzone_td_rate: data.redzone_td_rate ?? 0,
     per_scenario: data.per_scenario ?? [],
     aggregated_by_down: data.aggregated_by_down ?? {},
     aggregated_by_field_zone: data.aggregated_by_field_zone ?? {},
@@ -382,6 +387,31 @@ export function usePlayLabJob() {
       }, 1000)
     }
     return true
+  }
+
+  /** Fire-and-forget: submit a job to the engine without resetting the active job state.
+   *  Used for bulk runs where the first job is tracked and the rest run in the background. */
+  async function submitBackground(request: PlayLabBatchRequest, metadata: JobMetadata): Promise<string | null> {
+    const engineScenarios = (request.defensive_scenarios ?? []).map((ds) => ({
+      scenario_id: ds.scenario_id,
+      defensive_play: toEngineCanvasData(ds.defensive_play),
+      defensive_players: ds.defensive_players,
+      label: ds.label,
+    }))
+    const { ok, data } = await engine.post<{ job_id: string }>('/api/v1/sim/play/batch', {
+      offensive_play: toEngineCanvasData(request.offensive_play),
+      defensive_play: request.defensive_play ? toEngineCanvasData(request.defensive_play) : null,
+      defensive_players: request.defensive_players,
+      defensive_scenarios: engineScenarios,
+      field_settings: toEngineFieldSettings(request.field_settings),
+      offensive_players: request.offensive_players,
+      n_iterations: request.n_iterations,
+      n_scenarios: request.n_scenarios,
+      variation_seed: request.variation_seed,
+      auto_generate: request.auto_generate ?? false,
+      job_metadata: metadata,
+    })
+    return ok && data?.job_id ? data.job_id : null
   }
 
   async function pollStatus() {
@@ -569,6 +599,7 @@ export function usePlayLabJob() {
     isLoadedResult,
     loadedJobStatus,
     startJob,
+    submitBackground,
     startPolling,
     stopPolling,
     pollStatus,

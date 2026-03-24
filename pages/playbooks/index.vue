@@ -1,14 +1,22 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight font-display">Playbooks</h2>
         <p class="text-muted-foreground text-sm mt-1">Organize your plays into playbooks.</p>
       </div>
-      <Button @click="openDialog(null)">
-        <Plus class="w-4 h-4 mr-2" />
-        New Playbook
-      </Button>
+      <div class="flex flex-wrap items-center gap-2">
+        <NuxtLink to="/plays">
+          <Button variant="outline" type="button">
+            <Swords class="w-4 h-4 mr-2" />
+            All plays
+          </Button>
+        </NuxtLink>
+        <Button @click="openDialog(null)">
+          <Plus class="w-4 h-4 mr-2" />
+          New Playbook
+        </Button>
+      </div>
     </div>
 
     <div v-if="loading && playbooks.length === 0" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
@@ -92,7 +100,7 @@ import type { Playbook } from '~/lib/types'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
-import { Plus, BookOpen, LayoutGrid, List } from 'lucide-vue-next'
+import { Plus, BookOpen, LayoutGrid, List, Swords } from 'lucide-vue-next'
 
 const viewMode = ref<'grid' | 'list'>('grid')
 

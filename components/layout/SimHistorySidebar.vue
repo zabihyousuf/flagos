@@ -269,6 +269,8 @@ const { confirm } = useConfirm()
 
 const route = useRoute()
 
+const { dismissByJobId } = useNotifications()
+
 async function deleteJob(jobId: string) {
   const ok = await confirm({
     title: 'Delete simulation',
@@ -278,6 +280,7 @@ async function deleteJob(jobId: string) {
   })
   if (!ok) return
   await deleteJobFromDb(jobId)
+  dismissByJobId(jobId)
   const currentId = route.params.id as string | undefined
   if (currentId === jobId) {
     navigateTo('/blurai/playlab')
@@ -293,6 +296,10 @@ async function deleteAll() {
     variant: 'destructive',
   })
   if (!ok) return
+  // Clear notifications for all jobs being deleted
+  for (const job of batchSimJobs.value) {
+    dismissByJobId(job.job_id)
+  }
   const success = await deleteAllJobs()
   if (success) {
     const currentId = route.params.id as string | undefined

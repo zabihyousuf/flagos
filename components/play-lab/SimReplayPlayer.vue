@@ -1,5 +1,16 @@
 <template>
   <div class="flex flex-col h-full min-h-0">
+    <!-- Top row: contextual card above the field -->
+    <div class="shrink-0 px-3 sm:px-4 pt-3 pb-2">
+      <div class="rounded-xl border border-border/70 bg-card shadow-sm px-3 py-2.5 sm:px-4">
+        <slot name="header">
+          <p class="text-xs font-semibold text-foreground">Replay</p>
+          <p class="text-[11px] text-muted-foreground mt-0.5">
+            Scrub the timeline below to step through the play.
+          </p>
+        </slot>
+      </div>
+    </div>
     <!-- Field canvas -->
     <div ref="containerRef" class="flex-1 min-h-0 relative bg-muted/30 flex items-center justify-center">
       <canvas

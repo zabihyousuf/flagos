@@ -71,6 +71,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          metadata: Json | null
+          read: boolean
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          read?: boolean
+          read_at?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          read?: boolean
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       field_settings: {
         Row: {
           created_at: string | null
@@ -272,6 +308,35 @@ export type Database = {
             columns: ["playbook_id"]
             isOneToOne: false
             referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      play_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          play_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          play_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          play_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_favorites_play_id_fkey"
+            columns: ["play_id"]
+            isOneToOne: false
+            referencedRelation: "plays"
             referencedColumns: ["id"]
           },
         ]

@@ -137,7 +137,7 @@ export default defineEventHandler(async (event) => {
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.4,
-      max_tokens: 800,
+      max_tokens: 1500,
       stream: true,
     }),
   })
@@ -156,6 +156,7 @@ export default defineEventHandler(async (event) => {
       const encoder = new TextEncoder()
       let fullContent = ''
       const allEmittedItems: InsightItem[] = []
+      const emittedTitles = new Set<string>()
 
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
@@ -182,6 +183,10 @@ export default defineEventHandler(async (event) => {
                 fullContent += delta
                 const completed = extractCompletedInsights(fullContent)
                 for (const item of completed.items) {
+                  if (allEmittedItems.length >= 6) break
+                  const titleKey = item.title.toLowerCase().trim()
+                  if (emittedTitles.has(titleKey)) continue
+                  emittedTitles.add(titleKey)
                   allEmittedItems.push(item)
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(item)}\n\n`))
                 }
@@ -193,10 +198,14 @@ export default defineEventHandler(async (event) => {
           }
         }
 
-        if (fullContent.trim()) {
+        if (fullContent.trim() && allEmittedItems.length < 6) {
           try {
             const finalItems = JSON.parse(ensureValidJson(fullContent.trim())) as InsightItem[]
             for (const item of finalItems) {
+              if (allEmittedItems.length >= 6) break
+              const titleKey = item.title.toLowerCase().trim()
+              if (emittedTitles.has(titleKey)) continue
+              emittedTitles.add(titleKey)
               allEmittedItems.push(item)
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(item)}\n\n`))
             }

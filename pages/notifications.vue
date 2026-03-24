@@ -3,7 +3,9 @@
     <div class="flex items-center justify-between">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight font-display">Notifications</h2>
-        <p class="text-muted-foreground text-sm mt-1">Stay updated on your simulation jobs.</p>
+        <p class="text-muted-foreground text-sm mt-1">
+          Stay updated on your simulation jobs. Read items are removed after {{ readTtlDays }} days.
+        </p>
       </div>
       <button
         v-if="unreadCount > 0"
@@ -98,11 +100,28 @@ import {
   Check,
   CheckCheck,
 } from 'lucide-vue-next'
-import type { AppNotification } from '~/composables/useNotifications'
+import { READ_NOTIFICATION_TTL_MS, type AppNotification } from '~/composables/useNotifications'
 
 const { notifications, unreadCount, markAsRead, markAllRead, dismiss } = useNotifications()
 
+const readTtlDays = Math.round(READ_NOTIFICATION_TTL_MS / (24 * 60 * 60 * 1000))
+
 const filter = ref<'all' | 'unread'>('all')
+
+/** Open on Unread when the user has unread notifications (including after fetch completes). */
+onMounted(() => {
+  const stop = watch(
+    unreadCount,
+    (c) => {
+      if (c > 0) {
+        filter.value = 'unread'
+        stop()
+      }
+    },
+    { immediate: true },
+  )
+  onUnmounted(stop)
+})
 
 const filteredNotifications = computed(() => {
   if (filter.value === 'unread') return notifications.value.filter((n) => !n.read)

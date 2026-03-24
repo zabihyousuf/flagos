@@ -96,7 +96,10 @@
             </TooltipProvider>
           </div>
           <div class="space-y-2">
-            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Offensive play</h2>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Offensive play</h2>
+              <span v-if="!hasProAccess" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/15 text-primary uppercase tracking-wide" title="Free trial: 1 play. Pro: multi-select">1 play</span>
+            </div>
             <DropdownMenu v-model:open="playDropdownOpen">
               <DropdownMenuTrigger as-child>
                 <Button
@@ -105,7 +108,10 @@
                   :disabled="offensivePlays.length === 0 || configLocked"
                 >
                   <span class="truncate">
-                    {{ selectedPlay ? selectedPlay.name : 'Select an offensive play' }}
+                    {{ hasProAccess
+                      ? (selectedPlayIds.length > 0 ? `${selectedPlayIds.length} play(s) selected` : 'Select offensive plays')
+                      : (selectedPlay ? selectedPlay.name : 'Select an offensive play')
+                    }}
                   </span>
                   <ChevronDown class="h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -120,13 +126,40 @@
                     @pointerdown.stop
                   />
                 </div>
-                <div class="max-h-[240px] overflow-y-auto p-1">
+                <div v-if="hasProAccess && filteredOffensivePlays.length > 0" class="flex items-center justify-between px-2 py-1.5 border-b">
                   <button
+                    type="button"
+                    class="text-xs font-medium text-primary hover:underline"
+                    @pointerdown.stop
+                    @click="selectAllOffense"
+                  >
+                    {{ selectedPlayIds.length === filteredOffensivePlays.length ? 'Deselect all' : 'Select all' }}
+                  </button>
+                  <span class="text-[11px] text-muted-foreground">{{ selectedPlayIds.length }}/{{ offensivePlays.length }}</span>
+                </div>
+                <div class="max-h-[240px] overflow-y-auto p-1">
+                  <label
+                    v-if="hasProAccess"
+                    v-for="play in filteredOffensivePlays"
+                    :key="play.id"
+                    class="flex items-center gap-2 py-2 px-2 rounded cursor-pointer hover:bg-accent/50"
+                  >
+                    <Checkbox
+                      :model-value="selectedPlayIds.includes(play.id)"
+                      @update:model-value="toggleOffense(play.id)"
+                    />
+                    <div class="flex flex-col flex-1 min-w-0">
+                      <span class="text-sm font-medium truncate">{{ play.name }}</span>
+                      <span class="text-xs text-muted-foreground truncate">{{ (play as PlayWithPb)._playbookName }} · {{ play.formation || 'Formation' }}</span>
+                    </div>
+                  </label>
+                  <button
+                    v-if="!hasProAccess"
                     v-for="play in filteredOffensivePlays"
                     :key="play.id"
                     type="button"
                     class="w-full flex flex-col items-start gap-0.5 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                    @click="selectedPlayId = play.id; playDropdownOpen = false"
+                    @click="selectedPlayId = play.id; selectedPlayIds = [play.id]; playDropdownOpen = false"
                   >
                     <span class="font-medium">{{ play.name }}</span>
                     <span class="text-xs text-muted-foreground">{{ (play as PlayWithPb)._playbookName }} · {{ play.formation || 'Formation' }}</span>
@@ -135,8 +168,22 @@
                 </div>
               </DropdownMenuContent>
             </DropdownMenu>
-            <div v-if="selectedPlay" class="rounded-lg bg-muted/30 overflow-hidden h-[80px] shadow-sm">
-              <PlayPreview :play="selectedPlay" :height="80" />
+            <div
+              v-if="selectedPlay"
+              class="rounded-xl border border-border bg-card shadow-md overflow-hidden"
+            >
+              <div class="px-3 py-2 border-b border-border/60 bg-muted/15">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Play visualization
+                </p>
+                <p class="text-xs font-medium truncate mt-0.5">{{ selectedPlay.name }}</p>
+                <p class="text-[10px] text-muted-foreground truncate">
+                  {{ (selectedPlay as PlayWithPb)._playbookName }} · {{ selectedPlay.formation || 'Formation' }}
+                </p>
+              </div>
+              <div class="bg-muted/30 overflow-hidden h-[80px]">
+                <PlayPreview :play="selectedPlay" :height="80" />
+              </div>
             </div>
           </div>
 
@@ -179,6 +226,17 @@
                     class="border-0 shadow-none focus-visible:ring-0 h-9"
                     @pointerdown.stop
                   />
+                </div>
+                <div v-if="hasProAccess && filteredDefensePlays.length > 0" class="flex items-center justify-between px-2 py-1.5 border-b">
+                  <button
+                    type="button"
+                    class="text-xs font-medium text-primary hover:underline"
+                    @pointerdown.stop
+                    @click="selectAllDefense"
+                  >
+                    {{ selectedDefenseIds.length === filteredDefensePlays.length ? 'Deselect all' : 'Select all' }}
+                  </button>
+                  <span class="text-[11px] text-muted-foreground">{{ selectedDefenseIds.length }}/{{ defensePlays.length }}</span>
                 </div>
                 <div class="max-h-[240px] overflow-y-auto p-1">
                   <label
@@ -333,7 +391,7 @@
                 <p class="text-xs font-medium text-muted-foreground">Total simulations</p>
                 <p class="text-xs font-semibold">{{ totalSimulations.toLocaleString() }}</p>
               </div>
-              <p class="text-[10px] text-muted-foreground">{{ nDefensePlays }} defense{{ nDefensePlays > 1 ? 's' : '' }} &times; {{ nScenarios.toLocaleString() }} scenarios &times; {{ nIterations.toLocaleString() }} iterations &bull; {{ iterationTimeHint }}</p>
+              <p class="text-[10px] text-muted-foreground">{{ nOffensePlays > 1 ? `${nOffensePlays} plays &times; ` : '' }}{{ nDefensePlays }} defense{{ nDefensePlays > 1 ? 's' : '' }} &times; {{ nScenarios.toLocaleString() }} scenarios &times; {{ nIterations.toLocaleString() }} iterations &bull; {{ iterationTimeHint }}</p>
             </div>
             <div class="rounded-lg p-2.5 bg-muted/20 shadow-sm">
               <p class="text-xs font-medium text-muted-foreground mb-1">Field settings</p>
@@ -362,7 +420,7 @@
               :disabled="!canRun || job?.status?.state === 'PENDING' || job?.rateLimited || configLocked"
               @click="runSimulation"
             >
-              {{ job?.status?.state === 'PENDING' ? 'Starting...' : 'Run Simulation' }}
+              {{ job?.status?.state === 'PENDING' ? 'Starting...' : (nOffensePlays > 1 ? `Run ${nOffensePlays} Simulations` : 'Run Simulation') }}
             </Button>
             <ClientOnly>
               <p v-if="job?.rateLimited && (job?.retryAfterSeconds ?? 0) > 0" class="text-sm text-amber-600 dark:text-amber-500">
@@ -401,7 +459,11 @@
         <!-- Loading skeleton when opening a past simulation (only after mount to avoid hydration mismatch) -->
         <template v-if="isClient && effectiveJobId && jobPageLoading">
           <div class="flex-1 pb-14 space-y-6">
-            <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
+            <section class="flex flex-col lg:flex-row gap-4 items-stretch min-w-0">
+              <div class="rounded-xl bg-card/80 p-4 flex flex-col gap-2 shadow-md shrink-0 w-full lg:w-[260px] xl:w-[280px]">
+                <Skeleton class="h-3 w-28" />
+                <Skeleton class="h-24 w-full rounded-lg" />
+              </div>
               <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col gap-3 shadow-md min-w-0 flex-1 space-y-3">
                 <Skeleton class="h-4 w-32" />
                 <Skeleton class="h-3 w-48" />
@@ -416,7 +478,7 @@
                   <Skeleton class="h-14 rounded-lg" />
                 </div>
               </div>
-              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md shrink-0">
+              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md shrink-0 lg:self-stretch">
                 <Skeleton class="h-40 w-40 rounded-full" />
               </div>
             </section>
@@ -449,9 +511,41 @@
 
         <template v-else>
           <div class="flex-1 pb-14 space-y-6">
-            <!-- Row 1: Status card (left) + Progress circle (right), side by side via flex -->
-            <section class="flex flex-col sm:flex-row gap-4 items-stretch min-w-0">
-              <!-- Left: play name + description row with action buttons on same row, then progress bar and info -->
+            <!-- Row 1: Play visualization (always visible here — sidebar preview is hidden when form is railed on /playlab/:id) + status + progress ring -->
+            <section class="flex flex-col lg:flex-row gap-4 items-stretch min-w-0">
+              <!-- Play visualization: main area so archived / URL-opened sims still see the diagram -->
+              <div
+                v-if="showMainAreaPlayVisualization"
+                class="rounded-xl border border-border bg-card shadow-md overflow-hidden shrink-0 w-full lg:w-[min(100%,280px)] xl:w-[300px] flex flex-col"
+              >
+                <div class="px-3 py-2 border-b border-border/60 bg-muted/15 shrink-0">
+                  <p class="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Play visualization
+                  </p>
+                  <p class="text-xs font-medium truncate mt-0.5">
+                    {{ selectedPlay?.name ?? jobOffensivePlayName ?? 'Play' }}
+                  </p>
+                  <p
+                    v-if="selectedPlay"
+                    class="text-[10px] text-muted-foreground truncate"
+                  >
+                    {{ (selectedPlay as PlayWithPb)._playbookName }} · {{ selectedPlay.formation || 'Formation' }}
+                  </p>
+                </div>
+                <div v-if="selectedPlay" class="bg-muted/30 overflow-hidden h-[160px]">
+                  <PlayPreview :play="selectedPlay" :height="160" />
+                </div>
+                <div
+                  v-else
+                  class="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-8 text-center"
+                >
+                  <p class="text-xs text-muted-foreground leading-relaxed">
+                    Field diagram isn’t available — the saved play may have been removed from your playbook. The run still used this play when it was simulated.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Center: play name + progress + stats -->
               <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex flex-col gap-3 shadow-md min-w-0 flex-1">
                 <!-- Top row: title + description (left), action buttons (right) -->
                 <div class="flex flex-wrap items-start justify-between gap-3">
@@ -505,7 +599,7 @@
                 </div>
 
                 <!-- Key stats summary -->
-                <div v-if="scenariosCompleted > 0" class="grid grid-cols-2 gap-2 text-center">
+                <div v-if="scenariosCompleted > 0" class="grid grid-cols-3 gap-2 text-center">
                   <div class="rounded-lg bg-muted/40 px-2 py-2">
                     <p class="text-lg font-bold tabular-nums">{{ Math.round(overallCompletionRate) }}%</p>
                     <p class="text-[10px] text-muted-foreground">Completion</p>
@@ -515,12 +609,20 @@
                     <p class="text-[10px] text-muted-foreground">Avg Yards</p>
                   </div>
                   <div class="rounded-lg bg-muted/40 px-2 py-2">
+                    <p class="text-lg font-bold tabular-nums">{{ avgTimeToThrow ?? '—' }}s</p>
+                    <p class="text-[10px] text-muted-foreground">Time to Throw</p>
+                  </div>
+                  <div class="rounded-lg bg-muted/40 px-2 py-2">
                     <p class="text-lg font-bold tabular-nums text-emerald-500">{{ overallTdRate }}%</p>
                     <p class="text-[10px] text-muted-foreground">TD Rate</p>
                   </div>
                   <div class="rounded-lg bg-muted/40 px-2 py-2">
                     <p class="text-lg font-bold tabular-nums text-destructive">{{ overallIntRate }}%</p>
                     <p class="text-[10px] text-muted-foreground">INT Rate</p>
+                  </div>
+                  <div class="rounded-lg bg-muted/40 px-2 py-2">
+                    <p class="text-lg font-bold tabular-nums text-emerald-500">{{ redzoneTdRate }}%</p>
+                    <p class="text-[10px] text-muted-foreground">Redzone TD</p>
                   </div>
                 </div>
 
@@ -538,8 +640,8 @@
                 </p>
               </div>
 
-              <!-- Right: circular progress (always next to the card on sm+) -->
-              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md shrink-0">
+              <!-- Right: circular progress -->
+              <div class="rounded-xl bg-card/80 px-4 py-4 lg:px-6 lg:py-5 flex items-center justify-center shadow-md shrink-0 lg:self-stretch">
                 <div class="relative h-40 w-40 shrink-0">
                   <svg viewBox="0 0 120 120" class="h-full w-full">
                     <defs>
@@ -1091,6 +1193,15 @@
                           >
                             Loop
                           </button>
+                          <button
+                            v-if="selectedReplayInModal?.id"
+                            type="button"
+                            class="px-2 py-1 rounded-md text-[11px] font-medium transition-colors bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Copy replay ID to clipboard"
+                            @click="copyReplayId(selectedReplayInModal.id)"
+                          >
+                            {{ replayIdCopied ? 'Copied!' : 'Copy ID' }}
+                          </button>
                         </div>
                       </div>
                     </template>
@@ -1171,6 +1282,8 @@ export interface PlayLabReplay {
   scenario_group: string
   scenario_label: string
   defense_play_label?: string
+  /** Saved replay highlight category (touchdown, long_pass, etc.) */
+  highlight_type?: string
   scenario_key?: string
   label: string
   outcome?: string
@@ -1229,6 +1342,39 @@ const effectiveJobId = computed(() => {
   const match = typeof route.path === 'string' ? route.path.match(/\/playlab\/([^/]+)/) : null
   return match?.[1] ?? null
 })
+
+/** If the user is already on this job's Play Lab page, auto-mark matching notifications read after 1 min. */
+const { notifications, markReadForJob } = useNotifications()
+const PLAYLAB_NOTIFICATION_AUTO_READ_MS = 60_000
+let playlabNotifTimer: ReturnType<typeof setTimeout> | null = null
+function clearPlaylabNotifTimer() {
+  if (playlabNotifTimer != null) {
+    clearTimeout(playlabNotifTimer)
+    playlabNotifTimer = null
+  }
+}
+function schedulePlaylabJobNotificationsRead(jobId: string) {
+  clearPlaylabNotifTimer()
+  const hasUnread = notifications.value.some(
+    (n) => !n.read && n.metadata?.job_id === jobId,
+  )
+  if (!hasUnread) return
+  playlabNotifTimer = setTimeout(() => {
+    playlabNotifTimer = null
+    void markReadForJob(jobId)
+  }, PLAYLAB_NOTIFICATION_AUTO_READ_MS)
+}
+watch(
+  [effectiveJobId, notifications],
+  ([jobId]) => {
+    clearPlaylabNotifTimer()
+    if (!jobId) return
+    schedulePlaylabJobNotificationsRead(jobId)
+  },
+  { deep: true },
+)
+onUnmounted(() => clearPlaylabNotifTimer())
+
 const client = useSupabaseDB()
 const user = useSupabaseUser()
 const { profile } = useProfile()
@@ -1406,9 +1552,15 @@ async function fetchInsights(regenerate = false) {
         try {
           const parsed = JSON.parse(payload)
           if (parsed.error) throw new Error(parsed.error)
-          if (parsed.icon && parsed.title) {
-            insightsData.value = [...insightsData.value, parsed as InsightItem]
-            insightsLoading.value = false
+          if (parsed.icon && parsed.title && insightsData.value.length < 6) {
+            const titleKey = (parsed.title as string).toLowerCase().trim()
+            const isDupe = insightsData.value.some(
+              (i) => i.title.toLowerCase().trim() === titleKey,
+            )
+            if (!isDupe) {
+              insightsData.value = [...insightsData.value, parsed as InsightItem]
+              insightsLoading.value = false
+            }
           }
         } catch { /* skip malformed */ }
       }
@@ -1433,6 +1585,15 @@ async function loadCachedInsights() {
 const replaysModalOpen = ref(false)
 const selectedReplayInModal = ref<PlayLabReplay | null>(null)
 const replayRecordingLoading = ref(false)
+const replayIdCopied = ref(false)
+
+async function copyReplayId(id: string) {
+  try {
+    await navigator.clipboard.writeText(id)
+    replayIdCopied.value = true
+    setTimeout(() => { replayIdCopied.value = false }, 2000)
+  } catch { /* clipboard not available */ }
+}
 const replayFilterType = ref('')
 const replayFilterOutcome = ref('')
 const replayFilterReceiver = ref('')
@@ -1803,6 +1964,7 @@ const configLocked = computed(() => !!job?.jobId)
 const playSearchQuery = ref('')
 const playDropdownOpen = ref(false)
 const selectedPlayId = ref<string>('')
+const selectedPlayIds = ref<string[]>([])
 const defenseSearchQuery = ref('')
 const defenseDropdownOpen = ref(false)
 const selectedDefenseIds = ref<string[]>([])
@@ -1832,7 +1994,10 @@ function ensurePlaysLoaded(): Promise<void> {
 
 function applyJobMetadataAndPlay(meta: { offensive_play_id?: string; defensive_play_id?: string; n_iterations?: number; n_scenarios?: number } | undefined) {
   if (!meta) return
-  if (meta.offensive_play_id) selectedPlayId.value = meta.offensive_play_id
+  if (meta.offensive_play_id) {
+    selectedPlayId.value = meta.offensive_play_id
+    selectedPlayIds.value = [meta.offensive_play_id]
+  }
   const play = offensivePlays.value.find((p) => p.id === meta.offensive_play_id) ?? null
   if (play) {
     jobReceiverNameMap.value = buildReceiverNameMap(play)
@@ -1899,6 +2064,7 @@ watch(
         job.reset()
         configRailed.value = false
         selectedPlayId.value = ''
+        selectedPlayIds.value = []
         selectedDefenseIds.value = []
         nIterations.value = 10
         nScenarios.value = 100
@@ -1996,6 +2162,25 @@ const filteredDefensePlays = computed(() => {
 
 const selectedPlay = computed(() => offensivePlays.value.find((p) => p.id === selectedPlayId.value) ?? null)
 
+/** From job row when the play document isn’t in the playbook anymore (old sim / deleted play). */
+const jobOffensivePlayName = computed(
+  () =>
+    job.loadedJobStatus?.job_metadata?.offensive_play_name
+    ?? job.status?.job_metadata?.offensive_play_name
+    ?? null,
+)
+
+/** Show the main-row play card whenever this job has an identity (incl. archived sims with railed sidebar). */
+const showMainAreaPlayVisualization = computed(
+  () => !!job.jobId && (!!selectedPlay.value || !!jobOffensivePlayName.value),
+)
+
+const selectedOffensivePlays = computed(() =>
+  selectedPlayIds.value
+    .map((id) => offensivePlays.value.find((p) => p.id === id))
+    .filter(Boolean) as typeof offensivePlays.value
+)
+
 /** Pinned receiver name map for the current job so names show immediately (no refresh) when result arrives or when opening a past job. */
 const jobReceiverNameMap = ref<Record<string, string>>({})
 /** Pinned ordered receiver ids for the current job (for index-based labels). */
@@ -2080,7 +2265,7 @@ watch(availableReceivers, (receivers) => {
 }, { deep: true })
 
 const canRun = computed(() => {
-  if (!selectedPlayId.value || !selectedPlay.value) return false
+  if (selectedPlayIds.value.length === 0 && (!selectedPlayId.value || !selectedPlay.value)) return false
   if (selectedDefenseIds.value.length === 0) return false
   if (rosterErrors.value.length > 0) return false
   return true
@@ -2091,7 +2276,8 @@ const nDefensePlays = computed(() => Math.max(1, selectedDefenseIds.value.length
 watch(nDefensePlays, (count) => {
   if (count > 1 && nScenarios.value > 1000) nScenarios.value = 1000
 })
-const totalSimulations = computed(() => nDefensePlays.value * nScenarios.value * nIterations.value)
+const nOffensePlays = computed(() => Math.max(1, selectedPlayIds.value.length))
+const totalSimulations = computed(() => nOffensePlays.value * nDefensePlays.value * nScenarios.value * nIterations.value)
 const iterationTimeHint = computed(() => {
   const total = totalSimulations.value
   if (total <= 200_000) return '~1 minute'
@@ -2161,6 +2347,20 @@ const overallTdRate = computed(() => {
     tdWeighted += (e.outcome_distribution?.TOUCHDOWN ?? 0) * w
   }
   return total ? Math.round((tdWeighted / total) * 100) : 0
+})
+
+const avgTimeToThrow = computed(() => {
+  const ttt = (partial.value as any)?.avg_time_to_throw_seconds
+    ?? (job.result as any)?.avg_time_to_throw_seconds
+  if (typeof ttt === 'number') return ttt.toFixed(2)
+  return null
+})
+
+const redzoneTdRate = computed(() => {
+  const rate = (partial.value as any)?.redzone_td_rate
+    ?? (job.result as any)?.redzone_td_rate
+  if (typeof rate === 'number') return Math.round(rate * 100)
+  return 0
 })
 
 const overallIntRate = computed(() => {
@@ -2463,6 +2663,39 @@ watch(
   },
 )
 
+function toggleOffense(id: string) {
+  if (!hasProAccess.value) {
+    selectedPlayIds.value = [id]
+    selectedPlayId.value = id
+    return
+  }
+  const idx = selectedPlayIds.value.indexOf(id)
+  if (idx === -1) selectedPlayIds.value = [...selectedPlayIds.value, id]
+  else selectedPlayIds.value = selectedPlayIds.value.filter((x) => x !== id)
+  // Sync single-play ref for preview (show first selected)
+  selectedPlayId.value = selectedPlayIds.value[0] ?? ''
+}
+
+function selectAllOffense() {
+  const allIds = filteredOffensivePlays.value.map((p) => p.id)
+  if (selectedPlayIds.value.length === allIds.length) {
+    selectedPlayIds.value = []
+    selectedPlayId.value = ''
+  } else {
+    selectedPlayIds.value = [...allIds]
+    selectedPlayId.value = allIds[0] ?? ''
+  }
+}
+
+function selectAllDefense() {
+  const allIds = filteredDefensePlays.value.map((p) => p.id)
+  if (selectedDefenseIds.value.length === allIds.length) {
+    selectedDefenseIds.value = []
+  } else {
+    selectedDefenseIds.value = [...allIds]
+  }
+}
+
 function toggleDefense(id: string) {
   if (!hasProAccess.value) {
     if (selectedDefenseIds.value[0] === id) selectedDefenseIds.value = []
@@ -2506,29 +2739,27 @@ async function fetchPlays(): Promise<boolean> {
 }
 
 async function runSimulation() {
-  const play = selectedPlay.value
   const fs = (fieldSettings.value ?? DEFAULT_FIELD_SETTINGS) as FieldSettings
-  if (!play || !user.value) return
+  if (!user.value) return
+
+  // Determine offensive plays to run
+  const playsToRun = selectedPlayIds.value.length > 0
+    ? selectedOffensivePlays.value
+    : (selectedPlay.value ? [selectedPlay.value] : [])
+  if (playsToRun.length === 0) return
 
   rosterErrors.value = []
   defenseBasePlayerWarnings.value = []
 
   const teamId = primaryTeamId.value
 
-  // Resolve offensive roster (still required — can't run without offensive starters)
-  const offResult = await resolveRoster(play.canvas_data, 'offense', teamId)
-  if (!offResult.success) {
-    rosterErrors.value = offResult.errors
-    return
-  }
-
-  // Resolve defensive rosters for ALL selected defensive plays
+  // Resolve defensive rosters (shared across all offensive plays)
   const selectedDefPlays = selectedDefenseIds.value
     .map((id) => defensePlays.value.find((p) => p.id === id))
     .filter(Boolean) as typeof defensePlays.value
   if (selectedDefPlays.length === 0) return
 
-  const defScenarios: { scenario_id: string; defensive_play: typeof play.canvas_data; defensive_players: any[]; label: string }[] = []
+  const defScenarios: { scenario_id: string; defensive_play: any; defensive_players: any[]; label: string }[] = []
   const allWarnings: string[] = []
   for (const defPlay of selectedDefPlays) {
     const defResult = await resolveRosterWithFallback(defPlay.canvas_data, 'defense', teamId)
@@ -2545,8 +2776,23 @@ async function runSimulation() {
   const effectiveIterations = Math.min(nIterations.value, maxIterationsForPlan.value)
   const effectiveScenarios = Math.min(nScenarios.value, nDefensePlays.value > 1 ? 1000 : maxScenariosForPlan.value)
   const defPlayNames = selectedDefPlays.map((p) => p.name).join(', ')
-  const ok = await job.startJob(
-    {
+
+  // Submit one job per offensive play
+  // First play: tracked via job composable (navigate to it)
+  // Remaining plays: fire-and-forget (show up in history, notify on completion)
+  let firstJobNavigated = false
+  for (let i = 0; i < playsToRun.length; i++) {
+    const play = playsToRun[i]
+    const offResult = await resolveRoster(play.canvas_data, 'offense', teamId)
+    if (!offResult.success) {
+      if (!firstJobNavigated) {
+        rosterErrors.value = offResult.errors
+        return
+      }
+      continue
+    }
+
+    const requestPayload = {
       offensive_play: play.canvas_data,
       defensive_play: null,
       defensive_players: [],
@@ -2557,8 +2803,8 @@ async function runSimulation() {
       n_scenarios: effectiveScenarios,
       variation_seed: null,
       auto_generate: true,
-    },
-    {
+    }
+    const metadata = {
       offensive_play_name: play.name,
       offensive_play_id: play.id,
       defensive_play_name: defPlayNames,
@@ -2567,13 +2813,21 @@ async function runSimulation() {
       n_iterations: effectiveIterations,
       auto_generate: true,
     }
-  )
-  if (ok) {
-    jobReceiverNameMap.value = buildReceiverNameMap(play)
-    jobOrderedReceiverIds.value = buildOrderedReceiverIds(play)
-    configRailed.value = true
-    job.startPolling()
-    if (job.jobId) await navigateTo(`/blurai/playlab/${job.jobId}`)
+
+    if (!firstJobNavigated) {
+      const ok = await job.startJob(requestPayload, metadata)
+      if (ok) {
+        jobReceiverNameMap.value = buildReceiverNameMap(play)
+        jobOrderedReceiverIds.value = buildOrderedReceiverIds(play)
+        configRailed.value = true
+        job.startPolling()
+        if (job.jobId) await navigateTo(`/blurai/playlab/${job.jobId}`)
+        firstJobNavigated = true
+      }
+    } else {
+      // Background job — fire and forget
+      await job.submitBackground(requestPayload, metadata)
+    }
   }
 }
 
@@ -2657,6 +2911,7 @@ const BreakdownRow = defineComponent({
       const tdPct = dist ? Math.round((dist.TOUCHDOWN ?? 0) * 100) : 0
       const intPct = dist ? Math.round((dist.INTERCEPTION ?? 0) * 100) : 0
       const incPct = dist ? Math.round((dist.INCOMPLETE ?? 0) * 100) : 0
+      const ttt = (props.stat as any)?.avg_time_to_throw_seconds as number | null | undefined
       return (
         <div class="space-y-1">
           <div class="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -2674,6 +2929,7 @@ const BreakdownRow = defineComponent({
               {tdPct > 0 && <span class="text-emerald-500">{tdPct}% TD</span>}
               {intPct > 0 && <span class="text-destructive">{intPct}% INT</span>}
               {incPct > 0 && <span>{incPct}% INC</span>}
+              {ttt != null && <span>{ttt.toFixed(2)}s throw</span>}
             </div>
             <span>
               {(props.stat?.n_iterations ?? 0).toLocaleString()} runs

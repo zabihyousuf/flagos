@@ -1,19 +1,41 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight font-display">All Plays</h2>
         <p class="text-muted-foreground text-sm mt-1">Every play across all your playbooks.</p>
       </div>
-      <Button @click="quickPlay.open()">
-        <Plus class="w-4 h-4 mr-2" />
-        New Play
-      </Button>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex rounded-lg border border-border bg-muted/30 p-0.5">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="viewMode === 'grid' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'grid'"
+          >
+            <LayoutGrid class="w-3.5 h-3.5" />
+            Grid
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
+            :class="viewMode === 'list' ? 'bg-background text-foreground shadow' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'list'"
+          >
+            <List class="w-3.5 h-3.5" />
+            List
+          </button>
+        </div>
+        <Button @click="quickPlay.open()">
+          <Plus class="w-4 h-4 mr-2" />
+          New Play
+        </Button>
+      </div>
     </div>
 
     <!-- Filters -->
-    <div class="flex items-center gap-3">
-      <div class="relative flex-1 max-w-sm">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div class="relative flex-1 min-w-[12rem] max-w-sm">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           v-model="searchQuery"
@@ -21,7 +43,7 @@
           class="pl-9"
         />
       </div>
-      <div class="flex gap-1">
+      <div class="flex flex-wrap gap-1">
         <Button
           variant="outline"
           size="sm"
@@ -48,18 +70,41 @@
           <Shield class="w-3.5 h-3.5 mr-1" />
           Defense ({{ defensePlays.length }})
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          :class="favoritesFilter ? 'bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-300' : ''"
+          @click="favoritesFilter = !favoritesFilter"
+        >
+          <Star class="w-3.5 h-3.5 mr-1" :class="favoritesFilter ? 'fill-amber-500 text-amber-600' : ''" />
+          Favorites ({{ favoriteCount }})
+        </Button>
       </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-      <div v-for="i in 6" :key="i" class="play-card glass">
-        <div class="flex items-start justify-between mb-3">
-          <Skeleton class="h-5 w-16 rounded-md" />
-          <Skeleton class="h-3 w-12" />
-        </div>
-        <Skeleton class="h-4 w-28 mb-1" />
-        <Skeleton class="h-3 w-20 mt-2" />
+    <div
+      v-if="loading"
+      :class="viewMode === 'list' ? 'flex flex-col gap-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3'"
+    >
+      <div v-for="i in 6" :key="i" class="play-card glass" :class="viewMode === 'list' ? 'flex flex-row items-center gap-4 py-3' : ''">
+        <template v-if="viewMode === 'list'">
+          <Skeleton class="h-8 w-8 rounded shrink-0" />
+          <Skeleton class="h-5 w-14 rounded-md shrink-0" />
+          <div class="flex-1 min-w-0 space-y-1">
+            <Skeleton class="h-4 w-40" />
+            <Skeleton class="h-3 w-24" />
+          </div>
+          <Skeleton class="h-3 w-16 shrink-0" />
+        </template>
+        <template v-else>
+          <div class="flex items-start justify-between mb-3">
+            <Skeleton class="h-5 w-16 rounded-md" />
+            <Skeleton class="h-3 w-12" />
+          </div>
+          <Skeleton class="h-4 w-28 mb-1" />
+          <Skeleton class="h-3 w-20 mt-2" />
+        </template>
       </div>
     </div>
 
@@ -76,10 +121,16 @@
 
     <!-- Plays Grid -->
     <div v-else-if="filteredPlays.length === 0" class="text-center py-12">
-      <p class="text-muted-foreground text-sm">No plays match your search.</p>
+      <p class="text-muted-foreground text-sm">
+        {{ favoritesFilter ? 'No favorite plays yet. Star a play to add it here.' : 'No plays match your filters.' }}
+      </p>
     </div>
 
-    <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+    <!-- Grid view -->
+    <div
+      v-else-if="viewMode === 'grid'"
+      class="grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
+    >
       <div
         v-for="play in filteredPlays"
         :key="play.id"
@@ -87,7 +138,7 @@
         @click="navigateToPlay(play.id)"
       >
         <div class="flex items-start justify-between mb-3">
-          <div 
+          <div
             class="play-type-badge"
             :class="play.play_type === 'offense' ? 'badge-offense' : 'badge-defense'"
           >
@@ -95,8 +146,18 @@
             <Shield v-else class="w-3.5 h-3.5" />
             <span>{{ play.play_type }}</span>
           </div>
-          
-          <div class="flex items-center gap-2">
+
+          <div class="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-muted-foreground hover:text-amber-600"
+              :class="isFavorite(play.id) ? 'text-amber-600' : ''"
+              title="Favorite"
+              @click.stop="toggleFavorite(play.id)"
+            >
+              <Star class="w-4 h-4" :class="isFavorite(play.id) ? 'fill-amber-500' : ''" />
+            </Button>
             <span class="text-xs text-muted-foreground">{{ formatDate(play.updated_at) }}</span>
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
@@ -128,6 +189,61 @@
       </div>
     </div>
 
+    <!-- List view -->
+    <div v-else class="flex flex-col gap-2">
+      <div
+        v-for="play in filteredPlays"
+        :key="play.id"
+        class="play-card play-card--list glass flex flex-row items-center gap-3 sm:gap-4 cursor-pointer group min-w-0"
+        @click="navigateToPlay(play.id)"
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-9 w-9 shrink-0 text-muted-foreground hover:text-amber-600"
+          :class="isFavorite(play.id) ? 'text-amber-600' : ''"
+          title="Favorite"
+          @click.stop="toggleFavorite(play.id)"
+        >
+          <Star class="w-4 h-4" :class="isFavorite(play.id) ? 'fill-amber-500' : ''" />
+        </Button>
+        <div
+          class="play-type-badge shrink-0"
+          :class="play.play_type === 'offense' ? 'badge-offense' : 'badge-defense'"
+        >
+          <Swords v-if="play.play_type === 'offense'" class="w-3.5 h-3.5" />
+          <Shield v-else class="w-3.5 h-3.5" />
+          <span>{{ play.play_type }}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="font-medium text-sm truncate">{{ play.name }}</h4>
+          <p class="text-xs text-muted-foreground truncate">
+            <BookOpen class="w-3 h-3 inline mr-1" />
+            {{ play._playbookName || 'Unknown' }}
+            <span v-if="play.formation" class="opacity-70"> · {{ play.formation }}</span>
+          </p>
+        </div>
+        <span class="text-xs text-muted-foreground shrink-0 hidden sm:inline tabular-nums">{{ formatDate(play.updated_at) }}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 sm:opacity-100" @click.stop>
+              <MoreVertical class="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem @click.stop="openShareDialog(play)">
+              <Share2 class="w-3.5 h-3.5 mr-2" />
+              Share
+            </DropdownMenuItem>
+            <DropdownMenuItem @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
+              <Trash2 class="w-3.5 h-3.5 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+
     <SharePlayDialog v-model:open="shareDialogOpen" :play="shareDialogPlay" />
   </div>
 </template>
@@ -138,12 +254,16 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
-import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2, Share2 } from 'lucide-vue-next'
+import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2, Share2, LayoutGrid, List, Star } from 'lucide-vue-next'
 
 const router = useRouter()
 const quickPlay = useQuickPlay()
 const client = useSupabaseDB()
 const { confirm } = useConfirm()
+const { isFavorite, toggleFavorite, favoritePlayIds } = usePlayFavorites()
+
+const viewMode = ref<'grid' | 'list'>('grid')
+const favoritesFilter = ref(false)
 
 interface PlayWithPlaybook extends Play {
   _playbookName?: string
@@ -157,6 +277,8 @@ const typeFilter = ref<'all' | 'offense' | 'defense'>('all')
 const offensePlays = computed(() => allPlays.value.filter(p => p.play_type === 'offense'))
 const defensePlays = computed(() => allPlays.value.filter(p => p.play_type === 'defense'))
 
+const favoriteCount = computed(() => favoritePlayIds.value.length)
+
 const filteredPlays = computed(() => {
   let result = allPlays.value
 
@@ -164,10 +286,15 @@ const filteredPlays = computed(() => {
     result = result.filter(p => p.play_type === typeFilter.value)
   }
 
+  if (favoritesFilter.value) {
+    const fav = new Set(favoritePlayIds.value)
+    result = result.filter(p => fav.has(p.id))
+  }
+
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
-    result = result.filter(p => 
-      p.name.toLowerCase().includes(q) || 
+    result = result.filter(p =>
+      p.name.toLowerCase().includes(q) ||
       (p._playbookName?.toLowerCase().includes(q)) ||
       (p.formation?.toLowerCase().includes(q))
     )
@@ -237,6 +364,7 @@ async function handleDelete(id: string) {
     const { error } = await client.from('plays').delete().eq('id', id)
     if (error) throw error
     allPlays.value = allPlays.value.filter(p => p.id !== id)
+    favoritePlayIds.value = favoritePlayIds.value.filter((pid) => pid !== id)
   } catch (e) {
     console.error('Failed to delete play:', e)
   } finally {
@@ -256,6 +384,10 @@ onMounted(() => {
   border-radius: 12px;
   text-decoration: none;
   transition: all 0.15s;
+}
+
+.play-card--list {
+  padding: 10px 14px;
 }
 
 .play-type-badge {
