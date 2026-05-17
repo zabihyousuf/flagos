@@ -76,6 +76,19 @@ export function useJobHistory() {
   async function deleteJob(jobId: string): Promise<boolean> {
     if (!user.value) return false
     try {
+      const { data: jobRow, error: jobFetchErr } = await client
+        .from('sim_jobs')
+        .select('id')
+        .eq('id', jobId)
+        .eq('user_id', user.value.id)
+        .maybeSingle()
+
+      if (jobFetchErr) throw jobFetchErr
+      if (!jobRow) {
+        error.value = 'Simulation not found'
+        return false
+      }
+
       await client.from('sim_recordings').delete().eq('job_id', jobId)
       await client.from('sim_results').delete().eq('job_id', jobId)
       await client.from('sim_insights').delete().eq('job_id', jobId)
