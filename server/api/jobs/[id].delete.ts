@@ -22,6 +22,20 @@ export default defineEventHandler(async (event) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+  const { data: ownedJob, error: fetchError } = await supabase
+    .from('sim_jobs')
+    .select('id')
+    .eq('id', jobId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (fetchError) {
+    throw createError({ statusCode: 400, statusMessage: fetchError.message ?? 'Failed to verify job ownership' })
+  }
+  if (!ownedJob) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+
   await supabase.from('sim_results').delete().eq('job_id', jobId)
 
   const { error } = await supabase
