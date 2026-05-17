@@ -22,7 +22,34 @@ export default defineEventHandler(async (event) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  await supabase.from('sim_results').delete().eq('job_id', jobId)
+  const { data: job, error: jobError } = await supabase
+    .from('sim_jobs')
+    .select('id')
+    .eq('id', jobId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (jobError) {
+    throw createError({ statusCode: 400, statusMessage: jobError.message ?? 'Failed to load job' })
+  }
+
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+
+  const cleanupSteps = [
+    supabase.from('sim_recordings').delete().eq('job_id', jobId),
+    supabase.from('sim_results').delete().eq('job_id', jobId),
+    supabase.from('sim_insights').delete().eq('job_id', jobId).eq('user_id', user.id),
+    supabase.from('notifications').delete().eq('metadata->>job_id', jobId).eq('user_id', user.id),
+  ] as const
+
+  for (const cleanup of cleanupSteps) {
+    const { error: cleanupError } = await cleanup
+    if (cleanupError) {
+      throw createError({ statusCode: 400, statusMessage: cleanupError.message ?? 'Failed to delete job data' })
+    }
+  }
 
   const { error } = await supabase
     .from('sim_jobs')
