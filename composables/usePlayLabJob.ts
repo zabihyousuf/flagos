@@ -249,6 +249,7 @@ export function usePlayLabJob() {
   const config = useRuntimeConfig()
   const engine = useEngineClient()
   const supabase = useSupabaseDB()
+  const user = useSupabaseUser()
   const baseUrl = engine.baseUrl
   const useStub = !baseUrl
 
@@ -415,11 +416,12 @@ export function usePlayLabJob() {
   }
 
   async function pollStatus() {
-    if (!jobId.value || useStub) return
+    if (!jobId.value || useStub || !user.value?.id) return
     const { data, error } = await supabase
       .from('sim_jobs')
       .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
       .eq('id', jobId.value)
+      .eq('user_id', user.value.id)
       .single()
     if (error || !data) return
     const normalized = normalizeJobStatus(data)
@@ -498,11 +500,12 @@ export function usePlayLabJob() {
   }
 
   async function getJobStatus(id: string): Promise<JobStatus | null> {
-    if (useStub) return null
+    if (useStub || !user.value?.id) return null
     const { data, error } = await supabase
       .from('sim_jobs')
       .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
       .eq('id', id)
+      .eq('user_id', user.value.id)
       .single()
     if (error || !data) return null
     return normalizeJobStatus(data)
@@ -543,21 +546,23 @@ export function usePlayLabJob() {
   }
 
   async function loadResult(id: string): Promise<boolean> {
-    const [jobRes, resultRes] = await Promise.all([
-      supabase
-        .from('sim_jobs')
-        .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('sim_results')
-        .select('result_json')
-        .eq('job_id', id)
-        .single(),
-    ])
-    if (jobRes.error || !jobRes.data || resultRes.error || !resultRes.data?.result_json) return false
-    const normalized = normalizeJobStatus(jobRes.data)
-    const resultData = resultRes.data.result_json as Record<string, any>
+    if (!user.value?.id) return false
+    const { data: jobData, error: jobError } = await supabase
+      .from('sim_jobs')
+      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
+      .eq('id', id)
+      .eq('user_id', user.value.id)
+      .single()
+    if (jobError || !jobData) return false
+
+    const { data: resultDataRow, error: resultError } = await supabase
+      .from('sim_results')
+      .select('result_json')
+      .eq('job_id', id)
+      .single()
+    if (resultError || !resultDataRow?.result_json) return false
+    const normalized = normalizeJobStatus(jobData)
+    const resultData = resultDataRow.result_json as Record<string, any>
     jobId.value = id
     status.value = { ...normalized, state: 'COMPLETED' as JobState }
     result.value = resultData as BatchSimResult
