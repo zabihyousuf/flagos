@@ -249,6 +249,7 @@ export function usePlayLabJob() {
   const config = useRuntimeConfig()
   const engine = useEngineClient()
   const supabase = useSupabaseDB()
+  const user = useSupabaseUser()
   const baseUrl = engine.baseUrl
   const useStub = !baseUrl
 
@@ -288,6 +289,52 @@ export function usePlayLabJob() {
 
   function stopPolling() {
     clearTimers()
+  }
+
+  const jobStatusSelect = 'id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata'
+
+  async function hasSharedJobAccess(id: string): Promise<boolean> {
+    if (!user.value?.id) return false
+
+    const { data: memberRows } = await supabase
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.value.id)
+    const teamIds = (memberRows ?? []).map((row: any) => row.team_id as string).filter(Boolean)
+    if (teamIds.length === 0) return false
+
+    const { data: share } = await supabase
+      .from('sim_job_team_shares')
+      .select('id')
+      .eq('job_id', id)
+      .in('team_id', teamIds)
+      .limit(1)
+      .maybeSingle()
+
+    return !!share
+  }
+
+  async function fetchAccessibleJobRow(id: string): Promise<Record<string, any> | null> {
+    if (!user.value?.id) return null
+
+    const { data: ownedJob, error: ownedError } = await supabase
+      .from('sim_jobs')
+      .select(jobStatusSelect)
+      .eq('id', id)
+      .eq('user_id', user.value.id)
+      .maybeSingle()
+    if (!ownedError && ownedJob) return ownedJob as Record<string, any>
+
+    if (!(await hasSharedJobAccess(id))) return null
+
+    const { data: sharedJob, error: sharedError } = await supabase
+      .from('sim_jobs')
+      .select(jobStatusSelect)
+      .eq('id', id)
+      .maybeSingle()
+    if (sharedError || !sharedJob) return null
+
+    return sharedJob as Record<string, any>
   }
 
   async function startJob(request: PlayLabBatchRequest, metadata: JobMetadata): Promise<boolean> {
@@ -417,12 +464,8 @@ export function usePlayLabJob() {
 
   async function pollStatus() {
     if (!jobId.value || useStub) return
-    const { data, error } = await supabase
-      .from('sim_jobs')
-      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
-      .eq('id', jobId.value)
-      .single()
-    if (error || !data) return
+    const data = await fetchAccessibleJobRow(jobId.value)
+    if (!data) return
     const normalized = normalizeJobStatus(data)
     console.log('[poll-status]', normalized.state, normalized.progress_percent?.toFixed(0) + '%', normalized.progress_label)
     status.value = normalized
@@ -500,12 +543,8 @@ export function usePlayLabJob() {
 
   async function getJobStatus(id: string): Promise<JobStatus | null> {
     if (useStub) return null
-    const { data, error } = await supabase
-      .from('sim_jobs')
-      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
-      .eq('id', id)
-      .single()
-    if (error || !data) return null
+    const data = await fetchAccessibleJobRow(id)
+    if (!data) return null
     return normalizeJobStatus(data)
   }
 
@@ -544,20 +583,17 @@ export function usePlayLabJob() {
   }
 
   async function loadResult(id: string): Promise<boolean> {
-    const [jobRes, resultRes] = await Promise.all([
-      supabase
-        .from('sim_jobs')
-        .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('sim_results')
-        .select('result_json')
-        .eq('job_id', id)
-        .single(),
-    ])
-    if (jobRes.error || !jobRes.data || resultRes.error || !resultRes.data?.result_json) return false
-    const normalized = normalizeJobStatus(jobRes.data)
+    const jobRow = await fetchAccessibleJobRow(id)
+    if (!jobRow) return false
+
+    const resultRes = await supabase
+      .from('sim_results')
+      .select('result_json')
+      .eq('job_id', id)
+      .single()
+    if (resultRes.error || !resultRes.data?.result_json) return false
+
+    const normalized = normalizeJobStatus(jobRow)
     const resultData = resultRes.data.result_json as Record<string, any>
     jobId.value = id
     status.value = { ...normalized, state: 'COMPLETED' as JobState }
