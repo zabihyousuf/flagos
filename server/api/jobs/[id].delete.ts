@@ -22,7 +22,29 @@ export default defineEventHandler(async (event) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  await supabase.from('sim_results').delete().eq('job_id', jobId)
+  const { data: ownedJob, error: jobLookupError } = await supabase
+    .from('sim_jobs')
+    .select('id')
+    .eq('id', jobId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (jobLookupError) {
+    throw createError({ statusCode: 400, statusMessage: jobLookupError.message ?? 'Failed to find job' })
+  }
+
+  if (!ownedJob) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+
+  const { error: resultDeleteError } = await supabase
+    .from('sim_results')
+    .delete()
+    .eq('job_id', jobId)
+
+  if (resultDeleteError) {
+    throw createError({ statusCode: 400, statusMessage: resultDeleteError.message ?? 'Failed to delete job results' })
+  }
 
   const { error } = await supabase
     .from('sim_jobs')

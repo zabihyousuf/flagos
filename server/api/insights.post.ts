@@ -104,6 +104,21 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
 
+  const { data: ownedJob, error: jobLookupError } = await supabase
+    .from('sim_jobs')
+    .select('id')
+    .eq('id', job_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (jobLookupError) {
+    throw createError({ statusCode: 400, statusMessage: jobLookupError.message ?? 'Failed to find job' })
+  }
+
+  if (!ownedJob) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+
   if (!regenerate) {
     const { data: existing } = await supabase
       .from('sim_insights')
