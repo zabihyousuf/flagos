@@ -76,11 +76,28 @@ export function useJobHistory() {
   async function deleteJob(jobId: string): Promise<boolean> {
     if (!user.value) return false
     try {
-      await client.from('sim_recordings').delete().eq('job_id', jobId)
-      await client.from('sim_results').delete().eq('job_id', jobId)
-      await client.from('sim_insights').delete().eq('job_id', jobId)
+      const { data: jobRow, error: jobFetchErr } = await client
+        .from('sim_jobs')
+        .select('id')
+        .eq('id', jobId)
+        .eq('user_id', user.value.id)
+        .maybeSingle()
+      if (jobFetchErr) throw jobFetchErr
+      if (!jobRow) throw new Error('Job not found')
+
+      const { error: recordingsErr } = await client.from('sim_recordings').delete().eq('job_id', jobId)
+      if (recordingsErr) throw recordingsErr
+      const { error: resultsErr } = await client.from('sim_results').delete().eq('job_id', jobId)
+      if (resultsErr) throw resultsErr
+      const { error: insightsErr } = await client.from('sim_insights').delete().eq('job_id', jobId).eq('user_id', user.value.id)
+      if (insightsErr) throw insightsErr
       // Remove notifications linked to this job
-      await client.from('notifications').delete().eq('metadata->>job_id', jobId)
+      const { error: notificationsErr } = await client
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.value.id)
+        .eq('metadata->>job_id', jobId)
+      if (notificationsErr) throw notificationsErr
       const { error: err } = await client
         .from('sim_jobs')
         .delete()
@@ -111,12 +128,24 @@ export function useJobHistory() {
         jobs.value = []
         return true
       }
-      await client.from('sim_recordings').delete().in('job_id', jobIds)
-      await client.from('sim_results').delete().in('job_id', jobIds)
-      await client.from('sim_insights').delete().in('job_id', jobIds)
+      const { error: recordingsErr } = await client.from('sim_recordings').delete().in('job_id', jobIds)
+      if (recordingsErr) throw recordingsErr
+      const { error: resultsErr } = await client.from('sim_results').delete().in('job_id', jobIds)
+      if (resultsErr) throw resultsErr
+      const { error: insightsErr } = await client
+        .from('sim_insights')
+        .delete()
+        .in('job_id', jobIds)
+        .eq('user_id', user.value.id)
+      if (insightsErr) throw insightsErr
       // Remove all notifications linked to these jobs
       for (const jid of jobIds) {
-        await client.from('notifications').delete().eq('metadata->>job_id', jid)
+        const { error: notificationsErr } = await client
+          .from('notifications')
+          .delete()
+          .eq('user_id', user.value.id)
+          .eq('metadata->>job_id', jid)
+        if (notificationsErr) throw notificationsErr
       }
       const { error: err } = await client
         .from('sim_jobs')
