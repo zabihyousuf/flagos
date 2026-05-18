@@ -65,13 +65,14 @@ const isCompactAuth = computed(() =>
 }
 
 .auth-brand {
+  display: none;
   background: linear-gradient(165deg, var(--auth-brand-start) 0%, var(--auth-brand-end) 100%);
-  min-height: 40vh;
   flex-shrink: 0;
 }
 
 @media (min-width: 1024px) {
   .auth-brand {
+    display: flex;
     min-height: 100vh;
     height: 100vh;
     max-width: 50%;
@@ -92,7 +93,6 @@ const isCompactAuth = computed(() =>
 }
 
 .auth-form {
-  box-shadow: -8px 0 24px rgba(0,0,0,0.06);
   background: var(--color-background);
 }
 

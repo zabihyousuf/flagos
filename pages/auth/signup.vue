@@ -1,14 +1,11 @@
 <template>
   <div class="auth-page">
-    <header class="mb-10">
+    <header class="mb-8">
       <h1 class="font-display font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
         Create account
       </h1>
-      <p class="mt-2 text-muted-foreground text-sm sm:text-base">
-        Get started with FlagLab. One playbook to rule them all.
-      </p>
-      <p class="mt-3 text-muted-foreground text-xs max-w-[360px]">
-        We ask for your name, role, number of players, and optional team so we can personalize your experience and set up your first team if you’d like.
+      <p class="mt-2 text-muted-foreground text-sm">
+        Get started with FlagLab.
       </p>
     </header>
 
@@ -28,142 +25,194 @@
           We sent a confirmation link to <strong class="text-foreground">{{ email }}</strong>. Click it to activate your account.
         </p>
       </div>
-      <NuxtLink
-        to="/auth/login"
-        class="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-      >
+      <NuxtLink to="/auth/login" class="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
         Back to sign in
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
       </NuxtLink>
     </div>
 
-    <!-- Signup form -->
-    <form v-else @submit.prevent="handleSignup" class="space-y-5">
-      <div class="space-y-2">
-        <Label for="display_name" class="text-foreground font-medium">Display name</Label>
-        <Input
-          id="display_name"
-          v-model="displayName"
-          type="text"
-          placeholder="e.g. Coach Smith"
-          required
-          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
-        />
-        <p class="text-xs text-muted-foreground">So we can greet you and use it in your playbook.</p>
-      </div>
-      <div class="space-y-2">
-        <Label for="role" class="text-foreground font-medium">Role</Label>
-        <Select v-model="role" required>
-          <SelectTrigger id="role" class="h-11 bg-muted/40 border-border focus:bg-background transition-colors">
-            <SelectValue placeholder="Select your role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="coach">Coach</SelectItem>
-            <SelectItem value="player">Player</SelectItem>
-            <SelectItem value="parent">Parent</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
-        <p class="text-xs text-muted-foreground">Helps us tailor the app (e.g. coach vs player).</p>
-      </div>
-      <div class="space-y-2">
-        <Label for="email" class="text-foreground font-medium">Email</Label>
-        <Input
-          id="email"
-          v-model="email"
-          type="email"
-          placeholder="you@example.com"
-          required
-          autocomplete="email"
-          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
-        />
-      </div>
-      <div class="space-y-2">
-        <Label for="password" class="text-foreground font-medium">Password</Label>
-        <Input
-          id="password"
-          v-model="password"
-          type="password"
-          placeholder="At least 6 characters"
-          required
-          autocomplete="new-password"
-          minlength="6"
-          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
-        />
-        <p class="text-xs text-muted-foreground">Minimum 6 characters.</p>
-      </div>
-      <div class="space-y-2">
-        <Label for="password_confirm" class="text-foreground font-medium">Confirm password</Label>
-        <Input
-          id="password_confirm"
-          v-model="passwordConfirm"
-          type="password"
-          placeholder="Re-enter your password"
-          required
-          autocomplete="new-password"
-          minlength="6"
-          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
-        />
+    <template v-else>
+      <!-- Role picker -->
+      <div class="role-picker">
+        <button
+          type="button"
+          class="role-card"
+          :class="{ active: accountType === 'manager' }"
+          @click="accountType = 'manager'; inviteToken = null; inviteTeamName = null"
+        >
+          <Clipboard class="role-card-icon" />
+          <span class="role-card-label">Coach</span>
+          <span class="role-card-desc">Create and manage teams, playbooks, and rosters</span>
+        </button>
+        <button
+          type="button"
+          class="role-card"
+          :class="{ active: accountType === 'player' }"
+          @click="accountType = 'player'"
+        >
+          <User class="role-card-icon" />
+          <span class="role-card-label">Player</span>
+          <span class="role-card-desc">Join a team, view shared playbooks, and create plays</span>
+        </button>
       </div>
 
-      <div class="space-y-2">
-        <Label for="starter_count" class="text-foreground font-medium">Number of players per side</Label>
-        <Select v-model="starterCount" required>
-          <SelectTrigger id="starter_count" class="h-11 bg-muted/40 border-border focus:bg-background transition-colors">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="n in [5, 6, 7, 8]" :key="n" :value="String(n)">{{ n }}v{{ n }}</SelectItem>
-          </SelectContent>
-        </Select>
-        <p class="text-xs text-muted-foreground">Used for play designer formation and roster starters (e.g. 5v5, 7v7). You can change this in Settings.</p>
+      <!-- Player: invite link paste -->
+      <div v-if="accountType === 'player'" class="mt-4 space-y-3">
+        <!-- Linked invite success banner -->
+        <div v-if="inviteToken && inviteTeamName" class="invite-linked-banner">
+          <div class="flex items-center gap-2">
+            <span class="text-green-600">✓</span>
+            <span class="text-sm font-medium text-foreground">Invite linked — joining <strong>{{ inviteTeamName }}</strong></span>
+          </div>
+          <button type="button" class="text-xs text-muted-foreground hover:text-foreground" @click="clearInvite">Remove</button>
+        </div>
+
+        <!-- Paste invite link input -->
+        <div v-else class="space-y-1.5">
+          <label class="text-sm font-medium text-foreground">Have an invite link?</label>
+          <div class="relative">
+            <Input
+              v-model="inviteLinkInput"
+              type="text"
+              placeholder="Paste your invite link here"
+              :disabled="validatingInvite"
+              class="h-11 bg-muted/40 border-border focus:bg-background transition-colors pr-24"
+              @paste="onInvitePaste"
+              @keyup.enter="validateInviteLink"
+            />
+            <button
+              v-if="inviteLinkInput.trim()"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+              :disabled="validatingInvite"
+              @click="validateInviteLink"
+            >
+              <span v-if="validatingInvite" class="inline-flex items-center gap-1">
+                <span class="size-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                Checking…
+              </span>
+              <span v-else>Use link</span>
+            </button>
+          </div>
+          <p v-if="inviteLinkError" class="text-xs text-destructive">{{ inviteLinkError }}</p>
+          <p v-else class="text-xs text-muted-foreground">Your coach's invite sets up your team membership automatically.</p>
+        </div>
       </div>
 
-      <div class="space-y-2">
-        <Label for="team_name" class="text-foreground font-medium">Team name <span class="text-muted-foreground font-normal">(optional)</span></Label>
-        <Input
-          id="team_name"
-          v-model="teamName"
-          type="text"
-          placeholder="e.g. Hawks 12U"
-          class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
-        />
-        <p class="text-xs text-muted-foreground">If you add one, we’ll create this team for you so you can start adding players right away.</p>
-      </div>
+      <!-- Signup form -->
+      <form @submit.prevent="handleSignup" class="space-y-5 mt-6">
+        <div class="space-y-2">
+          <Label for="display_name" class="text-foreground font-medium">Display name</Label>
+          <Input
+            id="display_name"
+            v-model="displayName"
+            type="text"
+            :placeholder="accountType === 'manager' ? 'e.g. Coach Smith' : 'e.g. Alex Johnson'"
+            required
+            class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+          />
+        </div>
+        <div class="space-y-2">
+          <Label for="email" class="text-foreground font-medium">Email</Label>
+          <Input
+            id="email"
+            v-model="email"
+            type="email"
+            :placeholder="inviteToken ? '' : 'you@example.com'"
+            :readonly="!!inviteToken"
+            required
+            autocomplete="email"
+            class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+            :class="{ 'opacity-60 cursor-default': !!inviteToken }"
+          />
+          <p v-if="inviteToken" class="text-xs text-muted-foreground">Email is set by your invite and cannot be changed.</p>
+        </div>
+        <div class="space-y-2">
+          <Label for="password" class="text-foreground font-medium">Password</Label>
+          <Input
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="At least 6 characters"
+            required
+            autocomplete="new-password"
+            minlength="6"
+            class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+          />
+        </div>
+        <div class="space-y-2">
+          <Label for="password_confirm" class="text-foreground font-medium">Confirm password</Label>
+          <Input
+            id="password_confirm"
+            v-model="passwordConfirm"
+            type="password"
+            placeholder="Re-enter your password"
+            required
+            autocomplete="new-password"
+            minlength="6"
+            class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+          />
+        </div>
 
-      <p v-if="errorMsg" class="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-        {{ errorMsg }}
+        <!-- Coach-only fields -->
+        <template v-if="accountType === 'manager'">
+          <div class="space-y-2">
+            <Label for="starter_count" class="text-foreground font-medium">Players per side</Label>
+            <Select v-model="starterCount" required>
+              <SelectTrigger id="starter_count" class="h-11 bg-muted/40 border-border focus:bg-background transition-colors">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="n in [5, 6, 7, 8]" :key="n" :value="String(n)">{{ n }}v{{ n }}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p class="text-xs text-muted-foreground">Used for play designer formations (e.g. 5v5, 7v7). Change anytime in Settings.</p>
+          </div>
+          <div class="space-y-2">
+            <Label for="team_name" class="text-foreground font-medium">
+              Team name <span class="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="team_name"
+              v-model="teamName"
+              type="text"
+              placeholder="e.g. Hawks 12U"
+              class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
+            />
+            <p class="text-xs text-muted-foreground">We'll create this team for you so you can start adding players right away.</p>
+          </div>
+        </template>
+
+        <p v-if="errorMsg" class="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+          {{ errorMsg }}
+        </p>
+
+        <Button type="submit" class="w-full h-11 font-semibold text-base" :disabled="submitting">
+          <span v-if="submitting" class="inline-flex items-center gap-2">
+            <span class="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+            Creating account…
+          </span>
+          <span v-else>Create account</span>
+        </Button>
+      </form>
+
+      <p class="mt-8 text-center text-sm text-muted-foreground">
+        Already have an account?
+        <NuxtLink to="/auth/login" class="font-medium text-primary hover:underline ml-1">Sign in</NuxtLink>
       </p>
-
-      <Button
-        type="submit"
-        class="w-full h-11 font-semibold text-base"
-        :disabled="submitting"
-      >
-        <span v-if="submitting" class="inline-flex items-center gap-2">
-          <span class="size-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-          Creating account...
-        </span>
-        <span v-else>Create account</span>
-      </Button>
-    </form>
-
-    <p v-if="!success" class="mt-8 text-center text-sm text-muted-foreground">
-      Already have an account?
-      <NuxtLink to="/auth/login" class="font-medium text-primary hover:underline ml-1">
-        Sign in
-      </NuxtLink>
-    </p>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Clipboard, User } from 'lucide-vue-next'
+
 definePageMeta({ layout: 'auth' })
 
 const client = useSupabaseClient()
 
+const accountType = ref<'manager' | 'player'>('manager')
 const displayName = ref('')
-const role = ref<string>('')
 const email = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
@@ -172,6 +221,64 @@ const teamName = ref('')
 const errorMsg = ref('')
 const submitting = ref(false)
 const success = ref(false)
+
+// Invite link flow (players)
+const inviteLinkInput = ref('')
+const inviteToken = ref<string | null>(null)
+const inviteTeamName = ref<string | null>(null)
+const inviteLinkError = ref<string | null>(null)
+const validatingInvite = ref(false)
+
+function extractToken(raw: string): string | null {
+  raw = raw.trim()
+  // Full URL like https://app.com/join/abc123
+  const urlMatch = raw.match(/\/join\/([a-zA-Z0-9_-]+)/)
+  if (urlMatch) return urlMatch[1]
+  // Bare token
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(raw)) return raw
+  return null
+}
+
+async function validateInviteLink() {
+  const token = extractToken(inviteLinkInput.value)
+  if (!token) {
+    inviteLinkError.value = 'That doesn\'t look like a valid invite link.'
+    return
+  }
+  validatingInvite.value = true
+  inviteLinkError.value = null
+  try {
+    const data = await $fetch<{ email: string; team: { name: string } | null; player: { name: string } | null }>(`/api/invites/${token}/validate`)
+    inviteToken.value = token
+    inviteTeamName.value = data.team?.name ?? null
+    email.value = data.email
+    if (data.player?.name && !displayName.value) displayName.value = data.player.name
+    inviteLinkInput.value = ''
+  } catch (e: any) {
+    const msg = e.data?.statusMessage ?? e.message ?? 'Invalid invite'
+    if (msg.includes('expired')) inviteLinkError.value = 'This invite link has expired.'
+    else if (msg.includes('used')) inviteLinkError.value = 'This invite link has already been used.'
+    else inviteLinkError.value = 'Invalid invite link. Ask your coach for a new one.'
+  } finally {
+    validatingInvite.value = false
+  }
+}
+
+function onInvitePaste(e: ClipboardEvent) {
+  const pasted = e.clipboardData?.getData('text') ?? ''
+  if (extractToken(pasted)) {
+    inviteLinkInput.value = pasted
+    nextTick(() => validateInviteLink())
+  }
+}
+
+function clearInvite() {
+  inviteToken.value = null
+  inviteTeamName.value = null
+  email.value = ''
+  inviteLinkInput.value = ''
+  inviteLinkError.value = null
+}
 
 async function handleSignup() {
   if (password.value !== passwordConfirm.value) {
@@ -183,18 +290,25 @@ async function handleSignup() {
   try {
     const metadata: Record<string, unknown> = {
       display_name: displayName.value,
-      role: role.value,
-      preferred_starter_count: Math.min(8, Math.max(5, parseInt(starterCount.value, 10) || 5)),
+      account_type: accountType.value,
     }
-    const name = teamName.value?.trim()
-    if (name) metadata.preferred_team_name = name
+    if (accountType.value === 'manager') {
+      metadata.preferred_starter_count = Math.min(8, Math.max(5, parseInt(starterCount.value, 10) || 5))
+      const name = teamName.value?.trim()
+      if (name) metadata.preferred_team_name = name
+    }
+
+    // If player has a linked invite, redirect to the join page after email confirmation
+    const redirectTo = inviteToken.value
+      ? `${window.location.origin}/join/${inviteToken.value}`
+      : `${window.location.origin}/auth/login`
 
     const { error } = await client.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
         data: metadata,
-        emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/login` : '',
+        emailRedirectTo: redirectTo,
       },
     })
     if (error) throw error
@@ -206,3 +320,65 @@ async function handleSignup() {
   }
 }
 </script>
+
+<style scoped>
+/* ── Role picker ───────────────────────────────────────────────── */
+.role-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.role-card:hover {
+  border-color: var(--color-primary);
+}
+
+.role-card.active {
+  border-color: var(--color-primary);
+  background: color-mix(in oklch, var(--color-primary) 6%, transparent);
+}
+
+.role-card-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-primary);
+}
+
+.role-card-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.role-card-desc {
+  font-size: 11px;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
+}
+
+/* ── Invite linked banner ──────────────────────────────────────── */
+.invite-linked-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklch, #22c55e 40%, transparent);
+  background: color-mix(in oklch, #22c55e 8%, transparent);
+}
+</style>

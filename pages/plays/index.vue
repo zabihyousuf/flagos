@@ -6,7 +6,7 @@
         <p class="text-muted-foreground text-sm mt-1">Every play across all your playbooks.</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <div class="flex rounded-lg border border-border bg-muted/30 p-0.5">
+        <div class="plays-view-toggle flex rounded-lg border border-border bg-muted/30 p-0.5">
           <button
             type="button"
             class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
@@ -112,7 +112,7 @@
     <div v-else-if="allPlays.length === 0" class="text-center py-16">
       <Swords class="w-14 h-14 text-muted-foreground mx-auto mb-4" />
       <h3 class="font-medium text-lg font-display">No plays yet</h3>
-      <p class="text-muted-foreground text-sm mt-1">Create your first play to start designing.</p>
+      <p class="text-muted-foreground text-sm mt-1">No plays yet. Create your first one to start designing.</p>
       <Button class="mt-4" @click="quickPlay.open()">
         <Plus class="w-4 h-4 mr-2" />
         Create Play
@@ -166,11 +166,15 @@
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem @click.stop="openShareDialog(play)">
+                <DropdownMenuItem v-if="isManager" @click.stop="openShareDialog(play)">
                   <Share2 class="w-3.5 h-3.5 mr-2" />
                   Share
                 </DropdownMenuItem>
-                <DropdownMenuItem @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
+                <DropdownMenuItem v-if="isManager" @click.stop="openNotifyDialog(play)">
+                  <Bell class="w-3.5 h-3.5 mr-2" />
+                  Notify Team
+                </DropdownMenuItem>
+                <DropdownMenuItem v-if="isManager" @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
                   <Trash2 class="w-3.5 h-3.5 mr-2" />
                   Delete
                 </DropdownMenuItem>
@@ -231,11 +235,15 @@
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem @click.stop="openShareDialog(play)">
+            <DropdownMenuItem v-if="isManager" @click.stop="openShareDialog(play)">
               <Share2 class="w-3.5 h-3.5 mr-2" />
               Share
             </DropdownMenuItem>
-            <DropdownMenuItem @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
+            <DropdownMenuItem v-if="isManager" @click.stop="openNotifyDialog(play)">
+              <Bell class="w-3.5 h-3.5 mr-2" />
+              Notify Team
+            </DropdownMenuItem>
+            <DropdownMenuItem v-if="isManager" @click.stop="handleDelete(play.id)" class="text-destructive focus:text-destructive">
               <Trash2 class="w-3.5 h-3.5 mr-2" />
               Delete
             </DropdownMenuItem>
@@ -245,28 +253,80 @@
     </div>
 
     <SharePlayDialog v-model:open="shareDialogOpen" :play="shareDialogPlay" />
+
+    <!-- Notify Team Dialog -->
+    <Dialog v-model:open="notifyDialogOpen">
+      <DialogContent class="sm:max-w-sm glass">
+        <DialogHeader>
+          <DialogTitle>Notify Team</DialogTitle>
+          <DialogDescription>
+            Send a notification about "{{ notifyDialogPlay?.name }}" to your team.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4 py-2">
+          <div class="space-y-1.5">
+            <label class="notify-label">Team</label>
+            <Select v-model="notifySelectedTeamId">
+              <SelectTrigger>
+                <SelectValue placeholder="Select team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="team in managerTeams" :key="team.id" :value="team.id">
+                  {{ team.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="notify-label">Message <span class="notify-optional">(optional)</span></label>
+            <textarea
+              v-model="notifyMessage"
+              class="notify-textarea"
+              rows="3"
+              placeholder="Add a message for your team…"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <Button variant="outline" @click="notifyDialogOpen = false">Cancel</Button>
+            <Button :disabled="!notifySelectedTeamId || notifying" @click="handleNotifyTeam">
+              <Bell class="w-3.5 h-3.5 mr-1.5" />
+              {{ notifying ? 'Sending…' : 'Send Notification' }}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
+definePageMeta({})
+
 import type { Play } from '~/lib/types'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
-import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2, Share2, LayoutGrid, List, Star } from 'lucide-vue-next'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '~/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { Plus, Search, Swords, Shield, BookOpen, MoreVertical, Trash2, Share2, LayoutGrid, List, Star, Bell, Users } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const quickPlay = useQuickPlay()
 const client = useSupabaseDB()
 const { confirm } = useConfirm()
 const { isFavorite, toggleFavorite, favoritePlayIds } = usePlayFavorites()
+const { isManager, isPlayer } = useAccountType()
+const { teams, fetchTeams } = useTeams()
+const { fetchAccessiblePlaybooks, accessiblePlaybooks } = useTeamPlaybooks()
 
 const viewMode = ref<'grid' | 'list'>('grid')
 const favoritesFilter = ref(false)
 
 interface PlayWithPlaybook extends Play {
   _playbookName?: string
+  _authorName?: string
 }
 
 const allPlays = ref<PlayWithPlaybook[]>([])
@@ -309,17 +369,37 @@ async function fetchAllPlays() {
 
   loading.value = true
   try {
-    const { data } = await client
-      .from('plays')
-      .select('*, playbooks!inner(name)')
-      .eq('user_id', user.value.id)
-      .order('updated_at', { ascending: false })
-
-    if (data) {
-      allPlays.value = data.map((p: any) => ({
-        ...p,
-        _playbookName: p.playbooks?.name,
-      }))
+    if (isPlayer.value) {
+      // Fetch accessible playbook IDs first
+      await fetchAccessiblePlaybooks()
+      const playbookIds = accessiblePlaybooks.value.map((pb) => pb.id)
+      if (playbookIds.length === 0) {
+        allPlays.value = []
+        return
+      }
+      const { data } = await client
+        .from('plays')
+        .select('*, playbooks!inner(name)')
+        .in('playbook_id', playbookIds)
+        .order('updated_at', { ascending: false })
+      if (data) {
+        allPlays.value = data.map((p: any) => ({
+          ...p,
+          _playbookName: p.playbooks?.name,
+        }))
+      }
+    } else {
+      const { data } = await client
+        .from('plays')
+        .select('*, playbooks!inner(name)')
+        .eq('user_id', user.value.id)
+        .order('updated_at', { ascending: false })
+      if (data) {
+        allPlays.value = data.map((p: any) => ({
+          ...p,
+          _playbookName: p.playbooks?.name,
+        }))
+      }
     }
   } finally {
     loading.value = false
@@ -344,6 +424,49 @@ const shareDialogPlay = ref<PlayWithPlaybook | null>(null)
 function openShareDialog(play: PlayWithPlaybook) {
   shareDialogPlay.value = play
   shareDialogOpen.value = true
+}
+
+// Notify team dialog state
+const notifyDialogOpen = ref(false)
+const notifyDialogPlay = ref<PlayWithPlaybook | null>(null)
+const notifySelectedTeamId = ref<string>('')
+const notifyMessage = ref('')
+const notifying = ref(false)
+
+const managerTeams = computed(() => teams.value.filter((t) => t.name !== 'Free Agent'))
+
+function openNotifyDialog(play: PlayWithPlaybook) {
+  notifyDialogPlay.value = play
+  notifySelectedTeamId.value = managerTeams.value[0]?.id ?? ''
+  notifyMessage.value = ''
+  notifyDialogOpen.value = true
+}
+
+async function handleNotifyTeam() {
+  if (!notifyDialogPlay.value || !notifySelectedTeamId.value) return
+  notifying.value = true
+  try {
+    await $fetch('/api/notifications/notify-team', {
+      method: 'POST',
+      body: {
+        team_id: notifySelectedTeamId.value,
+        type: 'new_play',
+        title: `New play: ${notifyDialogPlay.value.name}`,
+        message: notifyMessage.value.trim() || undefined,
+        metadata: { play_id: notifyDialogPlay.value.id },
+      },
+    })
+    notifyDialogOpen.value = false
+    toast.success('Team notified', {
+      description: 'Your team has been notified about this play.',
+    })
+  } catch {
+    toast.error('Failed to notify team', {
+      description: 'Please try again in a moment.',
+    })
+  } finally {
+    notifying.value = false
+  }
 }
 
 function navigateToPlay(id: string) {
@@ -374,6 +497,9 @@ async function handleDelete(id: string) {
 
 onMounted(() => {
   fetchAllPlays()
+  if (isManager.value) {
+    fetchTeams()
+  }
 })
 </script>
 
@@ -409,5 +535,45 @@ onMounted(() => {
 .badge-defense {
   background: color-mix(in oklch, var(--color-destructive) 12%, transparent);
   color: var(--color-destructive);
+}
+
+.plays-view-toggle {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .plays-view-toggle {
+    display: flex;
+  }
+}
+
+.notify-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.notify-optional {
+  font-weight: 400;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+}
+
+.notify-textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-size: 13px;
+  padding: 8px 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.notify-textarea:focus {
+  border-color: var(--color-primary);
 }
 </style>

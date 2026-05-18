@@ -478,6 +478,18 @@ function setDirty(value: boolean) {
   isDirty.value = value
 }
 
+/** Full-field render for print: deselect, hide chips, resize after print box is laid out */
+async function prepareForPrint() {
+  routeDeleteChip.value = null
+  selectPlayer(null)
+  await nextTick()
+  resizeCanvas()
+  requestRender()
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+  resizeCanvas()
+  requestRender()
+}
+
 // Expose state and methods for parent page to wire to side panels
 defineExpose({
   canvasData,
@@ -510,5 +522,7 @@ defineExpose({
   canUndo,
   canRedo,
   seedHistory,
+  prepareForPrint,
+  resizeCanvas,
 })
 </script>

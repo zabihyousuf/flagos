@@ -186,11 +186,13 @@ function pickStarters(
   return starters
 }
 
+// Module-level shared state — all composable calls share the same reactive arrays
+const teams = ref<Team[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
+
 export function useTeams() {
   const client = useSupabaseDB()
-  const teams = ref<Team[]>([])
-  const loading = ref(false)
-  const error = ref<string | null>(null)
 
   async function fetchTeams() {
     const user = useSupabaseUser()
@@ -208,14 +210,27 @@ export function useTeams() {
     loading.value = true
     error.value = null
     try {
-      const { data, error: err } = await client
-        .from('teams')
-        .select('*, team_players(*, player:players(*))')
-        .eq('user_id', user.value.id)
-        .order('created_at', { ascending: false })
+      const [ownedResult, memberResult] = await Promise.all([
+        client
+          .from('teams')
+          .select('*, team_players(*, player:players(*))')
+          .eq('user_id', user.value.id)
+          .order('created_at', { ascending: false }),
+        client
+          .from('team_memberships')
+          .select('team:teams(*, team_players(*, player:players(*)))')
+          .eq('user_id', user.value.id),
+      ])
 
-      if (err) throw err
-      teams.value = (data ?? []) as unknown as Team[]
+      if (ownedResult.error) throw ownedResult.error
+      const ownedTeams = (ownedResult.data ?? []) as unknown as Team[]
+      const ownedIds = new Set(ownedTeams.map((t) => t.id))
+
+      const memberTeams = ((memberResult.data ?? []) as any[])
+        .map((m) => m.team)
+        .filter((t): t is Team => !!t && !ownedIds.has(t.id) && t.name !== 'Free Agent')
+
+      teams.value = [...ownedTeams, ...memberTeams]
 
       // Signup: if user had preferred_team_name and has no teams yet, create that team for them
       const preferredName = user.value?.user_metadata?.preferred_team_name as string | undefined

@@ -123,6 +123,8 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ middleware: 'manager-only' })
+
 import type { Play, Playbook, Player } from '~/lib/types'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent } from '~/components/ui/card'

@@ -1,6 +1,11 @@
 /**
  * Plan and trial access. New users get a 3-day free trial; after that Pro features
  * require plan === 'pro'. Use hasProAccess to gate features; use isPaidPro / isTrialing for UI.
+ *
+ * For player accounts: Pro access is inherited from any team the player belongs to
+ * where the coach has an active Pro subscription. This is resolved server-side
+ * (players can't read other users' team_subscriptions via RLS) and stored in
+ * 'player-inherited-plan' state — populated by useAccountType + the accept-invite flow.
  */
 const TRIAL_DAYS = 3
 
@@ -25,6 +30,8 @@ export function usePlanAccess() {
   const devTrialEndsAt = useState<string | null>('dev-trial-ends-at', () => null)
   /** Shared so layout can show banner again when trial is restarted from settings. */
   const trialBannerDismissed = useState<boolean>('trial-banner-dismissed', () => false)
+  /** Player-inherited Pro plan: set to 'pro' by the accept-invite flow when any coach team has Pro. */
+  const playerInheritedPlan = useState<'free' | 'pro' | null>('player-inherited-plan', () => null)
 
   /** Defer localStorage read to onMounted so first client render matches server (avoids hydration mismatch). */
   onMounted(() => {
@@ -68,7 +75,9 @@ export function usePlanAccess() {
 
   const isPaidPro = computed(() => {
     if (import.meta.dev && devProOverride.value) return true
-    return profile.value?.plan === 'pro'
+    if (profile.value?.plan === 'pro') return true
+    // Player accounts inherit Pro from their coach's team subscription
+    return playerInheritedPlan.value === 'pro'
   })
 
   const isTrialing = computed(() => {
@@ -170,5 +179,7 @@ export function usePlanAccess() {
     /** Dev only: stop the trial and become a free user. */
     stopDevTrial,
     trialBannerDismissed,
+    /** Populated by invite-accept flow: 'pro' if any coach team has Pro. */
+    playerInheritedPlan,
   }
 }

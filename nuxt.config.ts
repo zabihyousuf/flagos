@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     supabase: {
       serviceKey: process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
     },
+    resendApiKey: process.env.RESEND_API_KEY ?? '',
     public: {
       engineUrl: process.env.NUXT_PUBLIC_ENGINE_URL ?? '',
       /** When true, sidebar shows items and section headers marked devOnly. When false, only production items are shown and sections with no production items are hidden. Omit to default to dev mode in development. */
@@ -40,6 +41,7 @@ export default defineNuxtConfig({
     head: {
       title: 'FlagLab',
       meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'description', content: 'Design flag football plays, build playbooks, manage your roster, and simulate plays — all in one platform.' },
         { property: 'og:title', content: 'FlagLab' },
         { property: 'og:description', content: 'Your one platform for all things flag football.' },

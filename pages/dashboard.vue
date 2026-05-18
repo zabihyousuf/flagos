@@ -57,8 +57,8 @@
 
     <!-- Two-column Grid: Recent Plays + Team Overview -->
     <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-      <!-- Recent Plays (2/3 width on xl) -->
-      <div class="xl:col-span-2 min-w-0">
+      <!-- Recent Plays (2/3 on xl for managers, full width for players) -->
+      <div :class="isManager ? 'xl:col-span-2' : 'lg:col-span-2 xl:col-span-3'" class="min-w-0">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold font-display">Recent Plays ({{ recentPlays.length }})</h3>
           <NuxtLink to="/plays" class="text-sm text-primary hover:underline">View all</NuxtLink>
@@ -97,22 +97,24 @@
         </div>
       </div>
 
-      <!-- Team Overview (1/3 width on xl) -->
-      <div class="min-w-0">
+      <!-- Team Overview (1/3 width on xl) — managers only -->
+      <div v-if="isManager" class="min-w-0">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold font-display">Team</h3>
+          <span v-if="activeTeam" class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide" :class="activeTeam.role === 'player' ? 'bg-green-500/10 text-green-600' : 'bg-primary/10 text-primary'">
+            {{ activeTeam.role === 'player' ? 'Player' : 'Coach' }}
+          </span>
         </div>
 
-        <div v-if="!primaryTeam" class="empty-state">
+        <div v-if="!activeTeam" class="empty-state">
           <ShieldIcon class="w-10 h-10 text-muted-foreground" />
-          <p class="text-sm text-muted-foreground mt-2">No primary team set.</p>
-          <NuxtLink to="/settings" class="text-xs text-primary hover:underline mt-1">Set in Settings</NuxtLink>
+          <p class="text-sm text-muted-foreground mt-2">No active team selected.</p>
         </div>
 
         <div v-else class="team-card bg-card rounded-lg p-4">
           <div class="team-info">
-            <p class="team-name">{{ primaryTeam.name }}</p>
-            <p v-if="primaryTeam.description" class="team-description">{{ primaryTeam.description }}</p>
+            <p class="team-name">{{ activeTeam.name }}</p>
+            <p v-if="activeTeamFull?.description" class="team-description">{{ activeTeamFull.description }}</p>
           </div>
           <div class="team-stats">
             <div class="team-stat">
@@ -156,6 +158,8 @@ const { playbooks, fetchPlaybooks } = usePlaybooks()
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
 const { profile, fetchProfile } = useProfile()
+const { activeTeam, allTeams } = useActiveContext()
+const { isManager, isPlayer } = useAccountType()
 const client = useSupabaseDB()
 const ready = ref(false)
 
@@ -195,23 +199,19 @@ const greetingEndPunctuation = computed(() => {
   return ['Ready to design', 'Time to create'].includes(g) ? '?' : '!'
 })
 
-// Primary team
-const primaryTeam = computed(() => {
-  if (!profile.value?.default_team_id) return null
-  return teams.value.find((t) => t.id === profile.value!.default_team_id) ?? null
+// Active team (full object with team_players for stats)
+const activeTeamFull = computed(() => {
+  if (!activeTeam.value) return null
+  return teams.value.find((t) => t.id === activeTeam.value!.id) ?? null
 })
 
-const primaryTeamName = computed(() => primaryTeam.value?.name ?? null)
-
 const offenseStarters = computed(() => {
-  if (!primaryTeam.value) return 0
-  const tp = primaryTeam.value.team_players ?? []
+  const tp = activeTeamFull.value?.team_players ?? []
   return tp.filter((p: any) => p.offense_starter).length
 })
 
 const defenseStarters = computed(() => {
-  if (!primaryTeam.value) return 0
-  const tp = primaryTeam.value.team_players ?? []
+  const tp = activeTeamFull.value?.team_players ?? []
   return tp.filter((p: any) => p.defense_starter).length
 })
 
@@ -279,20 +279,22 @@ const stats = computed(() => {
       icon: Swords,
       color: 'color-mix(in oklch, var(--color-chart-1) 12%, transparent)',
     },
-    {
-      label: 'Players',
-      value: players.value.length,
-      sub: null,
-      icon: Users,
-      color: 'color-mix(in oklch, var(--color-chart-2) 12%, transparent)',
-    },
-    {
-      label: 'Teams',
-      value: teams.value.length,
-      sub: primaryTeamName.value ? `Primary: ${primaryTeamName.value}` : null,
-      icon: ShieldIcon,
-      color: 'color-mix(in oklch, var(--color-chart-4) 12%, transparent)',
-    },
+    ...(isManager.value ? [
+      {
+        label: 'Players',
+        value: players.value.length,
+        sub: null,
+        icon: Users,
+        color: 'color-mix(in oklch, var(--color-chart-2) 12%, transparent)',
+      },
+      {
+        label: 'Teams',
+        value: allTeams.value.length,
+        sub: activeTeam.value ? `Active: ${activeTeam.value.name}` : null,
+        icon: ShieldIcon,
+        color: 'color-mix(in oklch, var(--color-chart-4) 12%, transparent)',
+      },
+    ] : []),
   ]
 })
 

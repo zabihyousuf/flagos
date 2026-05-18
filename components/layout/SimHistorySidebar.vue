@@ -1,29 +1,26 @@
 <template>
-  <div
-    class="h-full flex flex-col bg-background/40 shrink-0 transition-[width] duration-200 ease-out overflow-hidden md:block"
-    :class="isOpen ? 'w-[320px]' : 'w-0'"
-  >
+  <!-- Outer wrapper: zero-width on mobile (panel is fixed), flex-inline on desktop -->
+  <div class="sim-history-outer" :class="isOpen ? 'sim-history-outer--open' : ''">
+    <!-- Mobile backdrop -->
     <div
       v-if="isOpen"
-      class="md:hidden fixed inset-0 z-40 bg-black/50"
+      class="sim-history-backdrop"
       aria-hidden
       @click="close"
     />
+    <!-- Panel -->
     <div
-      class="w-[320px] shrink-0 flex flex-col h-full transition-transform duration-200 ease-out bg-background md:relative rounded-r-xl shadow-sm"
-      :class="[
-        isOpen ? 'translate-x-0' : '-translate-x-[320px]',
-        'fixed md:relative inset-y left-0 z-50 md:z-auto',
-      ]"
+      class="sim-history-panel"
+      :class="isOpen ? 'sim-history-panel--open' : ''"
     >
       <header class="shrink-0 flex items-start justify-between gap-2 p-4">
         <div class="min-w-0">
-          <h3 class="text-sm font-semibold text-foreground">Simulation History</h3>
-          <p class="text-xs text-muted-foreground mt-0.5">Play Lab results</p>
+          <h3 class="text-sm font-semibold text-foreground">{{ isPlayer ? 'Shared Simulations' : 'Simulation History' }}</h3>
+          <p class="text-xs text-muted-foreground mt-0.5">{{ isPlayer ? 'Results shared by your team' : 'Play Lab results' }}</p>
         </div>
         <div class="flex items-center gap-1 shrink-0">
           <button
-            v-if="batchSimJobs.length > 0"
+            v-if="!isPlayer && batchSimJobs.length > 0"
             type="button"
             class="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             aria-label="Delete all"
@@ -79,8 +76,8 @@
 
         <template v-else-if="pendingItems.length === 0 && completedItems.length === 0">
           <div class="flex flex-col items-center justify-center text-center p-6">
-            <p class="text-sm font-medium text-foreground">No simulations yet</p>
-            <p class="text-xs text-muted-foreground mt-1">Run a simulation in Play Lab to see results here</p>
+            <p class="text-sm font-medium text-foreground">{{ isPlayer ? 'No shared simulations' : 'No simulations yet' }}</p>
+            <p class="text-xs text-muted-foreground mt-1">{{ isPlayer ? 'Your coach will share Play Lab results here' : 'Run a simulation in Play Lab to see results here' }}</p>
           </div>
         </template>
 
@@ -118,6 +115,7 @@
                     </span>
                   </div>
                   <button
+                    v-if="!isPlayer"
                     type="button"
                     class="absolute top-1/2 -translate-y-1/2 right-2.5 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                     aria-label="Delete job"
@@ -167,6 +165,7 @@
                     </div>
                   </div>
                   <button
+                    v-if="!isPlayer"
                     type="button"
                     class="absolute top-1/2 -translate-y-1/2 right-2.5 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
                     aria-label="Delete job"
@@ -184,6 +183,90 @@
   </div>
 </template>
 
+<style scoped>
+/* ── Outer wrapper ──────────────────────────────────────────────── */
+.sim-history-outer {
+  /* Mobile: zero width — panel is fixed so it doesn't take flex space */
+  width: 0;
+  flex-shrink: 0;
+  height: 100%;
+  position: relative;
+}
+
+@media (min-width: 1024px) {
+  .sim-history-outer {
+    /* Desktop: participates in flex layout */
+    overflow: hidden;
+    transition: width 0.2s ease-out;
+    width: 0;
+    background: color-mix(in oklch, var(--color-background) 40%, transparent);
+  }
+
+  .sim-history-outer--open {
+    width: 320px;
+  }
+}
+
+/* ── Mobile backdrop ────────────────────────────────────────────── */
+.sim-history-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: oklch(0 0 0 / 0.5);
+}
+
+@media (min-width: 1024px) {
+  .sim-history-backdrop {
+    display: none;
+  }
+}
+
+/* ── Panel ──────────────────────────────────────────────────────── */
+.sim-history-panel {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-background);
+  transition: transform 0.2s ease-out;
+  border-radius: 0;
+  box-shadow: none;
+
+  /* Mobile: fixed overlay from left, below the mobile topbar */
+  position: fixed;
+  top: 48px; /* mobile topbar height */
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  transform: translateX(-320px);
+}
+
+.sim-history-panel--open {
+  transform: translateX(0);
+  box-shadow: 2px 0 24px oklch(0 0 0 / 0.15);
+}
+
+@media (min-width: 1024px) {
+  .sim-history-panel {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    left: auto;
+    z-index: auto;
+    transform: translateX(-320px);
+    border-radius: 0 12px 12px 0;
+    box-shadow: none;
+    height: 100%;
+  }
+
+  .sim-history-panel--open {
+    transform: translateX(0);
+    box-shadow: 1px 0 8px oklch(0 0 0 / 0.06);
+  }
+}
+</style>
+
 <script setup lang="ts">
 import { X, RefreshCw, Trash2 } from 'lucide-vue-next'
 import type { JobStatus } from '~/composables/usePlayLabJob'
@@ -192,8 +275,9 @@ import { useJobHistory } from '~/composables/useJobHistory'
 import { usePlayLabJob } from '~/composables/usePlayLabJob'
 
 const { isOpen, close } = useSimHistoryPanel()
-const { jobs, loading, error, fetchJobs, deleteJob: deleteJobFromDb, deleteAllJobs } = useJobHistory()
+const { jobs, loading, error, fetchJobs, fetchSharedJobs, deleteJob: deleteJobFromDb, deleteAllJobs } = useJobHistory()
 const { jobId: currentJobId } = usePlayLabJob()
+const { isPlayer } = useAccountType()
 
 const isRefreshing = computed(() => loading.value)
 
@@ -257,7 +341,11 @@ function successPillClass(rate: number): string {
 }
 
 async function refresh() {
-  await fetchJobs()
+  if (isPlayer.value) {
+    await fetchSharedJobs()
+  } else {
+    await fetchJobs()
+  }
 }
 
 function onSelectJob(job: JobStatus) {
@@ -313,5 +401,10 @@ const emit = defineEmits<{
 
 watch(isOpen, (open) => {
   if (open) refresh()
+})
+
+// Re-fetch when role resolves (profile loads after sidebar may have already opened)
+watch(isPlayer, () => {
+  if (isOpen.value) refresh()
 })
 </script>

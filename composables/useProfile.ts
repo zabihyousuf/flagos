@@ -60,6 +60,13 @@ export function useProfile() {
 
       if (updates.display_name !== undefined) {
         await authClient.auth.updateUser({ data: { display_name: updates.display_name } })
+        // Sync to any player roster records linked to this account
+        if (updates.display_name) {
+          await client
+            .from('players')
+            .update({ name: updates.display_name })
+            .eq('linked_user_id', user.value!.id)
+        }
       }
 
       return data as Profile

@@ -22,8 +22,9 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-2xl font-semibold tracking-tight font-display">Play Lab</h2>
+              <h2 class="text-2xl font-semibold tracking-tight font-display">{{ isPlayer ? 'Shared Simulations' : 'Play Lab' }}</h2>
               <component
+                v-if="!isPlayer"
                 :is="isFree ? 'button' : 'span'"
                 type="button"
                 class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border transition-colors"
@@ -39,29 +40,42 @@
                 {{ planBadgeLabel }}
               </component>
             </div>
-            <p class="text-muted-foreground text-sm mt-1">Simulate plays against defenses and analyze results.</p>
+            <p class="text-muted-foreground text-sm mt-1">{{ isPlayer ? 'View simulation results shared by your coaching staff.' : 'Simulate plays against defenses and analyze results.' }}</p>
           </div>
           <div v-if="awaitingReplays" class="shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-medium">
             <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
             Waiting for replays…
           </div>
-          <Button
-            v-if="showReplaysButton"
-            variant="secondary"
-            size="sm"
-            class="shrink-0 h-8 gap-1.5 bg-amber-500/90 hover:bg-amber-500 text-amber-950 border border-amber-600/40 shadow-sm ring-1 ring-amber-300/30"
-            @click="replaysModalOpen = true"
-          >
-            <Film class="w-4 h-4" />
-            Replays
-            <span class="tabular-nums inline-flex items-center rounded-full bg-amber-950/10 px-2 py-0.5 text-[11px] font-semibold">
-              {{ recordingsCount }}
-            </span>
-          </Button>
+          <div class="flex items-center gap-2 shrink-0">
+            <Button
+              v-if="showShareButton"
+              variant="outline"
+              size="sm"
+              class="h-8 gap-1.5"
+              @click="openShareDialog"
+            >
+              <Users class="w-3.5 h-3.5" />
+              Share
+            </Button>
+            <Button
+              v-if="showReplaysButton"
+              variant="secondary"
+              size="sm"
+              class="h-8 gap-1.5 bg-amber-500/90 hover:bg-amber-500 text-amber-950 border border-amber-600/40 shadow-sm ring-1 ring-amber-300/30"
+              @click="replaysModalOpen = true"
+            >
+              <Film class="w-4 h-4" />
+              Replays
+              <span class="tabular-nums inline-flex items-center rounded-full bg-amber-950/10 px-2 py-0.5 text-[11px] font-semibold">
+                {{ recordingsCount }}
+              </span>
+            </Button>
+          </div>
         </div>
       </div>
       <div class="flex flex-1 min-h-0 flex-col lg:flex-row gap-4 lg:gap-6 pt-4 lg:pt-5 pb-5 lg:pb-6">
         <div
+          v-if="!isPlayer"
           class="flex items-stretch gap-0 shrink-0 transition-[width] duration-200 ease-out"
           :class="configRailed ? 'w-12' : 'w-full lg:w-[30%]'"
         >
@@ -373,7 +387,7 @@
                       nIterations === n ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400/50 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-500/50' : isIterationAllowed(n) ? 'bg-muted/50 text-muted-foreground hover:bg-muted/70 hover:text-foreground' : 'bg-muted/30 text-muted-foreground'
                     ]"
                     :disabled="configLocked || !isIterationAllowed(n)"
-                    @click="isIterationAllowed(n) && (nIterations = n, hasSelectedIterations.value = true)"
+                    @click="isIterationAllowed(n) && (nIterations = n, hasSelectedIterations = true)"
                   >
                     {{ n >= 1e5 ? '100K' : n >= 1e4 ? '10K' : n >= 1e3 ? '1K' : n >= 100 ? '100' : n.toLocaleString() }}
                   </button>
@@ -497,8 +511,14 @@
             <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <h2 class="text-lg font-semibold font-display">Run a simulation to see results</h2>
-            <p class="text-sm text-muted-foreground mt-1">Select a play, choose defense, and run.</p>
+            <template v-if="isPlayer">
+              <h2 class="text-lg font-semibold font-display">No simulations shared yet</h2>
+              <p class="text-sm text-muted-foreground mt-1">Your coaching staff will share Play Lab results here.</p>
+            </template>
+            <template v-else>
+              <h2 class="text-lg font-semibold font-display">Run a simulation to see results</h2>
+              <p class="text-sm text-muted-foreground mt-1">Select a play, choose defense, and run.</p>
+            </template>
           </div>
         </template>
 
@@ -724,7 +744,7 @@
                 <!-- Error state -->
                 <p v-else-if="insightsError && insightsData.length === 0" class="mt-3 text-xs text-destructive">
                   {{ insightsError }}
-                  <button type="button" class="underline ml-1" @click="fetchInsights">Retry</button>
+                  <button type="button" class="underline ml-1" @click="() => fetchInsights()">Retry</button>
                 </p>
 
                 <!-- Streamed / completed insights list -->
@@ -1229,8 +1249,7 @@
             <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <h2 class="text-lg font-semibold font-display">Run a simulation to see results</h2>
-            <p class="text-sm text-muted-foreground mt-1">Select a play, choose defense, and run.</p>
+            <h2 class="text-lg font-semibold font-display">Loading…</h2>
           </div>
         </template>
         </ClientOnly>
@@ -1239,6 +1258,33 @@
     </div>
     </template>
   </div>
+
+  <!-- Share with team dialog -->
+  <Dialog v-model:open="shareDialogOpen">
+    <DialogContent class="max-w-sm">
+      <DialogHeader>
+        <DialogTitle>Share simulation</DialogTitle>
+      </DialogHeader>
+      <div class="py-2 space-y-3">
+        <p class="text-sm text-muted-foreground">Select which teams can view these simulation results.</p>
+        <div v-if="shareableTeams.length === 0" class="text-sm text-muted-foreground text-center py-4">
+          No teams available to share with.
+        </div>
+        <div
+          v-for="team in shareableTeams"
+          :key="team.id"
+          class="flex items-center justify-between p-3 rounded-lg border border-border gap-3"
+        >
+          <span class="text-sm font-medium truncate">{{ team.name }}</span>
+          <Checkbox
+            :model-value="jobShares.some(s => s.team_id === team.id)"
+            :disabled="shareToggleLoading"
+            @update:model-value="toggleShare(team.id)"
+          />
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="tsx">
@@ -1262,7 +1308,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose, Sparkles, ArrowUpDown } from 'lucide-vue-next'
+import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose, Sparkles, ArrowUpDown, Users } from 'lucide-vue-next'
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
@@ -1379,6 +1425,41 @@ const client = useSupabaseDB()
 const user = useSupabaseUser()
 const { profile } = useProfile()
 const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft } = usePlanAccess()
+const { isManager, isPlayer } = useAccountType()
+const { shares: jobShares, fetchSharesForJob, shareJob, unshareJob } = useSimJobShares()
+const shareDialogOpen = ref(false)
+const shareToggleLoading = ref(false)
+
+const shareableTeams = computed(() =>
+  teams.value.filter(t => t.name !== 'Free Agent')
+)
+
+const showShareButton = computed(() =>
+  isManager.value &&
+  job.status?.state === 'COMPLETED' &&
+  !!job.jobId &&
+  shareableTeams.value.length > 0
+)
+
+function openShareDialog() {
+  shareDialogOpen.value = true
+  if (job.jobId) fetchSharesForJob(job.jobId)
+}
+
+async function toggleShare(teamId: string) {
+  if (!job.jobId) return
+  shareToggleLoading.value = true
+  try {
+    const isShared = jobShares.value.some(s => s.team_id === teamId)
+    if (isShared) {
+      await unshareJob(job.jobId, teamId)
+    } else {
+      await shareJob(job.jobId, teamId)
+    }
+  } finally {
+    shareToggleLoading.value = false
+  }
+}
 const upgradeModalOpen = useState<boolean>('upgrade-modal-open', () => false)
 function openUpgradeModal() {
   upgradeModalOpen.value = true
@@ -1388,7 +1469,7 @@ const { settings: fieldSettings, fetchSettings, updateSettings } = useFieldSetti
 /** Free = no trial, no pro (view past sims only). Upgrade gate only when Free and not viewing a job. */
 const isFree = computed(() => !hasSimulationAccess.value)
 const isViewingPastJob = computed(() => !!effectiveJobId.value)
-const showUpgradeGate = computed(() => isFree.value && !isViewingPastJob.value)
+const showUpgradeGate = computed(() => isFree.value && !isViewingPastJob.value && !isPlayer.value)
 
 /** Plan badge next to title: Pro, Free trial (+ days left), or Free. */
 const planBadgeLabel = computed(() => {
@@ -1579,7 +1660,7 @@ async function loadCachedInsights() {
   if (!job.jobId) return
   const supabase = useSupabaseDB()
   const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).maybeSingle()
-  if (data?.insights) insightsData.value = data.insights as InsightItem[]
+  if (data?.insights) insightsData.value = data.insights as unknown as InsightItem[]
 }
 /** Replays modal (sidebar + player). */
 const replaysModalOpen = ref(false)
@@ -1790,7 +1871,8 @@ const itemsForReceiverPills = computed(() => {
 const availableHighlightTypes = computed(() => {
   const counts = new Map<string, number>()
   for (const r of itemsForHighlightPills.value) {
-    counts.set(r.highlight_type, (counts.get(r.highlight_type) ?? 0) + 1)
+    const ht = r.highlight_type ?? ''
+    counts.set(ht, (counts.get(ht) ?? 0) + 1)
   }
   return Array.from(counts.entries()).map(([key, count]) => ({
     key,
@@ -2760,7 +2842,7 @@ async function runSimulation() {
   if (selectedDefPlays.length === 0) return
 
   const defScenarios: { scenario_id: string; defensive_play: any; defensive_players: any[]; label: string }[] = []
-  const allWarnings: string[] = []
+  const allWarnings: RosterError[] = []
   for (const defPlay of selectedDefPlays) {
     const defResult = await resolveRosterWithFallback(defPlay.canvas_data, 'defense', teamId)
     allWarnings.push(...defResult.warnings)

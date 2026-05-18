@@ -15,6 +15,9 @@
           <span>{{ formatDate(playbook.updated_at) }}</span>
         </div>
         <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Button v-if="showShare" size="icon" variant="ghost" class="h-7 w-7 text-muted-foreground" title="Share with team" @click.prevent="$emit('share')">
+            <Users class="w-3 h-3" />
+          </Button>
           <Button size="icon" variant="ghost" class="h-7 w-7" @click.prevent="$emit('edit')">
             <Pencil class="w-3 h-3" />
           </Button>
@@ -30,6 +33,9 @@
           <div class="flex items-center justify-between">
             <CardTitle class="text-base">{{ playbook.name }}</CardTitle>
             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button v-if="showShare" size="icon" variant="ghost" class="h-8 w-8 text-muted-foreground" title="Share with team" @click.prevent="$emit('share')">
+                <Users class="w-3.5 h-3.5" />
+              </Button>
               <Button size="icon" variant="ghost" class="h-8 w-8" @click.prevent="$emit('edit')">
                 <Pencil class="w-3.5 h-3.5" />
               </Button>
@@ -62,20 +68,22 @@
 import type { Playbook } from '~/lib/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
-import { BookOpen, Clock, Pencil, Trash2, Loader2 } from 'lucide-vue-next'
+import { BookOpen, Clock, Pencil, Trash2, Loader2, Users } from 'lucide-vue-next'
 
 withDefaults(
   defineProps<{
     playbook: Playbook
     deleting?: boolean
     variant?: 'grid' | 'list'
+    showShare?: boolean
   }>(),
-  { variant: 'grid' }
+  { variant: 'grid', showShare: false }
 )
 
 defineEmits<{
   edit: []
   delete: []
+  share: []
 }>()
 
 function formatDate(dateStr: string) {

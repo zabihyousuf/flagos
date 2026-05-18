@@ -626,13 +626,16 @@ export function usePlaySimulation() {
     const carrier = players.find(p => p.hasBall)
     if (!carrier) { endPlay('completion', 'Play over'); return }
 
+    // All other receivers continue their routes (shows full play art)
+    runOffenseRoutes(dt, carrier.id)
+
     // Carrier runs upfield (toward top = lower y)
     const carrierSpeed = speedToYPS(attr(carrier.roster, 'speed'))
     const afterCatchVision = attr(carrier.roster, 'after_catch_vision')
     const effectiveSpeed = ypsToNorm(carrierSpeed) * (0.85 + (afterCatchVision / 10) * 0.15)
     carrier.y -= effectiveSpeed * dt
 
-    // Also continue route if not done
+    // Also continue carrier route if not done
     if (!carrier.routeDone) {
       advanceAlongRoute(carrier, dt)
     }
@@ -641,6 +644,18 @@ export function usePlaySimulation() {
     animatedBall.value.x = carrier.x
     animatedBall.value.y = carrier.y
     animatedBall.value.inFlight = false
+
+    // Play test mode: end when all routes are done (no defense/flag-pull logic)
+    if (isPlayTestMode) {
+      const pendingRoutes = players.filter(
+        p => p.side === 'offense' && p.id !== qbId && p.id !== centerId && p.totalRouteDist > 0 && !p.routeDone
+      )
+      if (pendingRoutes.length === 0 || phaseTime >= PHASE_MAX.after_catch) {
+        const carrierName = carrier.canvas.name || carrier.canvas.designation
+        endPlay('completion', `${carrierName} catches in stride`)
+      }
+      return
+    }
 
     // Defenders pursue carrier
     for (const def of players) {
@@ -672,7 +687,6 @@ export function usePlaySimulation() {
     }
 
     // Touchdown check (reached endzone: top endzone)
-    const endzoneTopY = (fieldTotalLength - (fieldTotalLength - 0)) * yardsToNorm // top of field = 0
     if (carrier.y < yardsToNorm * 7) { // Within top endzone (approx endzone_size)
       const name = carrier.canvas.name || carrier.canvas.designation
       endPlay('touchdown', `TOUCHDOWN! ${name} scores!`, carrier.id)
@@ -747,10 +761,11 @@ export function usePlaySimulation() {
     }
   }
 
-  function runOffenseRoutes(dt: number) {
+  function runOffenseRoutes(dt: number, skipId?: string) {
     for (const p of players) {
       if (p.side !== 'offense') continue
       if (p.id === qbId) continue
+      if (skipId && p.id === skipId) continue
       if (!p.motionDone) continue // Wait for motion to complete before running route
       if (p.routeDone) continue
       // Center: delay before running route based on snapping ability
@@ -1105,13 +1120,13 @@ export function usePlaySimulation() {
   function resolveCatch(target: InternalPlayer) {
     const targetName = target.canvas.name || target.canvas.designation
 
-    // Play test mode: always catch — this is a design tool, not a game
+    // Play test mode: always catch — let other routes continue to show full play art
     if (isPlayTestMode) {
       target.hasBall = true
       animatedBall.value = { x: target.x, y: target.y, visible: true, inFlight: false }
       logEvent('catch', `Caught by ${targetName}!`, target.id)
       resultYards = Math.round((losY - target.y) * fieldTotalLength)
-      endPlay('completion', `${targetName} catches in stride`)
+      transitionTo('after_catch')
       return
     }
 

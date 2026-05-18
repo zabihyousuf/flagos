@@ -115,6 +115,7 @@ export type Database = {
           default_offense_starter_count: number | null
           default_play_type: string | null
           default_play_view: string | null
+          default_player_label_on_canvas: string | null
           endzone_size: number
           field_length: number
           field_width: number
@@ -137,6 +138,7 @@ export type Database = {
           default_offense_starter_count?: number | null
           default_play_type?: string | null
           default_play_view?: string | null
+          default_player_label_on_canvas?: string | null
           endzone_size?: number
           field_length?: number
           field_width?: number
@@ -159,6 +161,7 @@ export type Database = {
           default_offense_starter_count?: number | null
           default_play_type?: string | null
           default_play_view?: string | null
+          default_player_label_on_canvas?: string | null
           endzone_size?: number
           field_length?: number
           field_width?: number
@@ -219,6 +222,7 @@ export type Database = {
           defense_starter: boolean
           height: number | null
           id: string
+          linked_user_id: string | null
           name: string
           number: number
           offense_attributes: Json | null
@@ -237,6 +241,7 @@ export type Database = {
           defense_starter?: boolean
           height?: number | null
           id?: string
+          linked_user_id?: string | null
           name: string
           number: number
           offense_attributes?: Json | null
@@ -255,6 +260,7 @@ export type Database = {
           defense_starter?: boolean
           height?: number | null
           id?: string
+          linked_user_id?: string | null
           name?: string
           number?: number
           offense_attributes?: Json | null
@@ -343,28 +349,37 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_type: string
           created_at: string | null
           default_team_id: string | null
           display_name: string | null
           id: string
+          is_app_admin: boolean
           tutorial_completed_at: string | null
           updated_at: string | null
+          welcome_plan_prompt_seen_at: string | null
         }
         Insert: {
+          account_type?: string
           created_at?: string | null
           default_team_id?: string | null
           display_name?: string | null
           id: string
+          is_app_admin?: boolean
           tutorial_completed_at?: string | null
           updated_at?: string | null
+          welcome_plan_prompt_seen_at?: string | null
         }
         Update: {
+          account_type?: string
           created_at?: string | null
           default_team_id?: string | null
           display_name?: string | null
           id?: string
+          is_app_admin?: boolean
           tutorial_completed_at?: string | null
           updated_at?: string | null
+          welcome_plan_prompt_seen_at?: string | null
         }
         Relationships: []
       }
@@ -644,11 +659,244 @@ export type Database = {
           },
         ]
       }
+      team_memberships: {
+        Row: {
+          id: string
+          joined_at: string
+          role: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          role?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          role?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_memberships_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_playbooks: {
+        Row: {
+          created_at: string
+          id: string
+          playbook_id: string
+          shared_by: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          playbook_id: string
+          shared_by: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          playbook_id?: string
+          shared_by?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_playbooks_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_playbooks_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_invites: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          player_id: string | null
+          role: string
+          team_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          player_id?: string | null
+          role?: string
+          team_id: string
+          token?: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          player_id?: string | null
+          role?: string
+          team_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_invites_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_invites_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_join_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          responded_at: string | null
+          status: string
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          responded_at?: string | null
+          status?: string
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          responded_at?: string | null
+          status?: string
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_join_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sim_job_team_shares: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          shared_by: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          shared_by: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          shared_by?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sim_job_team_shares_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "sim_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sim_job_team_shares_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan: string
+          status: string
+          stripe_subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       teams: {
         Row: {
           created_at: string | null
           description: string | null
           id: string
+          is_joinable: boolean
           name: string
           updated_at: string | null
           user_id: string
@@ -657,6 +905,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_joinable?: boolean
           name: string
           updated_at?: string | null
           user_id?: string
@@ -665,6 +914,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_joinable?: boolean
           name?: string
           updated_at?: string | null
           user_id?: string

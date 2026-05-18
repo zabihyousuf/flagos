@@ -1,5 +1,41 @@
 <template>
   <div class="flex items-center gap-1">
+    <!-- Undo / Redo -->
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8"
+            :disabled="!canUndo"
+            @click="$emit('undo')"
+          >
+            <Undo2 class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>Undo (⌘Z)</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger as-child>
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8"
+            :disabled="!canRedo"
+            @click="$emit('redo')"
+          >
+            <Redo2 class="w-3.5 h-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom"><p>Redo (⌘⇧Z)</p></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+
+    <Separator orientation="vertical" class="h-5 mx-0.5" />
+
     <!-- Select tool -->
     <TooltipProvider>
       <Tooltip>
@@ -139,28 +175,6 @@
 
     <Separator orientation="vertical" class="h-5 mx-0.5" />
 
-    <!-- Suggest Play (offense only) -->
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger as-child>
-          <Button
-            size="icon"
-            variant="ghost"
-            class="h-8 w-8 text-primary"
-            :disabled="suggestPlayDisabled"
-            @click="$emit('ai-action', 'suggest-play')"
-          >
-            <Sparkles class="w-3.5 h-3.5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>{{ suggestPlayDisabled ? 'Suggest Play (offense only)' : 'Suggest Play' }}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-
-    <Separator orientation="vertical" class="h-5 mx-0.5" />
-
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger as-child>
@@ -189,38 +203,43 @@ import {
   Crosshair,
   Eraser,
   Trash2,
-  Sparkles,
   Target,
+  Undo2,
+  Redo2,
 } from 'lucide-vue-next'
 
-const props = defineProps<{
-  selectedTool: CanvasTool
-  /** Show "QB throws here" button when an offense receiver is selected */
-  canSetPrimaryTarget?: boolean
-  /** Selected player is currently the primary target */
-  selectedPlayerIsPrimary?: boolean
-  /** Disable Suggest Play (e.g. for defense) */
-  suggestPlayDisabled?: boolean
-  /** Disable Motion tool (e.g. on defense, or when C or QB selected) */
-  motionToolDisabled?: boolean
-  /** Disable Read Progression tool (e.g. on defense) */
-  readOrderDisabled?: boolean
-  /** Disable route drawing tools (straight, curve, option) e.g. when in defense mode */
-  routeToolsDisabled?: boolean
-  /** Disable Erase Route tool (e.g. on defense) */
-  eraseToolDisabled?: boolean
-  /** Show Zone position toggle (defense, coverage player selected) */
-  showZonePositionButton?: boolean
-  /** Selected coverage player's zone is unlocked (drag on field) */
-  zonePositionUnlocked?: boolean
-}>()
+withDefaults(
+  defineProps<{
+    selectedTool: CanvasTool
+    canUndo?: boolean
+    canRedo?: boolean
+    /** Show "QB throws here" button when an offense receiver is selected */
+    canSetPrimaryTarget?: boolean
+    /** Selected player is currently the primary target */
+    selectedPlayerIsPrimary?: boolean
+    /** Disable Motion tool (e.g. on defense, or when C or QB selected) */
+    motionToolDisabled?: boolean
+    /** Disable Read Progression tool (e.g. on defense) */
+    readOrderDisabled?: boolean
+    /** Disable route drawing tools (straight, curve, option) e.g. when in defense mode */
+    routeToolsDisabled?: boolean
+    /** Disable Erase Route tool (e.g. on defense) */
+    eraseToolDisabled?: boolean
+    /** Show Zone position toggle (defense, coverage player selected) */
+    showZonePositionButton?: boolean
+    /** Selected coverage player's zone is unlocked (drag on field) */
+    zonePositionUnlocked?: boolean
+  }>(),
+  { canUndo: false, canRedo: false },
+)
 
 defineEmits<{
   'select-tool': [tool: CanvasTool]
   'clear-routes': []
-  'ai-action': [action: string]
   'set-primary-target': []
   'toggle-zone-position': []
+  undo: []
+  redo: []
 }>()
 
 const routeTools = [

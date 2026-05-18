@@ -4,13 +4,38 @@ import { toast } from 'vue-sonner'
 /** Read notifications older than this are deleted on fetch (server + local list). */
 export const READ_NOTIFICATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
+export type AppNotificationType =
+  | 'job_completed'
+  | 'job_failed'
+  | 'new_play'
+  | 'player_created_play'
+  | 'join_request'
+  | 'join_approved'
+  | 'join_rejected'
+
+export interface AppNotificationMetadata {
+  // Sim job notifications
+  job_id?: string
+  job_type?: string
+  // Play notifications
+  play_id?: string
+  play_name?: string
+  playbook_id?: string
+  player_name?: string
+  // Team / invite notifications
+  team_id?: string
+  team_name?: string
+  request_id?: string
+  user_name?: string
+}
+
 export interface AppNotification {
   id: string
   user_id: string
-  type: 'job_completed' | 'job_failed'
+  type: AppNotificationType
   title: string
   message: string | null
-  metadata: { job_id?: string; job_type?: string } | null
+  metadata: AppNotificationMetadata | null
   read: boolean
   read_at: string | null
   created_at: string
@@ -75,6 +100,12 @@ export function useNotifications() {
           if (n.type === 'job_completed') {
             toast.success(n.title, { description: n.message ?? undefined })
           } else if (n.type === 'job_failed') {
+            toast.error(n.title, { description: n.message ?? undefined })
+          } else if (n.type === 'player_created_play' || n.type === 'join_request') {
+            toast.info(n.title, { description: n.message ?? undefined })
+          } else if (n.type === 'join_approved') {
+            toast.success(n.title, { description: n.message ?? undefined })
+          } else if (n.type === 'join_rejected') {
             toast.error(n.title, { description: n.message ?? undefined })
           }
         },

@@ -1,83 +1,197 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-2xl font-semibold tracking-tight font-display">Locker Room</h2>
-        <p class="text-muted-foreground text-sm mt-1">Manage your teams, roster, and player attributes.</p>
+        <p class="text-muted-foreground text-sm mt-1">
+          {{ isPlayer ? 'Your team roster and membership.' : 'Manage your teams, roster, and player attributes.' }}
+        </p>
       </div>
-      <Button variant="outline" size="sm" class="h-8 text-xs" @click="exportPlayers(filteredPlayers)" :disabled="filteredPlayers.length === 0">
+      <Button v-if="isManager" variant="outline" size="sm" class="h-8 text-xs" @click="exportPlayers(filteredPlayers)" :disabled="filteredPlayers.length === 0">
         <Download class="w-3 h-3 mr-2" />
         Export players
       </Button>
     </div>
 
-    <!-- Team tracking slots -->
-    <div class="space-y-2">
+    <!-- Team cards (all users) -->
+    <div class="space-y-2 pl-1">
       <div class="flex items-center justify-between">
         <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wide font-display">Teams</h3>
-        <Button size="sm" variant="ghost" class="text-xs h-8" @click="teamDialogOpen = true">
+        <Button v-if="isManager" size="sm" variant="ghost" class="text-xs h-8" @click="teamDialogOpen = true">
           <Plus class="w-3 h-3 mr-1.5" />
           New Team
         </Button>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Filled slots -->
-        <div
-          v-for="team in trackedTeams"
-          :key="team.id"
-          class="rounded-lg border bg-card p-4 min-h-[80px] flex flex-col justify-center shadow hover:shadow-md transition-shadow min-w-0"
-          :style="{ borderColor: (teamColorMap.get(team.id) ?? '#888') + '40' }"
-        >
-          <div class="space-y-1">
-            <div class="flex items-center justify-between">
-              <span
-                class="font-bold text-sm"
-                :style="{ color: teamColorMap.get(team.id) ?? '#888' }"
-              >
-                {{ team.name }}
-              </span>
-              <Button size="icon" variant="ghost" class="h-6 w-6" @click="removeTrackedTeam(team.id)">
-                <X class="w-3 h-3" />
-              </Button>
+
+      <!-- No teams yet (player) -->
+      <div v-if="isPlayer && playerTeams.length === 0" class="text-center py-10">
+        <Users class="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+        <h3 class="font-medium font-display">Not on any teams yet</h3>
+        <p class="text-muted-foreground text-sm mt-1">Ask your coach for an invite link to join their team.</p>
+      </div>
+
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Player: all member teams -->
+        <template v-if="isPlayer">
+          <div
+            v-for="team in playerTeams"
+            :key="team.id"
+            class="rounded-lg border bg-card p-4 min-h-[80px] flex flex-col justify-center shadow transition-all min-w-0 select-none"
+            :class="team.id === contextActiveTeamId
+              ? 'ring-2 ring-primary cursor-default'
+              : 'hover:shadow-md hover:border-primary/40 cursor-pointer'"
+            @click="team.id !== contextActiveTeamId && setContextActiveTeam(team.id)"
+          >
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="font-bold text-sm truncate">{{ team.name }}</span>
+                  <span v-if="team.id === contextActiveTeamId" class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Active</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  class="h-6 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                  :disabled="leavingTeamId === team.id"
+                  @click.stop="handleLeaveTeam(team.id)"
+                >
+                  <Loader2 v-if="leavingTeamId === team.id" class="w-3 h-3 animate-spin" />
+                  <span v-else>Leave</span>
+                </Button>
+              </div>
+              <div class="flex gap-3 text-xs text-muted-foreground">
+                <span>{{ slotPlayerCounts[team.id] ?? 0 }} players</span>
+                <span v-if="memberships.find(m => m.team_id === team.id)?.joined_at" class="text-muted-foreground/60">
+                  Joined {{ new Date(memberships.find(m => m.team_id === team.id)!.joined_at).toLocaleDateString() }}
+                </span>
+              </div>
+              <p v-if="team.id !== contextActiveTeamId" class="text-[11px] text-muted-foreground/60 pt-0.5">Click to activate</p>
             </div>
-            <div class="flex gap-3 text-xs text-muted-foreground">
-              <span>OVR <span class="font-semibold text-primary">{{ slotScores[team.id]?.overall ?? 0 }}</span></span>
-              <span>OFF <span class="font-semibold text-chart-1">{{ slotScores[team.id]?.off ?? 0 }}</span></span>
-              <span>DEF <span class="font-semibold text-chart-4">{{ slotScores[team.id]?.def ?? 0 }}</span></span>
-              <span>{{ slotPlayerCounts[team.id] ?? 0 }} players</span>
+          </div>
+        </template>
+
+        <!-- Manager: tracked team slots -->
+        <template v-if="isManager">
+          <div
+            v-for="team in trackedTeams"
+            :key="team.id"
+            class="rounded-lg border bg-card p-4 min-h-[80px] flex flex-col justify-center shadow transition-all min-w-0 select-none"
+            :class="team.id === contextActiveTeamId
+              ? 'ring-2 ring-primary cursor-default'
+              : 'hover:shadow-md hover:border-primary/40 cursor-pointer'"
+            :style="{ borderColor: team.id === contextActiveTeamId ? undefined : (teamColorMap.get(team.id) ?? '#888') + '40' }"
+            @click="team.id !== contextActiveTeamId && setContextActiveTeam(team.id)"
+          >
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span
+                    class="font-bold text-sm truncate"
+                    :style="{ color: teamColorMap.get(team.id) ?? '#888' }"
+                  >
+                    {{ team.name }}
+                  </span>
+                  <span v-if="team.id === contextActiveTeamId" class="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Active</span>
+                </div>
+                <Button size="icon" variant="ghost" class="h-6 w-6 shrink-0" @click.stop="removeTrackedTeam(team.id)">
+                  <X class="w-3 h-3" />
+                </Button>
+              </div>
+              <div class="flex gap-3 text-xs text-muted-foreground">
+                <span>OVR <span class="font-semibold text-primary">{{ slotScores[team.id]?.overall ?? 0 }}</span></span>
+                <span>OFF <span class="font-semibold text-chart-1">{{ slotScores[team.id]?.off ?? 0 }}</span></span>
+                <span>DEF <span class="font-semibold text-chart-4">{{ slotScores[team.id]?.def ?? 0 }}</span></span>
+                <span>{{ slotPlayerCounts[team.id] ?? 0 }} players</span>
+              </div>
+              <p v-if="team.id !== contextActiveTeamId" class="text-[11px] text-muted-foreground/60 pt-0.5">Click to activate</p>
+            </div>
+          </div>
+
+          <!-- Empty slot (Add Team) - Only show if < 3 teams -->
+          <div
+            v-if="trackedTeams.length < 3"
+            class="rounded-lg border-2 border-dashed border-muted-foreground/15 p-4 min-h-[80px] flex flex-col justify-center min-w-0"
+          >
+            <Select :model-value="''" @update:model-value="(v: any) => addTrackedTeam(String(v ?? ''))">
+              <SelectTrigger class="border-none bg-transparent shadow-none h-auto p-0 text-muted-foreground">
+                <SelectValue placeholder="+ Select team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="t in availableTeamsForSlot"
+                  :key="t.id"
+                  :value="t.id"
+                  class="font-bold"
+                >
+                  {{ t.name }}
+                </SelectItem>
+                <SelectItem value="__new__">+ New Team</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Player roster: read-only view of active team -->
+    <template v-if="isPlayer && contextActiveTeamId">
+      <div class="space-y-3">
+        <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wide font-display">
+          {{ teams.find(t => t.id === contextActiveTeamId)?.name ?? 'Team' }} Roster
+        </h3>
+        <div v-if="loading" class="space-y-2">
+          <div v-for="i in 5" :key="i" class="h-11 rounded-lg bg-muted/50 animate-pulse" />
+        </div>
+        <div v-else-if="getTeamRoster(contextActiveTeamId).length === 0" class="rounded-md border bg-card p-6 text-center">
+          <p class="text-sm text-muted-foreground">No players on this team yet.</p>
+        </div>
+        <div v-else class="rounded-md border bg-card divide-y">
+          <div
+            v-for="p in getTeamRoster(contextActiveTeamId)"
+            :key="p.id"
+            class="flex items-center gap-3 px-4 py-2.5"
+          >
+            <span class="text-xs font-bold text-primary w-8 text-center shrink-0">#{{ p.number }}</span>
+            <span class="text-sm font-medium flex-1 min-w-0 truncate">{{ p.name }}</span>
+            <div class="flex gap-1.5 flex-wrap justify-end">
+              <Badge v-for="pos in p.offense_positions" :key="'o-'+pos" variant="secondary" class="text-[11px] px-1.5 py-0 h-5">{{ pos }}</Badge>
+              <Badge v-for="pos in p.defense_positions" :key="'d-'+pos" variant="outline" class="text-[11px] px-1.5 py-0 h-5">{{ pos }}</Badge>
             </div>
           </div>
         </div>
-
-        <!-- Empty slot (Add Team) - Only show if < 3 teams -->
-        <div
-          v-if="trackedTeams.length < 3"
-          class="rounded-lg border-2 border-dashed border-muted-foreground/15 p-4 min-h-[80px] flex flex-col justify-center min-w-0"
-        >
-          <Select :model-value="''" @update:model-value="(v: any) => addTrackedTeam(String(v ?? ''))">
-            <SelectTrigger class="border-none bg-transparent shadow-none h-auto p-0 text-muted-foreground">
-              <SelectValue placeholder="+ Select team" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="t in availableTeamsForSlot"
-                :key="t.id"
-                :value="t.id"
-                class="font-bold"
-              >
-                {{ t.name }}
-              </SelectItem>
-              <SelectItem value="__new__">+ New Team</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
       </div>
-    </div>
+    </template>
+
+    <template v-if="isManager">
 
       <div class="space-y-4 min-w-0">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-4 min-w-0 flex-wrap">
-            <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wide font-display">Players</h3>
+            <div class="flex items-center bg-muted rounded-full p-0.5">
+              <button
+                type="button"
+                class="px-3 py-1 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1.5"
+                :class="squadTab === 'roster'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'"
+                @click="squadTab = 'roster'"
+              >
+                <Users class="w-3 h-3" />
+                Players
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1.5"
+                :class="squadTab === 'requests'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'"
+                @click="squadTab = 'requests'; fetchReceivedRequests(contextActiveTeamId ?? '')"
+              >
+                <Bell class="w-3 h-3" />
+                Requests
+                <span v-if="receivedRequests.length" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-none">{{ receivedRequests.length }}</span>
+              </button>
+            </div>
             <div class="relative w-[200px]">
               <Search class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input v-model="searchQuery" placeholder="Search..." class="pl-9 h-9" />
@@ -177,15 +291,6 @@
               <SelectItem value="bench">DEF Bench</SelectItem>
             </SelectContent>
           </Select>
-          <Select v-model="filterTeam">
-            <SelectTrigger class="h-8 w-[130px] text-xs bg-background">
-              <SelectValue placeholder="Team" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Teams</SelectItem>
-              <SelectItem v-for="t in teams" :key="t.id" :value="t.id" class="font-bold">{{ t.name }}</SelectItem>
-            </SelectContent>
-          </Select>
           <Button
             v-if="hasActiveFilters"
             variant="ghost"
@@ -199,8 +304,30 @@
         </div>
       </div>
 
+    <!-- Requests tab content (manager only) -->
+    <div v-if="squadTab === 'requests'" class="space-y-2">
+      <div v-if="!receivedRequests.length" class="text-center py-10">
+        <p class="text-sm text-muted-foreground">No pending join requests.</p>
+      </div>
+      <div
+        v-for="req in receivedRequests"
+        :key="req.id"
+        class="flex items-center justify-between gap-3 p-4 rounded-lg border bg-card"
+      >
+        <div>
+          <p class="text-sm font-medium">{{ req.user_id }}</p>
+          <p v-if="req.message" class="text-xs text-muted-foreground mt-0.5">{{ req.message }}</p>
+          <p class="text-xs text-muted-foreground/60 mt-0.5">{{ new Date(req.created_at).toLocaleDateString() }}</p>
+        </div>
+        <div class="flex gap-2">
+          <Button size="sm" variant="outline" class="h-7 text-xs" @click="handleApproveRequest(req.id)">Approve</Button>
+          <Button size="sm" variant="ghost" class="h-7 text-xs text-destructive" @click="handleRejectRequest(req.id)">Reject</Button>
+        </div>
+      </div>
+    </div>
+
     <!-- Selection toolbar -->
-    <div v-if="selectedIds.size > 0" class="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/50 border">
+    <div v-show="squadTab === 'roster'" v-if="selectedIds.size > 0" class="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/50 border">
       <span class="text-sm font-medium">{{ selectedIds.size }} selected</span>
       <Button size="sm" variant="destructive" @click="handleBulkDelete" :disabled="bulkDeleting">
         <Loader2 v-if="bulkDeleting" class="w-3.5 h-3.5 mr-1.5 animate-spin" />
@@ -210,40 +337,101 @@
       <Button size="sm" variant="ghost" @click="deselectAll">Deselect All</Button>
     </div>
 
-    <div v-if="loading && players.length === 0" class="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead class="w-8"></TableHead>
-            <TableHead class="w-10"></TableHead>
-            <TableHead class="w-16">#</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Off Position</TableHead>
-            <TableHead>Def Position</TableHead>
-            <TableHead class="text-center">Off Starter</TableHead>
-            <TableHead class="text-center">Def Starter</TableHead>
-            <TableHead class="text-center">Teams</TableHead>
-            <TableHead class="w-24"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="i in 8" :key="i">
-            <TableCell><Skeleton class="h-4 w-4" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-4 rounded" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-8" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-24" /></TableCell>
-            <TableCell><Skeleton class="h-5 w-12 rounded-full" /></TableCell>
-            <TableCell><Skeleton class="h-5 w-12 rounded-full" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-8 mx-auto" /></TableCell>
-            <TableCell><Skeleton class="h-4 w-8 mx-auto" /></TableCell>
-            <TableCell><Skeleton class="h-5 w-16 mx-auto rounded-full" /></TableCell>
-            <TableCell><Skeleton class="h-8 w-8 rounded ml-auto" /></TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+    <!-- Mobile player cards (hidden on desktop) -->
+    <div v-show="squadTab === 'roster'" v-if="!loading && filteredPlayers.length > 0" class="squad-mobile-list">
+      <div
+        v-for="p in filteredPlayers"
+        :key="p.id"
+        class="squad-mobile-card"
+        @click="openDialog(p)"
+      >
+        <div class="squad-mobile-card-left">
+          <div class="squad-mobile-number">#{{ p.number }}</div>
+        </div>
+        <div class="squad-mobile-card-body">
+          <div class="squad-mobile-name">{{ p.name }}</div>
+          <div class="squad-mobile-positions">
+            <span
+              v-for="pos in p.offense_positions"
+              :key="'o-' + pos"
+              class="squad-mobile-badge squad-mobile-badge--off"
+              :class="getStartingPositions(p.id).has(pos) ? 'squad-mobile-badge--starter' : ''"
+            >
+              {{ pos }}<span v-if="getStartingPositions(p.id).has(pos)">★</span>
+            </span>
+            <span
+              v-for="pos in p.defense_positions"
+              :key="'d-' + pos"
+              class="squad-mobile-badge squad-mobile-badge--def"
+              :class="getStartingPositions(p.id).has(pos) ? 'squad-mobile-badge--starter' : ''"
+            >
+              {{ pos }}<span v-if="getStartingPositions(p.id).has(pos)">★</span>
+            </span>
+          </div>
+        </div>
+        <div class="squad-mobile-card-actions" @click.stop>
+          <button
+            class="squad-mobile-action-btn squad-mobile-action-btn--edit"
+            aria-label="Edit player"
+            @click="openDialog(p)"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button
+            class="squad-mobile-action-btn squad-mobile-action-btn--delete"
+            aria-label="Delete player"
+            :disabled="deletingId === p.id"
+            @click="handleDelete(p.id)"
+          >
+            <Loader2 v-if="deletingId === p.id" class="squad-mobile-action-spin" />
+            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <div v-else-if="players.length === 0" class="text-center py-12">
+    <!-- Mobile skeleton cards -->
+    <div v-show="squadTab === 'roster'" v-if="loading && players.length === 0" class="squad-mobile-list">
+      <div v-for="i in 6" :key="i" class="squad-mobile-skeleton" />
+    </div>
+
+    <!-- Desktop-only loading skeleton table -->
+    <div v-show="squadTab === 'roster'" class="squad-desktop-only">
+      <div v-if="loading && players.length === 0" class="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead class="w-8"></TableHead>
+              <TableHead class="w-10"></TableHead>
+              <TableHead class="w-16">#</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Off Position</TableHead>
+              <TableHead>Def Position</TableHead>
+              <TableHead class="text-center">Off Starter</TableHead>
+              <TableHead class="text-center">Def Starter</TableHead>
+              <TableHead class="text-center">Teams</TableHead>
+              <TableHead class="w-24"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="i in 8" :key="i">
+              <TableCell><Skeleton class="h-4 w-4" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-4 rounded" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-8" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-24" /></TableCell>
+              <TableCell><Skeleton class="h-5 w-12 rounded-full" /></TableCell>
+              <TableCell><Skeleton class="h-5 w-12 rounded-full" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-8 mx-auto" /></TableCell>
+              <TableCell><Skeleton class="h-4 w-8 mx-auto" /></TableCell>
+              <TableCell><Skeleton class="h-5 w-16 mx-auto rounded-full" /></TableCell>
+              <TableCell><Skeleton class="h-8 w-8 rounded ml-auto" /></TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+
+    <div v-show="squadTab === 'roster'" v-if="!loading && players.length === 0" class="text-center py-12">
       <Users class="w-12 h-12 text-muted-foreground mx-auto mb-3" />
       <h3 class="font-medium text-lg font-display">No players yet</h3>
       <p class="text-muted-foreground text-sm mt-1">Add your first player to get started.</p>
@@ -274,12 +462,14 @@
       </div>
     </div>
 
-    <div v-else-if="filteredPlayers.length === 0" class="text-center py-8">
+    <div v-show="squadTab === 'roster'" v-if="!loading && players.length > 0 && filteredPlayers.length === 0" class="text-center py-8">
       <p class="text-muted-foreground text-sm">No players match the current filters.</p>
       <Button variant="ghost" size="sm" class="mt-2 text-xs" @click="clearFilters">Clear filters</Button>
     </div>
 
-    <div v-else class="rounded-md border bg-card shadow">
+    <!-- Desktop-only data table -->
+    <div v-show="squadTab === 'roster'" class="squad-desktop-only">
+    <div v-if="!loading && filteredPlayers.length > 0" class="rounded-md border bg-card shadow">
       <Table>
         <TableHeader>
           <TableRow>
@@ -324,7 +514,6 @@
                 <ArrowUpDown v-else class="w-3 h-3 opacity-30" />
               </button>
             </TableHead>
-            <TableHead class="text-center">Teams</TableHead>
             <TableHead class="w-24"></TableHead>
           </TableRow>
         </TableHeader>
@@ -397,21 +586,14 @@
                 {{ starterRatio(p.id, 'defense').starting }}/{{ starterRatio(p.id, 'defense').total }}
               </span>
             </TableCell>
-            <TableCell class="text-center" @click.stop>
-              <div class="flex gap-1 justify-center flex-wrap">
-                <span
-                  v-for="team in getPlayerTeams(p.id)"
-                  :key="team.id || 'fa'"
-                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold"
-                  :class="team.name === 'Free Agent' ? 'bg-muted text-muted-foreground' : ''"
-                  :style="team.color ? { backgroundColor: team.color + '20', color: team.color } : {}"
-                >
-                  {{ team.name }}
-                </span>
-              </div>
-            </TableCell>
               <TableCell>
-                <div class="flex gap-1 justify-end">
+                <div class="flex gap-1 justify-end items-center">
+                  <span v-if="p.linked_user_id" title="Player has joined FlagOS" class="h-8 w-8 flex items-center justify-center">
+                    <CheckCircle2 class="w-3.5 h-3.5 text-green-500" />
+                  </span>
+                  <Button size="icon" variant="ghost" class="h-8 w-8 text-muted-foreground" @click.stop="openInviteDialog(p)" title="Invite to FlagOS">
+                    <Mail class="w-3.5 h-3.5" />
+                  </Button>
                   <Button size="icon" variant="ghost" class="h-8 w-8 text-destructive" @click.stop="handleDelete(p.id)" :disabled="deletingId === p.id">
                     <Loader2 v-if="deletingId === p.id" class="w-3.5 h-3.5 animate-spin" />
                     <Trash2 v-else class="w-3.5 h-3.5" />
@@ -420,7 +602,7 @@
               </TableCell>
             </TableRow>
             <TableRow v-if="expandedPlayerId === p.id" class="bg-muted/40 hover:bg-muted/40">
-              <TableCell :colspan="10" class="p-0">
+              <TableCell :colspan="9" class="p-0">
                 <div class="p-6 space-y-6 border-b bg-muted/30 shadow-inner">
                   
                   <!-- Toolbar -->
@@ -957,6 +1139,7 @@
         </TableBody>
       </Table>
     </div>
+    </div><!-- end squad-desktop-only -->
 
     <PlayerDialog
       :open="dialogOpen"
@@ -964,6 +1147,7 @@
       :teams="teams"
       :player-team-ids="editingPlayer ? getPlayerTeamIds(editingPlayer.id) : []"
       :all-players="players"
+      :starting-positions="editingPlayer ? [...getStartingPositions(editingPlayer.id)] : []"
       @update:open="dialogOpen = $event"
       @submit="handleSubmit"
     />
@@ -982,11 +1166,97 @@
       @imported="handleBulkImported"
     />
 
+    </template><!-- end v-if="isManager" -->
+
+    <!-- Invite Player Dialog -->
+    <Dialog :open="inviteDialogOpen" @update:open="inviteDialogOpen = $event">
+      <DialogContent class="sm:max-w-md">
+        <!-- Sent confirmation state -->
+        <template v-if="inviteToken">
+          <DialogHeader>
+            <DialogTitle>Invite sent!</DialogTitle>
+            <DialogDescription>
+              An email was sent to <strong>{{ inviteEmail }}</strong>. Share the link below as a backup.
+            </DialogDescription>
+          </DialogHeader>
+          <div class="py-2 space-y-3">
+            <div class="invite-link-row">
+              <span class="invite-link-text">{{ inviteLink }}</span>
+              <button type="button" class="invite-link-copy-btn" @click="copyInviteLink" :title="inviteLinkCopied ? 'Copied!' : 'Copy link'">
+                <CheckCheck v-if="inviteLinkCopied" class="w-4 h-4 text-green-500" />
+                <Copy v-else class="w-4 h-4" />
+              </button>
+            </div>
+            <p class="text-xs text-muted-foreground">This link expires in 7 days and can only be used once.</p>
+          </div>
+          <DialogFooter>
+            <Button @click="inviteDialogOpen = false">Done</Button>
+          </DialogFooter>
+        </template>
+
+        <!-- Email entry state -->
+        <template v-else>
+          <DialogHeader>
+            <DialogTitle>Invite to FlagOS</DialogTitle>
+            <DialogDescription>
+              Send an invite link to {{ inviteTargetPlayer?.name ?? 'this person' }} so they can join your team on FlagOS.
+            </DialogDescription>
+          </DialogHeader>
+          <div class="space-y-4 py-2">
+            <div class="space-y-2">
+              <Label>Team</Label>
+              <Select :model-value="inviteTeamId ?? ''" @update:model-value="(v: any) => { inviteTeamId = String(v) || null }">
+                <SelectTrigger class="h-9">
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="t in teams.filter(t => t.name !== 'Free Agent')" :key="t.id" :value="t.id">
+                    {{ t.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="space-y-2">
+              <Label>Role</Label>
+              <Select :model-value="inviteRole" @update:model-value="(v: any) => { inviteRole = v }">
+                <SelectTrigger class="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="player">Player</SelectItem>
+                  <SelectItem value="coach">Coach</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="space-y-2">
+              <Label>Email address</Label>
+              <Input
+                v-model="inviteEmail"
+                type="email"
+                placeholder="email@example.com"
+                @keyup.enter="sendInvite"
+              />
+            </div>
+            <p v-if="inviteError" class="text-sm text-destructive">{{ inviteError }}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" @click="inviteDialogOpen = false">Cancel</Button>
+            <Button :disabled="!inviteEmail.trim() || inviteLoading" @click="sendInvite">
+              <Loader2 v-if="inviteLoading" class="w-4 h-4 mr-2 animate-spin" />
+              Send Invite
+            </Button>
+          </DialogFooter>
+        </template>
+      </DialogContent>
+    </Dialog>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Player, Team } from '~/lib/types'
+definePageMeta({})
+
+import type { Player, Team, PlayerInvite } from '~/lib/types'
 import {
   POSITION_COLORS,
   UNIVERSAL_ATTRIBUTE_GROUP,
@@ -1029,19 +1299,130 @@ import {
   Download,
   Filter,
   Check,
+  Mail,
+  Link2,
+  CheckCircle2,
+  Bell,
+  Copy,
+  CheckCheck,
 } from 'lucide-vue-next'
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '~/components/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '~/components/ui/dropdown-menu'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { Label } from '~/components/ui/label'
 
 const SLOT_COLORS = ['#f97316', '#22c55e', '#a855f7']
 const ALL_POSITIONS = ['QB', 'WR', 'C', 'DB', 'RSH', 'MLB'] // Keep for filter compatibility if needed
 
 const { players, loading, fetchPlayers, createPlayer, updatePlayer, deletePlayer, teamScore } = usePlayers()
-const { teams, fetchTeams, createTeam, addPlayerToTeam, removePlayerFromTeam, removePlayerFromTeamByPlayerId, autoAssignTeamStarters, resetTeamStarters, updateTeamPlayer } = useTeams()
+const { teams, fetchTeams, createTeam, updateTeam, addPlayerToTeam, removePlayerFromTeam, removePlayerFromTeamByPlayerId, autoAssignTeamStarters, resetTeamStarters, updateTeamPlayer } = useTeams()
 const { settings: fieldSettings, fetchSettings: fetchFieldSettings } = useFieldSettings()
 const { exportPlayers } = usePlayerExport()
 const { confirm } = useConfirm()
+
+const { isManager, isPlayer } = useAccountType()
+const { memberships, fetchMemberships, leaveTeam } = useTeamMemberships()
+const { allTeams: allContextTeams, activeTeamId: contextActiveTeamId, setActiveTeam: setContextActiveTeam } = useActiveContext()
+const { receivedRequests, fetchReceivedRequests, respondToRequest } = useTeamJoinRequests()
+const leavingTeamId = ref<string | null>(null)
+
+// Squad tab state (for managers: 'roster' | 'requests')
+const squadTab = ref<'roster' | 'requests'>('roster')
+
+// Invite dialog state
+const inviteDialogOpen = ref(false)
+const inviteTargetPlayer = ref<Player | null>(null)
+const inviteEmail = ref('')
+const inviteRole = ref<'player' | 'coach'>('player')
+const inviteTeamId = ref<string | null>(null)
+const inviteLoading = ref(false)
+const inviteError = ref<string | null>(null)
+const invitedPlayerIds = ref<Set<string>>(new Set())
+const inviteToken = ref<string | null>(null)
+const inviteLinkCopied = ref(false)
+
+const inviteLink = computed(() =>
+  inviteToken.value && import.meta.client
+    ? `${window.location.origin}/join/${inviteToken.value}`
+    : null
+)
+
+// inviteTeamId tracks which team is being invited to; initialized from contextActiveTeamId once available
+watch(contextActiveTeamId, (id) => {
+  if (id && !inviteTeamId.value) inviteTeamId.value = id
+}, { immediate: true })
+
+const playerInvitesRef = usePlayerInvites(inviteTeamId)
+
+// Pending invite set (player IDs with active invites)
+const pendingInvitePlayerIds = computed(() => {
+  const s = new Set<string>()
+  for (const inv of playerInvitesRef.invites.value) {
+    if (inv.player_id) s.add(inv.player_id)
+  }
+  return s
+})
+
+function openInviteDialog(player: Player) {
+  inviteTargetPlayer.value = player
+  inviteEmail.value = ''
+  inviteRole.value = 'player'
+  inviteError.value = null
+  inviteToken.value = null
+  inviteLinkCopied.value = false
+  inviteTeamId.value = contextActiveTeamId.value
+  inviteDialogOpen.value = true
+}
+
+async function sendInvite() {
+  if (!inviteEmail.value.trim() || !inviteTeamId.value) return
+  inviteLoading.value = true
+  inviteError.value = null
+  try {
+    const result = await playerInvitesRef.createInvite(inviteTargetPlayer.value?.id ?? null, inviteEmail.value.trim(), inviteRole.value)
+    if (result) {
+      inviteToken.value = result.token
+      invitedPlayerIds.value = new Set([...invitedPlayerIds.value, inviteTargetPlayer.value?.id ?? ''])
+    }
+  } catch (e: any) {
+    inviteError.value = e.data?.message ?? e.message ?? 'Failed to send invite'
+  } finally {
+    inviteLoading.value = false
+  }
+}
+
+async function copyInviteLink() {
+  if (!inviteLink.value) return
+  await navigator.clipboard.writeText(inviteLink.value)
+  inviteLinkCopied.value = true
+  setTimeout(() => { inviteLinkCopied.value = false }, 2000)
+}
+
+async function handleLeaveTeam(teamId: string) {
+  leavingTeamId.value = teamId
+  try {
+    await leaveTeam(teamId)
+    trackedTeamIds.value = trackedTeamIds.value.filter(id => id !== teamId)
+  } finally {
+    leavingTeamId.value = null
+  }
+}
+
+function getTeamRoster(teamId: string): Player[] {
+  const team = teams.value.find(t => t.id === teamId)
+  if (!team?.team_players) return []
+  const playerIds = new Set(team.team_players.map(tp => tp.player_id))
+  return players.value.filter(p => playerIds.has(p.id))
+}
+
+async function handleApproveRequest(requestId: string) {
+  await respondToRequest(requestId, 'approved')
+}
+
+async function handleRejectRequest(requestId: string) {
+  await respondToRequest(requestId, 'rejected')
+}
 
 function getRandomItem<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
@@ -1391,7 +1772,6 @@ const showFilters = ref(false)
 const filterPosition = ref('all')
 const filterOff = ref('all')
 const filterDef = ref('all')
-const filterTeam = ref('all')
 
 // Sort
 type SortKey = 'number' | 'name' | 'off' | 'def' | 'height' | 'weight'
@@ -1409,18 +1789,26 @@ function toggleSort(key: SortKey) {
 }
 
 const hasActiveFilters = computed(() =>
-  filterPosition.value !== 'all' || filterOff.value !== 'all' || filterDef.value !== 'all' || filterTeam.value !== 'all'
+  filterPosition.value !== 'all' || filterOff.value !== 'all' || filterDef.value !== 'all'
 )
 
 function clearFilters() {
   filterPosition.value = 'all'
   filterOff.value = 'all'
   filterDef.value = 'all'
-  filterTeam.value = 'all'
 }
 
+/** Players filtered to the active team (or all players if no active team set) */
+const playersOnActiveTeam = computed(() => {
+  if (!contextActiveTeamId.value) return players.value
+  const team = teams.value.find((t) => t.id === contextActiveTeamId.value)
+  if (!team?.team_players) return []
+  const ids = new Set(team.team_players.map((tp) => tp.player_id))
+  return players.value.filter((p) => ids.has(p.id))
+})
+
 const filteredPlayers = computed(() => {
-  let result = players.value.filter((p) => {
+  let result = playersOnActiveTeam.value.filter((p) => {
     // Position filter
     if (filterPosition.value !== 'all') {
       const pos = filterPosition.value
@@ -1437,11 +1825,6 @@ const filteredPlayers = computed(() => {
       const isDef = starterRatio(p.id, 'defense').starting > 0
       if (filterDef.value === 'starter' && !isDef) return false
       if (filterDef.value === 'bench' && isDef) return false
-    }
-    // Team filter
-    if (filterTeam.value !== 'all') {
-      const team = teams.value.find((t) => t.id === filterTeam.value)
-      if (!team?.team_players?.some((tp) => tp.player_id === p.id)) return false
     }
 
     // Search filter
@@ -1497,11 +1880,18 @@ watch(trackedTeamIds, (ids) => {
 }, { deep: true })
 
 const trackedTeams = computed(() => {
-  // Return the actual Team objects for the IDs we have
   return trackedTeamIds.value
     .map(id => teams.value.find(t => t.id === id))
     .filter((t): t is Team => !!t)
 })
+
+// For players: all teams they are a member of (full Team objects now available via updated fetchTeams)
+const playerTeams = computed<Team[]>(() =>
+  allContextTeams.value
+    .filter(ctx => ctx.role === 'player')
+    .map(ctx => teams.value.find(t => t.id === ctx.id))
+    .filter((t): t is Team => !!t)
+)
 
 const availableTeamsForSlot = computed(() =>
   teams.value.filter((t) => !trackedTeamIds.value.includes(t.id) && t.name !== 'Free Agent')
@@ -1561,8 +1951,10 @@ const slotScores = computed(() => {
 
 const slotPlayerCounts = computed(() => {
   const counts: Record<string, number> = {}
-  for (const id of trackedTeamIds.value) {
-    counts[id] = trackedPlayerSets.value.get(id)?.size ?? 0
+  const allIds = [...trackedTeamIds.value, ...playerTeams.value.map(t => t.id)]
+  for (const id of allIds) {
+    const team = teams.value.find(t => t.id === id)
+    counts[id] = team?.team_players?.length ?? 0
   }
   return counts
 })
@@ -1862,13 +2254,16 @@ async function handleDelete(id: string) {
   }
 }
 
-async function handleCreateTeam(data: { name: string; description: string }) {
+async function handleCreateTeam(data: { name: string; description: string; is_joinable: boolean }) {
   const team = await createTeam(data.name, data.description)
+  if (team && data.is_joinable) {
+    await updateTeam(team.id, { is_joinable: true })
+  }
   if (team) {
-    // If we were adding via the new team slot, auto-select it if possible
     if (trackedTeamIds.value.length < 3) {
       trackedTeamIds.value = [...trackedTeamIds.value, team.id]
     }
+    setContextActiveTeam(team.id)
   }
 }
 
@@ -1898,7 +2293,246 @@ watch([dialogOpen, bulkImportOpen], ([dialog, bulk]) => {
 }, { immediate: false })
 
 onMounted(() => {
-  fetchPlayers()
-  fetchTeams()
+  if (isManager.value) {
+    fetchPlayers()
+    fetchTeams()
+    playerInvitesRef.fetchInvites()
+  } else if (isPlayer.value) {
+    fetchMemberships()
+    fetchPlayers()
+    fetchTeams()
+  } else {
+    fetchPlayers()
+    fetchTeams()
+  }
 })
 </script>
+
+<style scoped>
+/* ── Desktop-only table wrapper ─────────────────────────────────── */
+.squad-desktop-only {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .squad-desktop-only {
+    display: block;
+  }
+}
+
+/* ── Mobile player list ─────────────────────────────────────────── */
+.squad-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (min-width: 1024px) {
+  .squad-mobile-list {
+    display: none;
+  }
+}
+
+.squad-mobile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-card);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.squad-mobile-card:hover {
+  background: var(--color-accent);
+}
+
+.squad-mobile-card-left {
+  flex-shrink: 0;
+}
+
+.squad-mobile-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.squad-mobile-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.squad-mobile-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.squad-mobile-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.squad-mobile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.squad-mobile-badge--off {
+  background: color-mix(in oklch, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+
+.squad-mobile-badge--def {
+  background: var(--color-accent);
+  color: var(--color-muted-foreground);
+  border: 1px solid var(--color-border);
+}
+
+.squad-mobile-badge--starter {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.squad-mobile-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.squad-mobile-team {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.squad-mobile-team--fa {
+  background: var(--color-accent);
+  color: var(--color-muted-foreground);
+}
+
+.squad-mobile-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.squad-mobile-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.squad-mobile-action-btn--edit {
+  background: var(--color-accent);
+  color: var(--color-muted-foreground);
+}
+
+.squad-mobile-action-btn--edit:hover {
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.squad-mobile-action-btn--delete {
+  background: color-mix(in oklch, var(--color-destructive) 8%, transparent);
+  color: var(--color-destructive);
+}
+
+.squad-mobile-action-btn--delete:hover {
+  background: color-mix(in oklch, var(--color-destructive) 16%, transparent);
+}
+
+.squad-mobile-action-spin {
+  width: 14px;
+  height: 14px;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Mobile skeleton cards ──────────────────────────────────────── */
+.squad-mobile-skeleton {
+  height: 64px;
+  border-radius: 12px;
+  background: var(--color-accent);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Invite link row ────────────────────────────────────────────── */
+.invite-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-accent);
+}
+
+.invite-link-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.invite-link-copy-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.invite-link-copy-btn:hover {
+  background: var(--color-border);
+  color: var(--color-foreground);
+}
+</style>

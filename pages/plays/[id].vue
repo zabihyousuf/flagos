@@ -5,7 +5,7 @@
       <!-- Left: Play name + play type -->
       <div class="flex-1 min-w-0 flex items-center gap-1.5">
         <!-- Editable Play Name -->
-        <div class="w-36 shrink-0" v-if="currentPlay">
+        <div class="pd-play-name-wrapper w-36 shrink-0" v-if="currentPlay">
           <input
             v-model="currentPlay.name"
             class="w-full bg-transparent text-sm font-medium truncate border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
@@ -15,7 +15,7 @@
         <span v-else class="text-sm font-medium">Loading...</span>
 
         <!-- Play type: Offensive / Defensive (disabled for saved plays) -->
-        <div class="flex items-center gap-2 ml-2 shrink-0" v-if="currentPlay">
+        <div class="pd-play-type flex items-center gap-2 ml-2 shrink-0" v-if="currentPlay">
           <span class="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Play type</span>
           <div class="flex items-center bg-muted rounded-full p-0.5">
             <button
@@ -45,13 +45,14 @@
       </div>
 
       <!-- Center: Toolbar (relative z-10 so Share/Print stay clickable when right section overlaps) -->
-      <div class="relative z-10 flex-1 flex justify-center items-center min-w-0 gap-1.5">
+      <div class="pd-toolbar-section relative z-10 flex-1 flex justify-center items-center min-w-0 gap-1.5">
         <CanvasToolbar
           v-if="canvasReady"
           :selected-tool="cSelectedTool"
+          :can-undo="cCanUndo"
+          :can-redo="cCanRedo"
           :can-set-primary-target="canSetPrimaryTarget"
           :selected-player-is-primary="selectedPlayerIsPrimary"
-          :suggest-play-disabled="true"
           :motion-tool-disabled="motionToolDisabled"
           :read-order-disabled="readOrderDisabled"
           :route-tools-disabled="currentPlay?.play_type === 'defense'"
@@ -60,9 +61,10 @@
           :zone-position-unlocked="zonePositionUnlocked"
           @select-tool="onSetTool"
           @clear-routes="onClearAllRoutes"
-          @ai-action="onAiAction"
           @set-primary-target="onSetPrimaryTarget"
           @toggle-zone-position="onToggleZonePosition"
+          @undo="onUndo"
+          @redo="onRedo"
         />
         <div class="h-6 w-px min-w-px mx-2 shrink-0 bg-foreground/40 dark:bg-white/35" aria-hidden="true" />
         <!-- Play test speed (offense only) -->
@@ -133,7 +135,24 @@
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <div class="flex items-center gap-1.5 shrink-0">
+        <div class="pd-share-print flex items-center gap-1.5 shrink-0">
+          <TooltipProvider v-if="isManager && playId !== 'new'">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  class="h-8 w-8"
+                  @click="openNotifyTeamDialog"
+                >
+                  <Bell class="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Notify team</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <TooltipProvider v-if="playId !== 'new'">
             <Tooltip>
               <TooltipTrigger as-child>
@@ -173,9 +192,10 @@
       </div>
 
       <!-- Right: Ghost defense (offense only) + View Toggle + Save -->
-      <div class="flex-1 min-w-0 flex items-center justify-end gap-2">
+      <div class="pd-header-right flex-1 min-w-0 flex items-center justify-end gap-2">
         <!-- Ghost defense overlay: pick a defensive play to show as ghosts -->
-        <DropdownMenu v-if="currentPlay?.play_type === 'offense'" v-model:open="ghostDropdownOpen">
+        <div v-if="currentPlay?.play_type === 'offense'" class="pd-ghost-defense">
+        <DropdownMenu v-model:open="ghostDropdownOpen">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger as-child>
@@ -226,8 +246,9 @@
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
 
-        <div class="flex items-center bg-muted rounded-md p-0.5">
+        <div class="pd-view-toggle flex items-center bg-muted rounded-md p-0.5">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger as-child>
@@ -289,13 +310,56 @@
       :ghost-players="ghostPlayers"
     />
 
+    <!-- Notify Team Dialog -->
+    <Dialog v-model:open="notifyTeamDialogOpen">
+      <DialogContent class="sm:max-w-sm glass">
+        <DialogHeader>
+          <DialogTitle>Notify Team</DialogTitle>
+          <DialogDescription>
+            Send a notification about "{{ currentPlay?.name }}" to your team.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4 py-2">
+          <div class="space-y-1.5">
+            <label class="pd-notify-label">Team</label>
+            <Select v-model="notifyTeamId">
+              <SelectTrigger>
+                <SelectValue placeholder="Select team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="team in managerTeams" :key="team.id" :value="team.id">
+                  {{ team.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="space-y-1.5">
+            <label class="pd-notify-label">Message <span class="pd-notify-optional">(optional)</span></label>
+            <textarea
+              v-model="notifyTeamMessage"
+              class="pd-notify-textarea"
+              rows="3"
+              placeholder="Add a message for your team…"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-1">
+            <Button variant="outline" @click="notifyTeamDialogOpen = false">Cancel</Button>
+            <Button :disabled="!notifyTeamId || notifyTeamSending" @click="handleNotifyTeam">
+              <Bell class="w-3.5 h-3.5 mr-1.5" />
+              {{ notifyTeamSending ? 'Sending…' : 'Send Notification' }}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <!-- Loading State: Only show on initial load (not on save) -->
     <div v-if="loading && !currentPlay" class="flex-1 flex items-center justify-center text-muted-foreground bg-background">
       Loading play...
     </div>
 
     <!-- Three-column body: spacing below header, rounded shadowed panels -->
-    <div v-else-if="currentPlay" class="play-designer-body flex-1 flex overflow-hidden min-h-0 mt-3 gap-3">
+    <div v-else-if="currentPlay" class="play-designer-body flex-1 flex overflow-hidden min-h-0 mt-3 gap-3" :class="'panel--' + activePanel">
       <!-- Left: Roster Panel (narrower at 1024px so center canvas fits) -->
       <div class="play-designer-roster min-w-[200px] w-52 lg:w-60 shrink-0 rounded-xl shadow-md overflow-hidden bg-card">
         <CanvasRosterCard
@@ -319,6 +383,72 @@
         class="flex-1 min-w-0 flex flex-col items-center play-canvas-column"
         :class="viewMode === 'full' ? 'justify-center' : 'justify-end'"
       >
+        <!-- Mobile toolbar strip: shown inside canvas column so it auto-hides with the column on roster/details panels -->
+        <div v-if="canvasReady" class="pd-mobile-toolbar-strip">
+          <CanvasToolbar
+            :selected-tool="cSelectedTool"
+            :can-undo="cCanUndo"
+            :can-redo="cCanRedo"
+            :can-set-primary-target="canSetPrimaryTarget"
+            :selected-player-is-primary="selectedPlayerIsPrimary"
+            :motion-tool-disabled="motionToolDisabled"
+            :read-order-disabled="readOrderDisabled"
+            :route-tools-disabled="currentPlay?.play_type === 'defense'"
+            :erase-tool-disabled="currentPlay?.play_type === 'defense'"
+            :show-zone-position-button="showZonePositionButton"
+            :zone-position-unlocked="zonePositionUnlocked"
+            @select-tool="onSetTool"
+            @clear-routes="onClearAllRoutes"
+            @set-primary-target="onSetPrimaryTarget"
+            @toggle-zone-position="onToggleZonePosition"
+            @undo="onUndo"
+            @redo="onRedo"
+          />
+          <div class="h-5 w-px min-w-px mx-1 shrink-0 bg-foreground/20" aria-hidden="true" />
+          <DropdownMenu v-if="currentPlay?.play_type === 'offense'" v-model:open="mobilePlayTestSpeedOpen">
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="sm" class="h-8 gap-1 text-muted-foreground shrink-0 font-medium">
+                <span class="text-[12px]">{{ playTest.playbackSpeed.value === 1 ? '1×' : playTest.playbackSpeed.value + '×' }}</span>
+                <ChevronDown class="w-3 h-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" class="w-32">
+              <DropdownMenuItem
+                v-for="speed in playTestSpeedOptions"
+                :key="speed"
+                class="text-[12px]"
+                :class="playTest.playbackSpeed.value === speed ? 'bg-accent' : ''"
+                @select="playTest.playbackSpeed.value = speed"
+              >
+                {{ speed }}×
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            v-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value !== 'play_over'"
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8 shrink-0 text-green-500 hover:text-green-600 hover:bg-green-500/10"
+            :disabled="loading || playTest.isRunning.value || !anyOffensePlayerHasRoute"
+            @click="runPlayTest"
+          >
+            <Play class="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            v-else-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value === 'play_over'"
+            size="icon"
+            variant="ghost"
+            class="h-8 w-8 shrink-0 text-green-500 hover:text-green-600 hover:bg-green-500/10"
+            @click="playTest.clearOverlay()"
+          >
+            <RotateCcw class="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        <div class="play-print-header" aria-hidden="true">
+          <h1>{{ currentPlay.name }}</h1>
+          <p>{{ currentPlay.play_type === 'offense' ? 'Offense' : 'Defense' }}</p>
+        </div>
         <div
           class="w-full max-w-3xl xl:max-w-4xl min-w-0 play-canvas-wrapper"
           :class="viewMode === 'fit' ? 'play-canvas-wrapper-fit' : ''"
@@ -370,6 +500,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Mobile bottom tab bar (hidden on desktop) -->
+    <div v-if="currentPlay" class="pd-mobile-tabs">
+      <button class="pd-tab-btn" :class="{ 'pd-tab-btn--active': activePanel === 'canvas' }" @click="setPanel('canvas')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+        <span>Canvas</span>
+      </button>
+      <button class="pd-tab-btn" :class="{ 'pd-tab-btn--active': activePanel === 'roster' }" @click="setPanel('roster')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Roster</span>
+      </button>
+      <button class="pd-tab-btn" :class="{ 'pd-tab-btn--active': activePanel === 'details' }" @click="setPanel('details')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        <span>Details</span>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -390,12 +536,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '~/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '~/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
 import PlayCanvas from '~/components/canvas/PlayCanvas.vue'
 import CanvasToolbar from '~/components/canvas/CanvasToolbar.vue'
 import CanvasRosterCard from '~/components/canvas/CanvasRosterCard.vue'
 import CanvasPlayerCard from '~/components/canvas/CanvasPlayerCard.vue'
 import SavePlayDialog from '~/components/play/SavePlayDialog.vue'
-import { Swords, Shield, Share2, Printer } from 'lucide-vue-next'
+import { Swords, Shield, Share2, Printer, Bell } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'canvas',
@@ -412,9 +572,14 @@ const { players, fetchPlayers } = usePlayers()
 const { profile, fetchProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
 const playTest = usePlayTest()
+const { activePanel, setPanel } = usePlayDesignerUI()
+const { isDesktop } = useBreakpoint()
+const { isManager, isPlayer } = useAccountType()
+const { activeTeamId } = useActiveContext()
 
 /** Global play test speed multiplier (0.5x–3x). User can change before or during a test run. */
 const playTestSpeedOpen = ref(false)
+const mobilePlayTestSpeedOpen = ref(false)
 const playTestSpeedOptions = [0.5, 1, 1.5, 2, 2.5, 3]
 
 const viewMode = ref<'fit' | 'full'>('fit')
@@ -459,6 +624,7 @@ const cSelectedTool = computed<CanvasTool>(() => canvasRef.value?.selectedTool ?
 watch(cSelectedPlayerId, () => {
   suggestedRoutePreview.value = null
 })
+
 const cIsDirty = computed(() => {
   const d = canvasRef.value?.isDirty
   return typeof d === 'object' && d != null && 'value' in d ? (d as { value: boolean }).value : (d === true)
@@ -544,7 +710,6 @@ function onClearAllRoutes() {
     canvasRef.value?.requestRender()
   })
 }
-function onAiAction(action: string) { canvasRef.value?.handleAiAction(action) }
 function onSetPrimaryTarget() {
   const id = cSelectedPlayerId.value
   if (id) canvasRef.value?.updatePlayerAttribute(id, { primaryTarget: true })
@@ -672,8 +837,66 @@ const saveDialogOpen = ref(false)
 const isSaving = ref(false)
 const shareDialogOpen = ref(false)
 
-function handlePrint() {
-  globalThis.print()
+// ─── Notify Team ───
+const notifyTeamDialogOpen = ref(false)
+const notifyTeamId = ref<string>('')
+const notifyTeamMessage = ref('')
+const notifyTeamSending = ref(false)
+
+const managerTeams = computed(() => teams.value.filter((t) => t.name !== 'Free Agent'))
+
+function openNotifyTeamDialog() {
+  notifyTeamId.value = managerTeams.value[0]?.id ?? ''
+  notifyTeamMessage.value = ''
+  notifyTeamDialogOpen.value = true
+}
+
+async function handleNotifyTeam() {
+  if (!currentPlay.value || !notifyTeamId.value) return
+  notifyTeamSending.value = true
+  try {
+    await $fetch('/api/notifications/notify-team', {
+      method: 'POST',
+      body: {
+        team_id: notifyTeamId.value,
+        type: 'new_play',
+        title: `New play: ${currentPlay.value.name}`,
+        message: notifyTeamMessage.value.trim() || undefined,
+        metadata: { play_id: currentPlay.value.id },
+      },
+    })
+    notifyTeamDialogOpen.value = false
+    toast.success('Team notified', {
+      description: 'Your team has been notified about this play.',
+    })
+  } catch {
+    toast.error('Failed to notify team', {
+      description: 'Please try again in a moment.',
+    })
+  } finally {
+    notifyTeamSending.value = false
+  }
+}
+
+const { runPrint } = usePlayPrint()
+
+async function handlePrint() {
+  if (!currentPlay.value || !canvasRef.value) return
+  await runPrint({
+    field: fieldSettingsData.value,
+    playName: currentPlay.value.name,
+    getViewMode: () => viewMode.value,
+    setViewMode: (mode) => { viewMode.value = mode },
+    onPrepare: async () => {
+      if (playTest.isRunning.value || playTest.simulationState.value === 'play_over') {
+        playTest.clearOverlay()
+      }
+      await canvasRef.value?.prepareForPrint()
+    },
+    onRestore: () => {
+      canvasRef.value?.requestRender()
+    },
+  })
 }
 
 function handleNameChange() {
@@ -745,7 +968,7 @@ import { toast } from 'vue-sonner'
 
 async function onConfirmSave(data: { playbookId: string, name: string }) {
   if (!currentPlay.value) return
-  
+
   isSaving.value = true
   try {
     // Ensure canvas data is up to date (include ghost defense selection)
@@ -755,7 +978,27 @@ async function onConfirmSave(data: { playbookId: string, name: string }) {
       view_mode: viewMode.value,
     }
 
-    // Create the play
+    // Player save flow: use team-scoped endpoint
+    if (isPlayer.value && activeTeamId.value) {
+      const result = await $fetch<{ play_id: string }>('/api/plays/create-for-team', {
+        method: 'POST',
+        body: {
+          team_id: activeTeamId.value,
+          play_name: data.name,
+          play_type: currentPlay.value.play_type,
+          canvas_data: canvasData,
+          formation: currentPlay.value.formation,
+        },
+      })
+      saveDialogOpen.value = false
+      router.replace(`/plays/${result.play_id}`)
+      toast.success('Play saved', {
+        description: 'Your play was saved.',
+      })
+      return
+    }
+
+    // Manager save flow
     const newPlay = await createPlay(
       data.playbookId,
       data.name,
@@ -764,12 +1007,12 @@ async function onConfirmSave(data: { playbookId: string, name: string }) {
       starters.value,
       fieldSettings.value
     )
-    
+
     if (newPlay) {
-      // Need to immediately update with the draft canvas data (routes, positions) 
+      // Need to immediately update with the draft canvas data (routes, positions)
       // because createPlay uses default formation
       await updatePlay(newPlay.id, { canvas_data: canvasData })
-      
+
       saveDialogOpen.value = false
       router.replace(`/plays/${newPlay.id}`)
       toast.success('Play saved', {
@@ -907,6 +1150,29 @@ watch(playId, async (id) => {
   }
 })
 
+function handleDesignerKeydown(e: KeyboardEvent) {
+  const target = e.target as HTMLElement | null
+  if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+  const mod = e.metaKey || e.ctrlKey
+  if (!mod) return
+  if (e.key === 'z' || e.key === 'Z') {
+    e.preventDefault()
+    if (e.shiftKey) {
+      if (cCanRedo.value) onRedo()
+    } else {
+      if (cCanUndo.value) onUndo()
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleDesignerKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleDesignerKeydown)
+})
+
 onMounted(async () => {
   // Load settings first so defaults are available for new plays
   await fetchSettings()
@@ -975,5 +1241,215 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.play-print-header {
+  display: none;
+}
+
+.pd-notify-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.pd-notify-optional {
+  font-weight: 400;
+  color: var(--color-muted-foreground);
+  font-size: 12px;
+}
+
+.pd-notify-textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-size: 13px;
+  padding: 8px 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.pd-notify-textarea:focus {
+  border-color: var(--color-primary);
+}
+
+/* ── Mobile tab bar ─────────────────────────────────────────────── */
+.pd-mobile-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-card);
+  border-radius: 0 0 8px 8px;
+}
+
+@media (min-width: 1024px) {
+  .pd-mobile-tabs {
+    display: none;
+  }
+}
+
+.pd-tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.pd-tab-btn--active {
+  color: var(--color-primary);
+}
+
+/* ── Mobile toolbar strip (lives inside canvas column) ──────────── */
+.pd-mobile-toolbar-strip {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .pd-mobile-toolbar-strip {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 4px 8px;
+    background: var(--color-card);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 12px 12px 0 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 2px;
+  }
+  .pd-mobile-toolbar-strip::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Mobile: hide header elements that don't fit ────────────────── */
+@media (max-width: 1023px) {
+  /* Hide entire center toolbar section — moved into canvas column strip */
+  .pd-toolbar-section {
+    display: none;
+  }
+  .pd-play-type {
+    display: none;
+  }
+  .pd-ghost-defense {
+    display: none;
+  }
+  .pd-view-toggle {
+    display: none;
+  }
+  .pd-share-print {
+    display: none;
+  }
+  /* Right section shrinks to just the Save button */
+  .pd-header-right {
+    flex: none;
+  }
+  /* Name input expands to fill remaining header space */
+  .pd-play-name-wrapper {
+    width: auto;
+    flex: 1;
+  }
+
+  /* Tighten page padding on mobile */
+  .play-designer-page {
+    padding: 8px;
+  }
+  .play-designer-header {
+    padding-left: 8px;
+    padding-right: 8px;
+    gap: 8px;
+  }
+}
+
+/* ── Mobile: panel switching ────────────────────────────────────── */
+@media (max-width: 1023px) {
+  .play-designer-body {
+    position: relative;
+    margin-top: 8px;
+    gap: 0;
+  }
+
+  /* All three panels fill the container on mobile */
+  .play-designer-roster,
+  .play-canvas-column,
+  .play-designer-details {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Default: show canvas only, hide roster and details */
+  .play-designer-roster,
+  .play-designer-details {
+    display: none;
+  }
+
+  /* Canvas panel (default active) */
+  .panel--canvas .play-canvas-column {
+    display: flex;
+  }
+
+  /* Roster panel */
+  .panel--roster .play-canvas-column {
+    display: none;
+  }
+  .panel--roster .play-designer-roster {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    border-radius: 12px;
+  }
+  .panel--roster .play-designer-roster > * {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  /* Details panel */
+  .panel--details .play-canvas-column {
+    display: none;
+  }
+  .panel--details .play-designer-details {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    border-radius: 12px;
+  }
+  .panel--details .play-designer-details > * {
+    width: 100%;
+    min-width: 100%;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Canvas column: toolbar at top, canvas fills remaining space */
+  .play-canvas-column {
+    justify-content: flex-start;
+  }
+
+  /* Canvas wrapper fills remaining space after the toolbar strip */
+  .panel--canvas .play-canvas-column .play-canvas-wrapper {
+    flex: 1;
+    width: 100%;
+    max-width: 100% !important;
+    height: auto;
+    min-height: 0;
+  }
 }
 </style>

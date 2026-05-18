@@ -2,6 +2,8 @@ export interface Profile {
   id: string
   display_name: string | null
   default_team_id: string | null
+  account_type: 'manager' | 'player'
+  is_app_admin: boolean
   /** When set, user has completed the onboarding tutorial */
   tutorial_completed_at?: string | null
   /** When set, user has seen/dismissed the first-login subscribe/trial prompt */
@@ -73,6 +75,7 @@ export interface Play {
 export interface Player {
   id: string
   user_id: string
+  linked_user_id: string | null
   name: string
   number: number
   height: number | null // in inches
@@ -94,6 +97,7 @@ export interface Team {
   user_id: string
   name: string
   description: string
+  is_joinable: boolean
   created_at: string
   updated_at: string
   team_players?: TeamPlayer[]
@@ -290,6 +294,68 @@ export interface SimPlayer {
     field_vision: number
   }
   position_attributes: Record<string, number>
+}
+
+// ── Player Platform types ───────────────────────────────────────────────────
+
+export interface TeamMembership {
+  id: string
+  team_id: string
+  user_id: string
+  joined_at: string
+  role: 'player' | 'coach'
+  team?: Team
+}
+
+export interface TeamPlaybook {
+  id: string
+  team_id: string
+  playbook_id: string
+  shared_by: string
+  created_at: string
+  playbook?: Playbook
+}
+
+export interface PlayerInvite {
+  id: string
+  token: string
+  team_id: string
+  player_id: string | null
+  email: string
+  invited_by: string
+  expires_at: string
+  used_at: string | null
+  created_at: string
+  team?: Team
+}
+
+export interface TeamJoinRequest {
+  id: string
+  user_id: string
+  team_id: string
+  message: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  responded_at: string | null
+  team?: Team
+}
+
+export interface SimJobTeamShare {
+  id: string
+  job_id: string
+  team_id: string
+  shared_by: string
+  created_at: string
+}
+
+export interface TeamSubscription {
+  id: string
+  user_id: string
+  stripe_subscription_id: string | null
+  status: 'active' | 'canceled' | 'past_due' | 'trialing'
+  plan: 'free' | 'pro'
+  current_period_end: string | null
+  created_at: string
 }
 
 export class EngineAuthError extends Error {

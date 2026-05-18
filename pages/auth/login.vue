@@ -81,7 +81,10 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
 
+const route = useRoute()
 const client = useSupabaseClient()
+
+const inviteToken = computed(() => route.query.invite as string | undefined)
 
 const email = ref('')
 const password = ref('')
@@ -97,7 +100,7 @@ async function handleLogin() {
       password: password.value,
     })
     if (error) throw error
-    await navigateTo('/dashboard')
+    await navigateTo(inviteToken.value ? `/join/${inviteToken.value}` : '/dashboard')
   } catch (e: any) {
     errorMsg.value = e.message ?? 'Something went wrong. Try again.'
   } finally {

@@ -1,7 +1,7 @@
 <template>
-  <div class="settings-layout flex flex-col xl:flex-row min-h-0 h-full overflow-hidden">
-    <!-- Vertical Tab Navigation (fixed; does not scroll) -->
-    <nav class="settings-nav w-44 shrink-0 xl:w-[180px] xl:min-w-[180px]">
+  <div class="settings-layout min-h-0 h-full overflow-hidden">
+    <!-- Tab Navigation (horizontal on mobile, vertical sidebar on xl+) -->
+    <nav class="settings-nav">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -10,7 +10,7 @@
         @click="activeTab = tab.id"
       >
         <component :is="tab.icon" class="settings-nav-icon" />
-        <span>{{ tab.label }}</span>
+        <span class="settings-nav-label">{{ tab.label }}</span>
       </button>
     </nav>
 
@@ -273,7 +273,7 @@
                     type="checkbox"
                     class="mt-1 rounded border-input"
                     :checked="settings.replay_auto_play !== false"
-                    @change="updateSettings({ replay_auto_play: (event?.target as HTMLInputElement)?.checked })"
+                    @change="updateSettings({ replay_auto_play: ($event?.target as HTMLInputElement)?.checked })"
                   />
                   <div>
                     <span class="text-sm font-medium">Auto-play when selected</span>
@@ -285,7 +285,7 @@
                     type="checkbox"
                     class="mt-1 rounded border-input"
                     :checked="settings.replay_loop === true"
-                    @change="updateSettings({ replay_loop: (event?.target as HTMLInputElement)?.checked })"
+                    @change="updateSettings({ replay_loop: ($event?.target as HTMLInputElement)?.checked })"
                   />
                   <div>
                     <span class="text-sm font-medium">Loop replay</span>
@@ -824,25 +824,35 @@ import {
 } from '~/components/ui/alert-dialog'
 
 const isDev = import.meta.dev
+const { isPlayer: isPlayerAccount } = useAccountType()
 const tabs = computed(() => {
-  const base = [
-    { id: 'general' as const, label: 'General', icon: Settings2 },
-    { id: 'account' as const, label: 'Account', icon: User },
-    { id: 'field' as const, label: 'Field', icon: Ruler },
-    { id: 'team' as const, label: 'Team', icon: ShieldIcon },
-    { id: 'billing' as const, label: 'Pricing & Billing', icon: CreditCard },
+  // Players only see General (appearance) and Account
+  if (isPlayerAccount.value) {
+    return [
+      { id: 'general' as const, label: 'General', icon: Settings2 },
+      { id: 'account' as const, label: 'Account', icon: User },
+    ]
+  }
+  type TabId = 'general' | 'account' | 'field' | 'team' | 'billing' | 'developer'
+  const base: Array<{ id: TabId; label: string; icon: any }> = [
+    { id: 'general', label: 'General', icon: Settings2 },
+    { id: 'account', label: 'Account', icon: User },
+    { id: 'field', label: 'Field', icon: Ruler },
+    { id: 'team', label: 'Team', icon: ShieldIcon },
+    { id: 'billing', label: 'Pricing & Billing', icon: CreditCard },
   ]
-  if (isDev) base.push({ id: 'developer' as const, label: 'Developer', icon: FlaskConical })
+  if (isDev) base.push({ id: 'developer', label: 'Developer', icon: FlaskConical })
   return base
 })
-const tabIds = computed(() => (isDev ? ['general', 'account', 'field', 'team', 'billing', 'developer'] : ['general', 'account', 'field', 'team', 'billing']) as readonly string[])
+const tabIds = computed(() => tabs.value.map(t => t.id) as readonly string[])
 const activeTab = ref<'general' | 'account' | 'field' | 'team' | 'billing' | 'developer'>('general')
 const route = useRoute()
 
 watch(
   () => route.query.tab,
   (tab) => {
-    if (tab && tabIds.value.includes(tab)) activeTab.value = tab as typeof activeTab.value
+    const t = Array.isArray(tab) ? tab[0] : tab
+    if (t && tabIds.value.includes(t)) activeTab.value = t as typeof activeTab.value
   },
   { immediate: true }
 )
@@ -864,6 +874,7 @@ function setTheme(value: ThemePreference) {
   updateSettings({ theme: value })
 }
 const { teams, fetchTeams } = useTeams()
+const { setActiveTeam } = useActiveContext()
 const supaClient = useSupabaseClient()
 
 const deleteAccountDialogOpen = ref(false)
@@ -1016,6 +1027,7 @@ const defStarterCount = computed(() => {
 async function handleTeamChange(teamId: any) {
   const id = teamId === '__none__' ? null : teamId
   await updateProfile({ default_team_id: id } as Partial<Profile>)
+  setActiveTeam(id) // sync session to match the saved preference
 }
 
 async function handleLogout() {
@@ -1053,24 +1065,55 @@ onMounted(() => {
 <style scoped>
 .settings-layout {
   display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   overflow: hidden;
 }
 
+@media (min-width: 1280px) {
+  .settings-layout {
+    flex-direction: row;
+  }
+}
+
+/* ── Nav: horizontal scrollable strip on mobile ─────────────────── */
 .settings-nav {
-  padding: 16px 8px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  gap: 4px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.settings-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .settings-nav {
+    flex-direction: column;
+    padding: 16px 8px;
+    overflow-x: visible;
+    overflow-y: auto;
+    width: 180px;
+    min-width: 180px;
+    border-bottom: none;
+    border-right: 1px solid var(--color-border);
+  }
 }
 
 .settings-nav-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 8px;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: var(--color-muted-foreground);
@@ -1078,8 +1121,20 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  text-align: left;
-  width: 100%;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1280px) {
+  .settings-nav-btn {
+    gap: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    text-align: left;
+    width: 100%;
+    white-space: normal;
+    flex-shrink: unset;
+  }
 }
 
 .settings-nav-btn:hover {
@@ -1088,15 +1143,32 @@ onMounted(() => {
 }
 
 .settings-nav-btn.active {
-  background: var(--color-accent);
-  color: var(--color-foreground);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   font-weight: 600;
 }
 
 .settings-nav-icon {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
+}
+
+@media (min-width: 1280px) {
+  .settings-nav-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Hide long label text on very small screens, show icon only */
+@media (max-width: 400px) {
+  .settings-nav-label {
+    display: none;
+  }
+  .settings-nav-btn {
+    padding: 10px;
+  }
 }
 
 .settings-content {
@@ -1213,11 +1285,17 @@ onMounted(() => {
 }
 
 .settings-panel {
-  padding: 32px;
+  padding: 16px;
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+}
+
+@media (min-width: 768px) {
+  .settings-panel {
+    padding: 32px;
+  }
 }
 
 /* General tab: setting label left, control right */

@@ -55,12 +55,17 @@
           class="notification-card"
           :class="{ unread: !n.read }"
         >
-          <div class="notification-card-icon" :class="n.type === 'job_completed' ? 'icon-success' : 'icon-error'">
+          <div class="notification-card-icon" :class="notifIconClass(n.type)">
             <CheckCircle2 v-if="n.type === 'job_completed'" class="w-5 h-5" />
-            <XCircle v-else class="w-5 h-5" />
+            <XCircle v-else-if="n.type === 'job_failed'" class="w-5 h-5" />
+            <FileText v-else-if="n.type === 'new_play' || n.type === 'player_created_play'" class="w-5 h-5" />
+            <UserCheck v-else-if="n.type === 'join_approved'" class="w-5 h-5" />
+            <UserX v-else-if="n.type === 'join_rejected'" class="w-5 h-5" />
+            <Users v-else-if="n.type === 'join_request'" class="w-5 h-5" />
+            <Bell v-else class="w-5 h-5" />
           </div>
 
-          <div class="notification-card-body" @click="goToJob(n)">
+          <div class="notification-card-body" @click="goToNotification(n)">
             <div class="notification-card-title-row">
               <p class="notification-card-title">{{ n.title }}</p>
               <span class="notification-card-time">{{ timeAgo(n.created_at) }}</span>
@@ -99,6 +104,10 @@ import {
   X,
   Check,
   CheckCheck,
+  FileText,
+  UserCheck,
+  UserX,
+  Users,
 } from 'lucide-vue-next'
 import { READ_NOTIFICATION_TTL_MS, type AppNotification } from '~/composables/useNotifications'
 
@@ -142,10 +151,24 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
-function goToJob(n: AppNotification) {
+function notifIconClass(type: string): string {
+  if (type === 'job_completed' || type === 'join_approved') return 'icon-success'
+  if (type === 'job_failed' || type === 'join_rejected') return 'icon-error'
+  if (type === 'join_request' || type === 'new_play' || type === 'player_created_play') return 'icon-info'
+  return 'icon-info'
+}
+
+function goToNotification(n: AppNotification) {
   if (!n.read) markAsRead(n.id)
-  if (n.metadata?.job_id) {
-    navigateTo(`/blurai/playlab/${n.metadata.job_id}`)
+  const meta = n.metadata as Record<string, any> | undefined
+  if (meta?.job_id) {
+    navigateTo(`/blurai/playlab/${meta.job_id}`)
+  } else if (meta?.play_id) {
+    navigateTo(`/plays/${meta.play_id}`)
+  } else if (n.type === 'join_request') {
+    navigateTo('/squad')
+  } else if (n.type === 'join_approved' || n.type === 'join_rejected') {
+    navigateTo('/teams')
   }
 }
 </script>
@@ -276,6 +299,11 @@ function goToJob(n: AppNotification) {
 .icon-error {
   background: color-mix(in oklch, var(--color-destructive) 15%, transparent);
   color: var(--color-destructive);
+}
+
+.icon-info {
+  background: color-mix(in oklch, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
 }
 
 .notification-card-body {

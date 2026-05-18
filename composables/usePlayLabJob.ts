@@ -337,6 +337,7 @@ export function usePlayLabJob() {
           best_10_scenarios: [],
           worst_10_scenarios: [],
           overall_completion_rate: 0,
+          redzone_td_rate: 0,
         }
         if (pct >= 100) {
           result.value = getStubBatchResult(id, request.n_iterations, ['Auto: Scenario 1', 'Auto: Scenario 2', 'Auto: Scenario 3'])

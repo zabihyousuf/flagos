@@ -132,11 +132,67 @@ export function useJobHistory() {
     }
   }
 
+  /** Fetch sim jobs shared with the current user's team memberships (for players). */
+  async function fetchSharedJobs(): Promise<JobStatus[]> {
+    if (!user.value) return []
+    loading.value = true
+    error.value = null
+    try {
+      const { data: memberRows } = await client
+        .from('team_memberships')
+        .select('team_id')
+        .eq('user_id', user.value.id)
+      const teamIds = (memberRows ?? []).map((r: any) => r.team_id)
+      if (teamIds.length === 0) {
+        jobs.value = []
+        return []
+      }
+
+      const { data: shareRows } = await client
+        .from('sim_job_team_shares')
+        .select('job_id')
+        .in('team_id', teamIds)
+      const sharedJobIds = [...new Set((shareRows ?? []).map((r: any) => r.job_id as string))]
+      if (sharedJobIds.length === 0) {
+        jobs.value = []
+        return []
+      }
+
+      const { data: jobRows, error: jobErr } = await client
+        .from('sim_jobs')
+        .select('id, job_type, status, progress, progress_label, error, completed_at, created_at, job_metadata')
+        .in('id', sharedJobIds)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (jobErr) throw jobErr
+
+      jobs.value = (jobRows ?? []).map((row: any): JobStatus => ({
+        job_id: row.id,
+        state: mapDbStatus(row.status),
+        progress_percent: row.progress != null ? row.progress * 100 : undefined,
+        progress_label: row.progress_label || undefined,
+        error: row.error || undefined,
+        job_type: row.job_type,
+        created_at: row.created_at || undefined,
+        completed_at: row.completed_at || undefined,
+        job_metadata: row.job_metadata || undefined,
+      }))
+
+      return jobs.value
+    } catch (e: any) {
+      error.value = e.message ?? 'Failed to fetch shared simulations'
+      return []
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     jobs,
     loading,
     error,
     fetchJobs,
+    fetchSharedJobs,
     deleteJob,
     deleteAllJobs,
   }

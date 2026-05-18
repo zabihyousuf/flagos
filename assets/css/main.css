@@ -308,64 +308,187 @@
   background: var(--color-muted-foreground);
 }
 
-/* Play designer print: hide sidebar, footer, header, panels; show only canvas */
+/* Play designer / shared play print */
+@page {
+  margin: 0.5in;
+  size: letter;
+}
+
+/* Apply exact print box while preparing (before print preview applies @media print) */
+.play-print-active .play-canvas-wrapper,
+.play-print-active .play-canvas-wrapper-fit,
+.play-print-active .shared-play-canvas {
+  width: var(--play-print-width, 7.5in) !important;
+  height: var(--play-print-height) !important;
+  max-width: var(--play-print-width, 7.5in) !important;
+  max-height: var(--play-print-height) !important;
+  min-height: unset !important;
+  aspect-ratio: unset !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
 @media print {
-  html, body {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .sidebar,
+  .app-footer,
+  .play-designer-header,
+  .play-designer-roster,
+  .play-designer-details,
+  .shared-play-header,
+  .shared-play-footer {
+    display: none !important;
+  }
+
+  .sim-history-sidebar {
+    display: none !important;
+  }
+
+  /* Layout shell: use full page width so content can center */
+  .play-print-active > .flex.h-screen {
+    display: block !important;
     height: auto !important;
     overflow: visible !important;
   }
-  .sidebar,
-  .app-footer {
-    display: none !important;
-  }
-  main {
+
+  .play-print-active > .flex.h-screen > .flex.flex-col.flex-1 {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
     overflow: visible !important;
-    min-height: 0 !important;
   }
-  .play-designer-header,
-  .play-designer-roster,
-  .play-designer-details {
-    display: none !important;
-  }
-  .play-designer-page {
+
+  .play-print-active main {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 100vh !important;
     padding: 0 !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+  }
+
+  .play-designer-page,
+  .shared-play-page {
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
     height: auto !important;
     min-height: 100vh !important;
     overflow: visible !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: center !important;
     align-items: center !important;
-  }
-  .play-designer-body {
-    gap: 0 !important;
-    margin-top: 0 !important;
-    overflow: visible !important;
-    min-height: 0 !important;
-    flex: none !important;
-    display: flex !important;
     justify-content: center !important;
-    align-items: center !important;
-    width: 100% !important;
   }
-  .play-canvas-column {
-    flex: none !important;
+
+  .shared-play-content {
+    padding: 0 !important;
+    margin: 0 auto !important;
     width: 100% !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    overflow: visible !important;
-    min-height: 0 !important;
-  }
-  .play-canvas-wrapper,
-  .play-canvas-wrapper-fit {
-    width: 100% !important;
-    max-width: 100% !important;
     height: auto !important;
-    min-height: 0 !important;
-    /* Fit full field on one page; aspect 40/90 = width/height (70yd + 2×10 EZ, 40yd wide) */
-    max-height: min(85vh, 10in) !important;
-    aspect-ratio: 40 / 90 !important;
-    page-break-inside: avoid !important;
+    min-height: 100vh !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .play-designer-body,
+  .shared-play-canvas-area {
+    gap: 0 !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 7.5in !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+  }
+
+  .play-canvas-column {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    max-width: 7.5in !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+
+  .play-print-header {
+    display: block !important;
+    width: 100%;
+    max-width: 7.5in;
+    margin: 0 auto 0.35in;
+    text-align: center;
+    page-break-after: avoid;
+  }
+
+  .play-print-header h1 {
+    font-size: 14pt;
+    font-weight: 600;
+    margin: 0 0 0.15in;
+    color: #111;
+  }
+
+  .play-print-header p {
+    font-size: 10pt;
+    margin: 0;
+    color: #444;
+  }
+
+  .play-canvas-wrapper,
+  .play-canvas-wrapper-fit,
+  .shared-play-canvas {
+    width: var(--play-print-width, 7.5in) !important;
+    height: var(--play-print-height, auto) !important;
+    max-width: var(--play-print-width, 7.5in) !important;
+    max-height: var(--play-print-height, none) !important;
+    min-height: unset !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    aspect-ratio: unset !important;
+    overflow: hidden !important;
+    page-break-inside: avoid;
+    flex-shrink: 0 !important;
+  }
+
+  .play-canvas-wrapper > .relative,
+  .play-canvas-wrapper .relative,
+  .play-canvas-wrapper .overflow-hidden {
+    overflow: hidden !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+  }
+
+  .play-canvas-wrapper canvas,
+  .shared-play-canvas canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    margin: 0 !important;
+  }
+
+  /* Hide in-canvas UI overlays (delete chip, loading) */
+  .play-canvas-wrapper .absolute.z-10,
+  .play-canvas-wrapper .absolute.z-20 {
+    display: none !important;
   }
 }

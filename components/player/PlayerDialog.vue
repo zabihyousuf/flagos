@@ -1,20 +1,36 @@
 <template>
   <Dialog :open="open" @update:open="$emit('update:open', $event)">
-    <DialogContent class="sm:max-w-2xl glass max-h-[90vh] overflow-hidden grid-rows-[auto_1fr_auto]">
-      <DialogHeader>
+    <DialogContent class="sm:max-w-2xl glass max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogHeader class="px-6 pt-6 pb-0 shrink-0">
         <DialogTitle>{{ player ? 'Edit Player' : 'Add Player' }}</DialogTitle>
         <DialogDescription>
           {{ player ? 'Update player details and attributes.' : 'Add a new player. You can edit attributes later from the roster.' }}
         </DialogDescription>
       </DialogHeader>
 
-      <div class="min-h-0 overflow-x-hidden overflow-y-auto space-y-4 px-6 py-4">
+      <div class="flex-1 min-h-0 overflow-x-hidden overflow-y-auto space-y-4 px-6 py-4">
         <AddPlayerBasics
           :form="form"
           :selectable-teams="selectableTeams"
           @toggle-position="togglePosition"
           @toggle-team="toggleTeam"
         />
+
+        <!-- Starting positions (read-only display) -->
+        <div v-if="startingPositions && startingPositions.length > 0" class="space-y-1.5 pt-2 border-t border-border">
+          <Label class="text-sm font-medium">Starting Positions</Label>
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              v-for="pos in startingPositions"
+              :key="pos"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold"
+              style="background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3);"
+            >
+              ★ {{ pos }}
+            </span>
+          </div>
+          <p class="text-xs text-muted-foreground">Starter assignments are managed from the Locker Room roster.</p>
+        </div>
 
         <!-- Attributes (only when at least one position is selected) -->
         <template v-if="form.offense_positions.length > 0 || form.defense_positions.length > 0">
@@ -60,7 +76,7 @@
                 </Select>
               </div>
             </div>
-            <div class="max-h-[40vh] overflow-y-auto pr-1 space-y-2">
+            <div class="space-y-2">
               <CollapsibleSection v-model:open="sectionsOpen.universal" title="Universal">
                 <div class="grid grid-cols-1 gap-3 pt-2">
                   <AttributeSlider
@@ -144,6 +160,7 @@ const props = defineProps<{
   teams: Team[]
   playerTeamIds: string[]
   allPlayers?: Player[]
+  startingPositions?: string[]
 }>()
 
 const emit = defineEmits<{

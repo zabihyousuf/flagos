@@ -54,6 +54,10 @@
 
       <!-- Canvas -->
       <div class="shared-play-canvas-area">
+        <div class="play-print-header" aria-hidden="true">
+          <h1>{{ sharedPlay.play_name }}</h1>
+          <p>{{ sharedPlay.play_type === 'offense' ? 'Offense' : 'Defense' }}</p>
+        </div>
         <div ref="canvasContainerRef" class="shared-play-canvas">
           <canvas ref="canvasRef" class="block w-full h-full" />
         </div>
@@ -159,8 +163,21 @@ function draw() {
   })
 }
 
-function handlePrint() {
-  globalThis.print()
+const { runPrint } = usePlayPrint()
+
+async function handlePrint() {
+  if (!sharedPlay.value) return
+  await runPrint({
+    field: DEFAULT_FIELD_SETTINGS,
+    playName: sharedPlay.value.play_name,
+    onPrepare: async () => {
+      await nextTick()
+      scheduleDraw()
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      draw()
+    },
+    onRestore: () => scheduleDraw(),
+  })
 }
 
 function scheduleDraw() {
@@ -237,8 +254,12 @@ useHead({
 .shared-play-canvas {
   width: 100%;
   max-width: 720px;
-  aspect-ratio: 25 / 64;
+  aspect-ratio: var(--play-field-aspect-ratio, 25 / 64);
   max-height: 100%;
+}
+
+.play-print-header {
+  display: none;
 }
 
 .shared-play-footer {
@@ -248,21 +269,4 @@ useHead({
   background: var(--color-card);
 }
 
-@media print {
-  .shared-play-page {
-    height: auto;
-    overflow: visible;
-  }
-  .shared-play-header,
-  .shared-play-footer {
-    display: none;
-  }
-  .shared-play-canvas-area {
-    padding: 0;
-  }
-  .shared-play-canvas {
-    max-width: 100%;
-    max-height: none;
-  }
-}
 </style>

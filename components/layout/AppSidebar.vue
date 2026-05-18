@@ -1,45 +1,65 @@
 <template>
   <aside
     class="sidebar"
-    :class="{ collapsed, 'sidebar--hover': hovering }"
+    :class="{
+      'collapsed': !isMobile && collapsed,
+      'sidebar--hover': hovering && !isMobile,
+      'sidebar--mobile': isMobile,
+      'mobile-open': isMobile && mobileNavOpen,
+    }"
     @mouseenter="hovering = true"
     @mouseleave="hovering = false"
     @click="onSidebarClick"
   >
     <!-- Header: Logo + Utility Buttons -->
     <div class="sidebar-header">
-      <button
-        v-if="collapsed"
-        class="sidebar-logo-btn"
-        @click="toggleCollapse"
-        title="Expand sidebar"
-      >
-        <PanelLeftOpen class="w-5 h-5" />
-      </button>
-
-      <NuxtLink v-if="!collapsed" to="/dashboard" class="sidebar-logo flex items-center gap-2">
-        <span class="sidebar-logo-text font-copernicus">FlagLab</span>
-      </NuxtLink>
-
-      <div v-if="!collapsed" class="sidebar-utility">
-        <button class="utility-btn" title="Search (⌘K)" @click="openSearch">
-          <Search class="w-4 h-4" />
-        </button>
-        <NuxtLink to="/settings" class="utility-btn" title="Settings">
-          <SettingsIcon class="w-4 h-4" />
+      <!-- Mobile: always show logo + close button -->
+      <template v-if="isMobile">
+        <NuxtLink to="/dashboard" class="sidebar-logo flex items-center gap-2">
+          <span class="sidebar-logo-text font-copernicus">FlagLab</span>
         </NuxtLink>
-        <NuxtLink to="/notifications" class="utility-btn notification-btn" title="Notifications">
-          <Bell class="w-4 h-4" />
-          <span v-if="unreadCount > 0" class="notif-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
-        </NuxtLink>
-        <button class="utility-btn" @click="toggleCollapse" title="Collapse sidebar">
-          <PanelLeftClose class="w-4 h-4" />
+        <div class="sidebar-utility">
+          <button class="utility-btn" title="Close navigation" aria-label="Close navigation" @click="closeMobileNav">
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+      </template>
+
+      <!-- Desktop: existing collapse/expand behavior -->
+      <template v-else>
+        <button
+          v-if="collapsed"
+          class="sidebar-logo-btn"
+          @click="toggleCollapse"
+          title="Expand sidebar"
+        >
+          <PanelLeftOpen class="w-5 h-5" />
         </button>
-      </div>
+
+        <NuxtLink v-if="!collapsed" to="/dashboard" class="sidebar-logo flex items-center gap-2">
+          <span class="sidebar-logo-text font-copernicus">FlagLab</span>
+        </NuxtLink>
+
+        <div v-if="!collapsed" class="sidebar-utility">
+          <button class="utility-btn" title="Search (⌘K)" @click="openSearch">
+            <Search class="w-4 h-4" />
+          </button>
+          <NuxtLink to="/settings" class="utility-btn" title="Settings">
+            <SettingsIcon class="w-4 h-4" />
+          </NuxtLink>
+          <NuxtLink to="/notifications" class="utility-btn notification-btn" title="Notifications">
+            <Bell class="w-4 h-4" />
+            <span v-if="unreadCount > 0" class="notif-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+          </NuxtLink>
+          <button class="utility-btn" @click="toggleCollapse" title="Collapse sidebar">
+            <PanelLeftClose class="w-4 h-4" />
+          </button>
+        </div>
+      </template>
     </div>
 
-    <!-- Quick Play Button -->
-    <div class="sidebar-quick-action">
+    <!-- Quick Play Button (managers only) -->
+    <div v-if="!isPlayer" class="sidebar-quick-action">
       <TooltipProvider :key="`quick-play-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
         <Tooltip :ignore-non-keyboard-focus="true">
           <TooltipTrigger as-child>
@@ -155,6 +175,39 @@
       </template>
     </nav>
 
+    <!-- Team Switcher: shown when not collapsed and user has teams -->
+    <div v-if="!collapsed && myTeams.length > 0" class="sidebar-team-switcher" ref="teamSwitcherRef">
+      <div class="team-switcher-context">My Teams</div>
+      <button
+        type="button"
+        class="team-switcher-btn"
+        @click="teamSwitcherOpen = !teamSwitcherOpen"
+      >
+        <div class="team-switcher-dot" />
+        <span class="team-switcher-name truncate">{{ activeTeamName }}</span>
+        <ChevronDown class="w-3.5 h-3.5 text-muted-foreground shrink-0" :class="teamSwitcherOpen ? 'rotate-180' : ''" />
+      </button>
+      <Transition name="menu-pop">
+        <div v-if="teamSwitcherOpen && myTeams.length > 1" class="team-switcher-menu">
+          <div class="team-switcher-menu-header">My Teams</div>
+          <button
+            v-for="team in myTeams"
+            :key="team.id"
+            type="button"
+            class="team-switcher-item"
+            :class="{ active: activeTeamId === team.id }"
+            @click="setActiveTeam(team.id); teamSwitcherOpen = false"
+          >
+            <div class="team-switcher-dot team-switcher-dot--sm" :class="team.role === 'player' ? 'team-switcher-dot--player' : ''" />
+            <span class="truncate flex-1">{{ team.name }}</span>
+            <span class="team-switcher-role-tag" :class="team.role === 'coach' ? 'team-switcher-role-tag--coach' : 'team-switcher-role-tag--player'">
+              {{ team.role === 'coach' ? 'Coach' : 'Player' }}
+            </span>
+          </button>
+        </div>
+      </Transition>
+    </div>
+
     <!-- Footer: User Profile -->
     <div class="sidebar-footer">
       <div class="sidebar-user-wrapper" ref="userMenuRef" :class="{ 'user-menu-open': userMenuOpen }">
@@ -167,9 +220,11 @@
             {{ avatarInitial }}
           </div>
           
-          <div class="sidebar-user-info flex-1 min-w-0 flex flex-col items-start justify-center">
-            <p class="sidebar-user-name truncate w-full">{{ displayName }}</p>
-            <p class="sidebar-user-email truncate w-full text-muted-foreground text-[12px]">{{ emailAddress }}</p>
+          <div class="sidebar-user-info flex-1 min-w-0 flex items-center gap-2 justify-start">
+            <p class="sidebar-user-name truncate min-w-0">{{ displayName }}</p>
+            <span class="sidebar-user-role shrink-0" :class="isPlayer ? 'sidebar-user-role--player' : 'sidebar-user-role--coach'">
+              {{ isPlayer ? 'Player' : 'Coach' }}
+            </span>
           </div>
           
           <ChevronDown class="sidebar-user-chevron ml-auto w-4 h-4 text-muted-foreground shrink-0" />
@@ -244,6 +299,7 @@ import {
   Search,
   MessageSquarePlus,
   Bell,
+  X,
 } from 'lucide-vue-next'
 import {
   Tooltip,
@@ -264,6 +320,16 @@ const route = useRoute()
 const user = useSupabaseUser()
 const client = useSupabaseClient()
 const { profile, fetchProfile } = useProfile()
+
+const { isDesktop } = useBreakpoint()
+// Use !isDesktop so tablet (768-1023px) also gets the overlay drawer, matching the mobile topbar breakpoint
+const isMobile = computed(() => !isDesktop.value)
+const { isOpen: mobileNavOpen, close: closeMobileNav } = useAppNav()
+
+// Close mobile drawer on navigation
+watch(() => route.path, () => {
+  if (mobileNavOpen.value) closeMobileNav()
+})
 
 const collapsed = ref(false)
 const hovering = ref(false)
@@ -288,6 +354,8 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   fetchProfile()
   initNotifications()
+  fetchTeams()
+  fetchMemberships()
 })
 
 onUnmounted(() => {
@@ -298,9 +366,13 @@ function handleClickOutside(e: MouseEvent) {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target as Node)) {
     userMenuOpen.value = false
   }
+  if (teamSwitcherRef.value && !teamSwitcherRef.value.contains(e.target as Node)) {
+    teamSwitcherOpen.value = false
+  }
 }
 
 function onSidebarClick(e: MouseEvent) {
+  if (isMobile.value) return
   if (!collapsed.value) return
   if ((e.target as HTMLElement).closest('button, a')) return
   toggleCollapse()
@@ -360,6 +432,8 @@ interface NavItem {
   devOnly?: boolean
   /** Show "Pro" chip for this item (e.g. Pro-only features). Shown when user is free. */
   proOnly?: boolean
+  /** When true, item is only visible to managers (hidden for player accounts). */
+  managerOnly?: boolean
   tooltipDescription?: string
   isHistoryTrigger?: boolean
 }
@@ -370,11 +444,38 @@ interface NavGroup {
   items: NavItem[]
 }
 
+const { isManager, isPlayer } = useAccountType()
+const { allTeams: myTeams, activeTeam, activeTeamId, setActiveTeam, hasExplicitSelection } = useActiveContext()
+const { fetchTeams } = useTeams()
+const { fetchMemberships } = useTeamMemberships()
+const teamSwitcherOpen = ref(false)
+const teamSwitcherRef = ref<HTMLElement | null>(null)
+
+const activeTeamName = computed(() => activeTeam.value?.name ?? myTeams.value[0]?.name ?? 'My Team')
+
+// Redirect to team picker only when: multiple teams exist, no saved preference (profile default or session
+// selection), and profile has finished loading. Fires at most once per session.
+const teamPickerChecked = ref(false)
+watch(
+  [myTeams, hasExplicitSelection, profile],
+  ([teams, explicit, p]) => {
+    if (teamPickerChecked.value) return
+    if (teams.length === 0) return // not loaded yet
+    if (p === null) return // profile not loaded yet — wait before deciding
+    teamPickerChecked.value = true
+    if (teams.length > 1 && !explicit && route.path !== '/select-team') {
+      navigateTo('/select-team')
+    }
+  },
+  { immediate: true },
+)
+
 const navGroups: NavGroup[] = [
   {
     label: '',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/teams', label: 'Teams', icon: Users },
     ]
   },
   {
@@ -387,9 +488,9 @@ const navGroups: NavGroup[] = [
   {
     label: 'BLUR.AI',
     items: [
-      { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
+      { to: '/simulation/game', label: 'Match Sim', icon: Gamepad2, disabled: true, devOnly: true, proOnly: true, managerOnly: true, tooltipDescription: 'Pick a playbook and an opponent, then use AI and machine learning to see how your team performs against them.' },
       { to: '/blurai/playlab', label: 'Play Lab', icon: FlaskConical, disabled: false, tooltipDescription: 'Run your plays thousands of times across many defensive situations (down, distance, zone, coverage) to see when each works best.' },
-      { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, devOnly: true, proOnly: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
+      { to: '/simulation/engine-picks', label: 'Engine Picks', icon: Play, disabled: true, devOnly: true, proOnly: true, managerOnly: true, tooltipDescription: 'Every day the engine will auto-draft three plays tailored to your current starters. This preview is disabled while we finish the engine wiring.' },
     ]
   }
 ]
@@ -441,7 +542,11 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
   return displayNavGroups.value
     .map((group) => ({
       ...group,
-      items: group.items.filter((i) => !i.devOnly || isDev),
+      items: group.items.filter((i) => {
+        if (i.devOnly && !isDev) return false
+        if (i.managerOnly && isPlayer.value) return false
+        return true
+      }),
     }))
     .filter((group) => group.items.length > 0)
 })
@@ -459,6 +564,7 @@ function goToPlayLab() {
 
 async function handleLogout() {
   userMenuOpen.value = false
+  setActiveTeam(null) // clear session selection so select-team shows next login if needed
   await client.auth.signOut()
   await navigateTo('/auth/login')
 }
@@ -501,8 +607,7 @@ async function handleLogout() {
 /* ── Collapsible text handling ─────────────────────────────────── */
 .sidebar-nav-label,
 .quick-play-label,
-.sidebar-user-info, 
-.sidebar-user-email,
+.sidebar-user-info,
 .sidebar-group-label {
   white-space: nowrap;
   opacity: 1;
@@ -513,7 +618,7 @@ async function handleLogout() {
 .collapsed .sidebar-nav-label,
 .collapsed .quick-play-label,
 .collapsed .sidebar-user-info,
-.collapsed .sidebar-user-email,
+.collapsed .sidebar-user-role,
 .collapsed .sidebar-group-label,
 .collapsed .sidebar-user-chevron {
   opacity: 0;
@@ -887,6 +992,108 @@ async function handleLogout() {
   display: none; /* Hide if using labels, or use instead of labels if preferred */
 }
 
+/* ── Team Switcher ─────────────────────────────────────────────── */
+.sidebar-team-switcher {
+  flex-shrink: 0;
+  padding: 4px 12px 0;
+  position: relative;
+  z-index: 20;
+}
+
+.team-switcher-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.team-switcher-btn:hover {
+  background: var(--color-accent);
+  border-color: color-mix(in oklch, var(--color-border) 80%, var(--color-foreground));
+}
+
+.team-switcher-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.team-switcher-dot--sm {
+  width: 6px;
+  height: 6px;
+}
+
+.team-switcher-dot--player {
+  background: #22c55e;
+}
+
+.team-switcher-menu-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 6px;
+}
+
+.team-switcher-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  min-width: 0;
+}
+
+.team-switcher-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 12px;
+  right: 12px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.team-switcher-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+}
+
+.team-switcher-item:hover {
+  background: var(--color-accent);
+  color: var(--color-foreground);
+}
+
+.team-switcher-item.active {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+.team-switcher-item.active .team-switcher-dot--sm {
+  background: var(--color-primary);
+}
+
 /* ── Footer ────────────────────────────────────────────────────── */
 .sidebar-footer {
   flex-shrink: 0;
@@ -948,10 +1155,10 @@ async function handleLogout() {
 
 
 .sidebar-user-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-foreground);
-  line-height: 1.2;
+  line-height: 1;
 }
 
 .sidebar-user-email {
@@ -1044,5 +1251,106 @@ async function handleLogout() {
 .menu-pop-enter-from.menu-collapsed,
 .menu-pop-leave-to.menu-collapsed {
   transform: translateX(-8px) scale(0.96); /* Slide in from left when collapsed */
+}
+
+/* ── Mobile Drawer ─────────────────────────────────────────────── */
+
+/*
+ * On mobile (< 1024px), the sidebar becomes a fixed overlay drawer.
+ * .sidebar--mobile is applied instead of .collapsed so mobile styles
+ * are completely isolated from the desktop collapse behavior.
+ */
+.sidebar--mobile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  /* Override the width/transition from .sidebar */
+  width: 280px;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
+  z-index: 50;
+  border-right: 1px solid var(--color-border);
+  box-shadow: none;
+  /* Reset cursor from collapsed state */
+  cursor: default;
+}
+
+.sidebar--mobile.mobile-open {
+  transform: translateX(0);
+  box-shadow: 8px 0 32px -4px oklch(0 0 0 / 0.18);
+}
+
+/* Ensure the user menu popup stays inside the drawer on mobile */
+.sidebar--mobile .user-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  min-width: 220px;
+}
+
+/* ── User Role Badge ───────────────────────────────────────────── */
+.sidebar-user-role {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+.sidebar-user-role--coach {
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.sidebar-user-role--player {
+  background: color-mix(in oklch, #22c55e 12%, transparent);
+  color: #22c55e;
+}
+
+/* ── Team Switcher Context Label ───────────────────────────────── */
+.team-switcher-context {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  padding: 0 4px 4px;
+  opacity: 0.7;
+}
+
+.team-switcher-menu-header {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  padding: 6px 10px 4px;
+  opacity: 0.7;
+}
+
+.team-switcher-role-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.team-switcher-role-tag--coach {
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.team-switcher-role-tag--player {
+  background: color-mix(in oklch, #22c55e 12%, transparent);
+  color: #22c55e;
 }
 </style>

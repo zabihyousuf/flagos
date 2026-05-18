@@ -69,7 +69,7 @@ export function useCanvas() {
   const historyStack = ref<CanvasData[]>([])
   const historyIndex = ref(-1)
 
-  /** Per-player history: undo/redo in Player Details only affects that player. */
+  /** Legacy per-player stacks (kept for seedHistory compatibility). Undo/redo uses global historyStack. */
   const playerHistoryStacks = ref<Record<string, CanvasPlayer[]>>({})
   const playerHistoryIndices = ref<Record<string, number>>({})
 
@@ -78,24 +78,25 @@ export function useCanvas() {
     return p ? JSON.parse(JSON.stringify(p)) : null
   }
 
-  function pushHistoryForPlayer(playerId: string) {
-    const snapshot = getPlayerSnapshot(playerId)
-    if (!snapshot) return
-    const stacks = playerHistoryStacks.value
-    const indices = playerHistoryIndices.value
-    if (!stacks[playerId]) stacks[playerId] = []
-    if (!(playerId in indices)) indices[playerId] = -1
-    const stack = stacks[playerId]
-    const idx = indices[playerId]
-    if (idx < stack.length - 1) {
-      stacks[playerId] = stack.slice(0, idx + 1)
-    }
-    stacks[playerId].push(snapshot)
-    if (stacks[playerId].length > HISTORY_CAP) {
-      stacks[playerId].shift()
-      indices[playerId] = Math.max(0, indices[playerId] - 1)
-    }
-    indices[playerId] = stacks[playerId].length - 1
+  function pushHistoryForPlayer(_playerId: string) {
+    pushHistory()
+  }
+
+  function syncReadOrderFromCanvas() {
+    let maxOrder = 0
+    canvasData.value.players.forEach((p) => {
+      p.route?.segments?.forEach((seg) => {
+        if (seg.readOrder && seg.readOrder > maxOrder) maxOrder = seg.readOrder
+      })
+    })
+    nextReadOrder.value = maxOrder + 1
+  }
+
+  function applyHistorySnapshot(snapshot: CanvasData) {
+    canvasData.value = migrateCanvasData(JSON.parse(JSON.stringify(snapshot)))
+    syncReadOrderFromCanvas()
+    activeSegmentIndex.value = null
+    isDirty.value = true
   }
 
   const selectedPlayer = computed(() => {
@@ -131,52 +132,21 @@ export function useCanvas() {
   }
 
   function undo() {
-    const pid = selectedPlayerId.value
-    if (!pid) return
-    const stack = playerHistoryStacks.value[pid]
-    let idx = playerHistoryIndices.value[pid] ?? -1
-    if (!stack || stack.length === 0 || idx <= 0) return
-    idx--
-    playerHistoryIndices.value = { ...playerHistoryIndices.value, [pid]: idx }
-    const prev = stack[idx]
-    if (!prev) return
-    const player = canvasData.value.players.find((p) => p.id === pid)
-    if (player) {
-      Object.assign(player, prev)
-      isDirty.value = true
-    }
+    if (historyIndex.value <= 0) return
+    historyIndex.value--
+    const snapshot = historyStack.value[historyIndex.value]
+    if (snapshot) applyHistorySnapshot(snapshot)
   }
 
   function redo() {
-    const pid = selectedPlayerId.value
-    if (!pid) return
-    const stack = playerHistoryStacks.value[pid]
-    let idx = playerHistoryIndices.value[pid] ?? -1
-    if (!stack || idx < 0 || idx >= stack.length - 1) return
-    idx++
-    playerHistoryIndices.value = { ...playerHistoryIndices.value, [pid]: idx }
-    const next = stack[idx]
-    if (!next) return
-    const player = canvasData.value.players.find((p) => p.id === pid)
-    if (player) {
-      Object.assign(player, next)
-      isDirty.value = true
-    }
+    if (historyIndex.value >= historyStack.value.length - 1) return
+    historyIndex.value++
+    const snapshot = historyStack.value[historyIndex.value]
+    if (snapshot) applyHistorySnapshot(snapshot)
   }
 
-  const canUndo = computed(() => {
-    const pid = selectedPlayerId.value
-    if (!pid) return false
-    const idx = playerHistoryIndices.value[pid] ?? -1
-    return idx > 0
-  })
-  const canRedo = computed(() => {
-    const pid = selectedPlayerId.value
-    if (!pid) return false
-    const stack = playerHistoryStacks.value[pid]
-    const idx = playerHistoryIndices.value[pid] ?? -1
-    return stack != null && idx >= 0 && idx < stack.length - 1
-  })
+  const canUndo = computed(() => historyIndex.value > 0)
+  const canRedo = computed(() => historyIndex.value >= 0 && historyIndex.value < historyStack.value.length - 1)
 
   /** Call after loading initial play data so undo has a starting point */
   function seedHistory() {
@@ -245,15 +215,14 @@ export function useCanvas() {
     isDirty.value = true
   }
 
-  /** Call before starting a drag so we have state to undo to (playerId = which player/zone is being dragged) */
-  function pushHistoryBeforeDrag(playerId?: string) {
-    if (playerId) pushHistoryForPlayer(playerId)
-    else pushHistory()
+  /** Call before starting a drag so we have state to undo to */
+  function pushHistoryBeforeDrag(_playerId?: string) {
+    pushHistory()
   }
 
-  /** Call after drag ends (no push; current canvas state is the result) */
+  /** Call after drag ends so redo can restore the final position */
   function pushHistoryAfterDrag(_playerId?: string) {
-    // Per-player: state already updated; no push needed
+    pushHistory()
   }
 
   // ─── Segment-based route drawing ───────────────────────
