@@ -54,7 +54,18 @@ export default defineEventHandler(async (event) => {
 
   let playbookId = requestedPlaybookId ?? null
 
-  if (!playbookId) {
+  if (playbookId) {
+    const { data: sharedPlaybook } = await admin
+      .from('team_playbooks')
+      .select('id')
+      .eq('team_id', team_id)
+      .eq('playbook_id', playbookId)
+      .maybeSingle()
+
+    if (!sharedPlaybook) {
+      throw createError({ statusCode: 403, statusMessage: 'Playbook is not shared with this team' })
+    }
+  } else {
     // Find an existing shared playbook for this team
     const { data: shared } = await admin
       .from('team_playbooks')
