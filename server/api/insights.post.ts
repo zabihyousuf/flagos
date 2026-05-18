@@ -104,6 +104,21 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
 
+  const { data: job, error: jobErr } = await supabase
+    .from('sim_jobs')
+    .select('id, user_id')
+    .eq('id', job_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (jobErr) {
+    throw createError({ statusCode: 400, statusMessage: jobErr.message ?? 'Failed to verify simulation access' })
+  }
+
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Simulation not found' })
+  }
+
   if (!regenerate) {
     const { data: existing } = await supabase
       .from('sim_insights')
@@ -222,7 +237,7 @@ export default defineEventHandler(async (event) => {
       if (allEmittedItems.length > 0) {
         try {
           await supabase.from('sim_insights').upsert(
-            { job_id, user_id: user!.id, insights: allEmittedItems, model: 'gpt-4o-mini' },
+            { job_id, user_id: job.user_id ?? user!.id, insights: allEmittedItems, model: 'gpt-4o-mini' },
             { onConflict: 'job_id' },
           )
         } catch { /* best effort save */ }
