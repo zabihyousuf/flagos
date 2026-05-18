@@ -1657,9 +1657,14 @@ async function fetchInsights(regenerate = false) {
 }
 
 async function loadCachedInsights() {
-  if (!job.jobId) return
+  if (!job.jobId || !user.value?.id) return
   const supabase = useSupabaseDB()
-  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).maybeSingle()
+  const { data } = await supabase
+    .from('sim_insights')
+    .select('insights')
+    .eq('job_id', job.jobId)
+    .eq('user_id', user.value.id)
+    .maybeSingle()
   if (data?.insights) insightsData.value = data.insights as unknown as InsightItem[]
 }
 /** Replays modal (sidebar + player). */
@@ -1699,6 +1704,7 @@ let replayPollTimer: ReturnType<typeof setTimeout> | null = null
 /** Fetch sim_recordings list for current job (metadata only — no recording_json).
  *  Full recording_json is lazy-loaded when the user selects a specific replay. */
 async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: boolean } = {}) {
+  if (!user.value || jobId !== job.jobId) return
   replaysLoading.value = true
   if (poll) awaitingReplays.value = true
   try {
@@ -1742,6 +1748,7 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
 
 /** Lazy-load full recording_json for a single replay when selected. Uses cache so we never re-fetch. */
 async function fetchRecordingJson(recordingId: string): Promise<Record<string, unknown> | null> {
+  if (!job.jobId) return null
   const cached = recordingJsonCache.value.get(recordingId)
   if (cached) return cached
   const supabase = useSupabaseDB()
@@ -1749,6 +1756,7 @@ async function fetchRecordingJson(recordingId: string): Promise<Record<string, u
     .from('sim_recordings')
     .select('recording_json')
     .eq('id', recordingId)
+    .eq('job_id', job.jobId)
     .single()
   if (error || !data) return null
   const raw = (data as any).recording_json
