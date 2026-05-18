@@ -104,6 +104,20 @@ export default defineEventHandler(async (event) => {
 
   const supabase = serverSupabaseServiceRole(event)
 
+  const { data: job, error: jobErr } = await supabase
+    .from('sim_jobs')
+    .select('id')
+    .eq('id', job_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (jobErr) {
+    throw createError({ statusCode: 400, statusMessage: jobErr.message ?? 'Failed to verify job ownership' })
+  }
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+
   if (!regenerate) {
     const { data: existing } = await supabase
       .from('sim_insights')
