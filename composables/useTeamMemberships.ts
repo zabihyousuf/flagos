@@ -31,11 +31,6 @@ export function useTeamMemberships() {
         .eq('user_id', user.value.id)
         .order('joined_at', { ascending: false })
       memberships.value = (data ?? []) as TeamMembership[]
-
-      // If active team was removed or no longer a member, clear it
-      if (activeTeamId.value && !memberships.value.some((m) => m.team_id === activeTeamId.value)) {
-        setActiveTeam(null)
-      }
     } finally {
       loading.value = false
     }

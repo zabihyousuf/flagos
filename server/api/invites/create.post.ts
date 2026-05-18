@@ -51,6 +51,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Not authorized to invite for this team' })
   }
 
+  if (player_id) {
+    const { data: rosterPlayer, error: rosterErr } = await admin
+      .from('team_players')
+      .select('player_id')
+      .eq('team_id', team_id)
+      .eq('player_id', player_id)
+      .maybeSingle()
+
+    if (rosterErr) {
+      throw createError({ statusCode: 500, statusMessage: rosterErr.message })
+    }
+    if (!rosterPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Player is not on this team' })
+    }
+  }
+
   // Create invite record
   const { data: invite, error: insertErr } = await admin
     .from('player_invites')
