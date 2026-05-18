@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  // Verify caller owns the team or is a member
+  // Verify caller owns the team or is a coach member
   const { data: team } = await admin
     .from('teams')
     .select('id, user_id')
@@ -43,15 +43,15 @@ export default defineEventHandler(async (event) => {
 
   const isOwner = team.user_id === user.id
   if (!isOwner) {
-    // Verify caller is a team member
+    // Team-wide broadcasts are a coach-only action; players can receive but not send them.
     const { data: membership } = await admin
       .from('team_memberships')
-      .select('id')
+      .select('id, role')
       .eq('team_id', team_id)
       .eq('user_id', user.id)
       .single()
-    if (!membership) {
-      throw createError({ statusCode: 403, statusMessage: 'Not a team member or owner' })
+    if (!membership || membership.role !== 'coach') {
+      throw createError({ statusCode: 403, statusMessage: 'Only team coaches can notify the team' })
     }
   }
 

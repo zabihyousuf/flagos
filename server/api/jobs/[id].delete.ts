@@ -22,7 +22,27 @@ export default defineEventHandler(async (event) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+  const { data: job, error: fetchErr } = await supabase
+    .from('sim_jobs')
+    .select('id, user_id')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (fetchErr) {
+    throw createError({ statusCode: 400, statusMessage: fetchErr.message ?? 'Failed to fetch job' })
+  }
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+  if (job.user_id !== user.id) {
+    throw createError({ statusCode: 403, statusMessage: 'Not authorized to delete this job' })
+  }
+
+  await supabase.from('sim_recordings').delete().eq('job_id', jobId)
   await supabase.from('sim_results').delete().eq('job_id', jobId)
+  await supabase.from('sim_insights').delete().eq('job_id', jobId)
+  await supabase.from('sim_job_team_shares').delete().eq('job_id', jobId)
+  await supabase.from('notifications').delete().eq('metadata->>job_id', jobId)
 
   const { error } = await supabase
     .from('sim_jobs')
