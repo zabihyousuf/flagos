@@ -15,7 +15,11 @@ export default defineEventHandler(async (event) => {
     role?: 'player' | 'coach'
   }
 
-  if (!team_id || !email) {
+  const inviteEmail = (email ?? '').trim().toLowerCase()
+  const inviteRole = role === 'coach' ? 'coach' : 'player'
+  const invitePlayerId = player_id || null
+
+  if (!team_id || !inviteEmail) {
     throw createError({ statusCode: 400, statusMessage: 'team_id and email are required' })
   }
 
@@ -51,15 +55,31 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Not authorized to invite for this team' })
   }
 
+  if (invitePlayerId) {
+    const { data: teamPlayer, error: teamPlayerErr } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', team_id)
+      .eq('player_id', invitePlayerId)
+      .maybeSingle()
+
+    if (teamPlayerErr) {
+      throw createError({ statusCode: 400, statusMessage: teamPlayerErr.message ?? 'Failed to validate invite player' })
+    }
+    if (!teamPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Invite player is not on this team' })
+    }
+  }
+
   // Create invite record
   const { data: invite, error: insertErr } = await admin
     .from('player_invites')
     .insert({
       team_id,
-      player_id: player_id ?? null,
-      email,
+      player_id: invitePlayerId,
+      email: inviteEmail,
       invited_by: user.id,
-      role,
+      role: inviteRole,
     })
     .select()
     .single()
@@ -80,7 +100,7 @@ export default defineEventHandler(async (event) => {
       },
       body: {
         from: 'FlagLab <noreply@mail.flaglab.app>',
-        to: [email],
+        to: [inviteEmail],
         subject: `You've been invited to join ${team.name} on FlagLab`,
         html: `
           <p>You've been invited to join <strong>${team.name}</strong> on FlagLab.</p>
