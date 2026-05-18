@@ -39,7 +39,46 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, statusMessage: 'Invite expired' })
   }
 
+  const normalizeEmail = (email?: string | null) => email?.trim().toLowerCase() ?? ''
+  const inviteEmail = normalizeEmail(invite.email)
+  const userEmail = normalizeEmail(user.email)
+
+  if (!userEmail || userEmail !== inviteEmail) {
+    throw createError({ statusCode: 403, statusMessage: 'Invite is for a different email address' })
+  }
+
   const inviteRole: string = (invite as any).role ?? 'player'
+
+  if (invite.player_id) {
+    const { data: rosterPlayer, error: rosterErr } = await admin
+      .from('team_players')
+      .select('player_id')
+      .eq('team_id', invite.team_id)
+      .eq('player_id', invite.player_id)
+      .maybeSingle()
+
+    if (rosterErr) {
+      throw createError({ statusCode: 500, statusMessage: rosterErr.message })
+    }
+    if (!rosterPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Invite player is not on this team' })
+    }
+  }
+
+  const { data: claimedInvite, error: claimErr } = await admin
+    .from('player_invites')
+    .update({ used_at: new Date().toISOString() })
+    .eq('id', invite.id)
+    .is('used_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (claimErr) {
+    throw createError({ statusCode: 500, statusMessage: claimErr.message })
+  }
+  if (!claimedInvite) {
+    throw createError({ statusCode: 410, statusMessage: 'Invite already used' })
+  }
 
   // Create team membership (upsert — idempotent if already a member)
   const { data: membership, error: memberErr } = await admin
@@ -51,12 +90,6 @@ export default defineEventHandler(async (event) => {
   if (memberErr) {
     throw createError({ statusCode: 500, statusMessage: memberErr.message })
   }
-
-  // Mark invite as used
-  await admin
-    .from('player_invites')
-    .update({ used_at: new Date().toISOString() })
-    .eq('id', invite.id)
 
   // Link player roster row to auth account if player_id was specified
   if (invite.player_id) {
