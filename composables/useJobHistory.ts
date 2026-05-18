@@ -76,18 +76,7 @@ export function useJobHistory() {
   async function deleteJob(jobId: string): Promise<boolean> {
     if (!user.value) return false
     try {
-      await client.from('sim_recordings').delete().eq('job_id', jobId)
-      await client.from('sim_results').delete().eq('job_id', jobId)
-      await client.from('sim_insights').delete().eq('job_id', jobId)
-      // Remove notifications linked to this job
-      await client.from('notifications').delete().eq('metadata->>job_id', jobId)
-      const { error: err } = await client
-        .from('sim_jobs')
-        .delete()
-        .eq('id', jobId)
-        .eq('user_id', user.value.id)
-
-      if (err) throw err
+      await $fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
       jobs.value = jobs.value.filter((j) => j.job_id !== jobId)
       return true
     } catch (e: any) {

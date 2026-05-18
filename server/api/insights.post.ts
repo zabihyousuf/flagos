@@ -7,6 +7,66 @@ interface InsightItem {
   sentiment: 'positive' | 'negative' | 'neutral'
 }
 
+async function assertCanAccessJob(supabase: any, jobId: string, userId: string): Promise<string> {
+  const { data: job, error: jobError } = await supabase
+    .from('sim_jobs')
+    .select('id, user_id')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (jobError) {
+    throw createError({ statusCode: 400, statusMessage: jobError.message })
+  }
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+  if (job.user_id === userId) {
+    return job.user_id
+  }
+
+  const { data: shares, error: shareError } = await supabase
+    .from('sim_job_team_shares')
+    .select('team_id')
+    .eq('job_id', jobId)
+
+  if (shareError) {
+    throw createError({ statusCode: 400, statusMessage: shareError.message })
+  }
+
+  const teamIds = [...new Set((shares ?? []).map((share: { team_id: string }) => share.team_id).filter(Boolean))]
+  if (teamIds.length === 0) {
+    throw createError({ statusCode: 403, statusMessage: 'Not authorized for this job' })
+  }
+
+  const [{ data: membership, error: membershipError }, { data: ownedTeam, error: ownedTeamError }] = await Promise.all([
+    supabase
+      .from('team_memberships')
+      .select('id')
+      .eq('user_id', userId)
+      .in('team_id', teamIds)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('teams')
+      .select('id')
+      .eq('user_id', userId)
+      .in('id', teamIds)
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const accessError = membershipError ?? ownedTeamError
+  if (accessError) {
+    throw createError({ statusCode: 400, statusMessage: accessError.message })
+  }
+
+  if (!membership && !ownedTeam) {
+    throw createError({ statusCode: 403, statusMessage: 'Not authorized for this job' })
+  }
+
+  return job.user_id ?? userId
+}
+
 function formatBreakdown(buckets: Record<string, any>): string {
   return Object.entries(buckets)
     .map(([key, v]: [string, any]) => {
@@ -83,11 +143,6 @@ export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey?.trim()) {
-    throw createError({ statusCode: 503, statusMessage: 'Insights not configured (missing OPENAI_API_KEY).' })
-  }
-
   const body = await readBody<{
     job_id: string
     result_data: Record<string, any>
@@ -95,14 +150,16 @@ export default defineEventHandler(async (event) => {
     defense_name?: string
     receiver_names?: Record<string, string>
     regenerate?: boolean
+    cache_only?: boolean
   }>(event)
 
-  const { job_id, result_data, regenerate } = body ?? {}
+  const { job_id, result_data, regenerate, cache_only } = body ?? {}
   if (!job_id || !result_data) {
     throw createError({ statusCode: 400, statusMessage: 'Missing job_id or result_data' })
   }
 
   const supabase = serverSupabaseServiceRole(event)
+  const jobOwnerId = await assertCanAccessJob(supabase, job_id, user.id)
 
   if (!regenerate) {
     const { data: existing } = await supabase
@@ -123,6 +180,18 @@ export default defineEventHandler(async (event) => {
       sse += `data: [DONE]\n\n`
       return sse
     }
+  }
+
+  if (cache_only) {
+    setResponseHeader(event, 'Content-Type', 'text/event-stream')
+    setResponseHeader(event, 'Cache-Control', 'no-cache')
+    setResponseHeader(event, 'Connection', 'keep-alive')
+    return `data: [DONE]\n\n`
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey?.trim()) {
+    throw createError({ statusCode: 503, statusMessage: 'Insights not configured (missing OPENAI_API_KEY).' })
   }
 
   const prompt = buildPrompt(body)
@@ -222,7 +291,7 @@ export default defineEventHandler(async (event) => {
       if (allEmittedItems.length > 0) {
         try {
           await supabase.from('sim_insights').upsert(
-            { job_id, user_id: user!.id, insights: allEmittedItems, model: 'gpt-4o-mini' },
+            { job_id, user_id: jobOwnerId, insights: allEmittedItems, model: 'gpt-4o-mini' },
             { onConflict: 'job_id' },
           )
         } catch { /* best effort save */ }
