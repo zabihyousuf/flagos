@@ -39,6 +39,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, statusMessage: 'Invite expired' })
   }
 
+  const invitedEmail = invite.email.trim().toLowerCase()
+  const signedInEmail = user.email?.trim().toLowerCase()
+  if (!signedInEmail || signedInEmail !== invitedEmail) {
+    throw createError({ statusCode: 403, statusMessage: 'This invite is for a different email address' })
+  }
+
   const inviteRole: string = (invite as any).role ?? 'player'
 
   // Create team membership (upsert — idempotent if already a member)
