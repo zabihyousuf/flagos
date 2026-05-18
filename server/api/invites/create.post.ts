@@ -18,6 +18,9 @@ export default defineEventHandler(async (event) => {
   if (!team_id || !email) {
     throw createError({ statusCode: 400, statusMessage: 'team_id and email are required' })
   }
+  if (role !== 'player' && role !== 'coach') {
+    throw createError({ statusCode: 400, statusMessage: 'role must be player or coach' })
+  }
 
   const config = useRuntimeConfig()
   const serviceKey = config.supabase?.serviceKey
@@ -49,6 +52,22 @@ export default defineEventHandler(async (event) => {
 
   if (teamErr || !team || (team.user_id !== user.id && !isMemberCoach)) {
     throw createError({ statusCode: 403, statusMessage: 'Not authorized to invite for this team' })
+  }
+
+  if (player_id) {
+    const { data: teamPlayer, error: playerErr } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', team_id)
+      .eq('player_id', player_id)
+      .maybeSingle()
+
+    if (playerErr) {
+      throw createError({ statusCode: 400, statusMessage: playerErr.message })
+    }
+    if (!teamPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Player is not on this team' })
+    }
   }
 
   // Create invite record
