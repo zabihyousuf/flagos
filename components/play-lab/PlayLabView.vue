@@ -1948,6 +1948,7 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
 
 /** Lazy-load full recording_json for a single replay when selected. Uses cache so we never re-fetch. */
 async function fetchRecordingJson(recordingId: string): Promise<Record<string, unknown> | null> {
+  if (!job.jobId) return null
   const cached = recordingJsonCache.value.get(recordingId)
   if (cached) return cached
   const supabase = useSupabaseDB()
@@ -1955,10 +1956,16 @@ async function fetchRecordingJson(recordingId: string): Promise<Record<string, u
     .from('sim_recordings')
     .select('recording_json')
     .eq('id', recordingId)
+    .eq('job_id', job.jobId)
     .single()
   if (error || !data) return null
   const raw = (data as any).recording_json
-  const json = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? null)
+  let json: Record<string, unknown> | null = null
+  try {
+    json = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? null)
+  } catch {
+    return null
+  }
   if (json) {
     recordingJsonCache.value = new Map(recordingJsonCache.value).set(recordingId, json)
   }

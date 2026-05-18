@@ -39,7 +39,52 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, statusMessage: 'Invite expired' })
   }
 
-  const inviteRole: string = (invite as any).role ?? 'player'
+  const invitedEmail = String(invite.email ?? '').trim().toLowerCase()
+  const userEmail = String(user.email ?? '').trim().toLowerCase()
+  if (!invitedEmail || invitedEmail !== userEmail) {
+    throw createError({ statusCode: 403, statusMessage: 'Invite is for a different email address' })
+  }
+
+  const inviteRole = (invite as any).role === 'coach' ? 'coach' : 'player'
+
+  if (invite.player_id) {
+    const { data: teamPlayer } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', invite.team_id)
+      .eq('player_id', invite.player_id)
+      .maybeSingle()
+
+    if (!teamPlayer) {
+      throw createError({ statusCode: 409, statusMessage: 'Invite player is not on this team' })
+    }
+
+    const { data: player } = await admin
+      .from('players')
+      .select('id, linked_user_id')
+      .eq('id', invite.player_id)
+      .maybeSingle()
+
+    if (player?.linked_user_id && player.linked_user_id !== user.id) {
+      throw createError({ statusCode: 409, statusMessage: 'Invite player is already linked' })
+    }
+  }
+
+  const { data: consumedInvite, error: consumeErr } = await admin
+    .from('player_invites')
+    .update({ used_at: new Date().toISOString() })
+    .eq('id', invite.id)
+    .is('used_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (consumeErr) {
+    throw createError({ statusCode: 500, statusMessage: consumeErr.message })
+  }
+
+  if (!consumedInvite) {
+    throw createError({ statusCode: 410, statusMessage: 'Invite already used' })
+  }
 
   // Create team membership (upsert — idempotent if already a member)
   const { data: membership, error: memberErr } = await admin
@@ -51,12 +96,6 @@ export default defineEventHandler(async (event) => {
   if (memberErr) {
     throw createError({ statusCode: 500, statusMessage: memberErr.message })
   }
-
-  // Mark invite as used
-  await admin
-    .from('player_invites')
-    .update({ used_at: new Date().toISOString() })
-    .eq('id', invite.id)
 
   // Link player roster row to auth account if player_id was specified
   if (invite.player_id) {

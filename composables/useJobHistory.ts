@@ -76,18 +76,7 @@ export function useJobHistory() {
   async function deleteJob(jobId: string): Promise<boolean> {
     if (!user.value) return false
     try {
-      await client.from('sim_recordings').delete().eq('job_id', jobId)
-      await client.from('sim_results').delete().eq('job_id', jobId)
-      await client.from('sim_insights').delete().eq('job_id', jobId)
-      // Remove notifications linked to this job
-      await client.from('notifications').delete().eq('metadata->>job_id', jobId)
-      const { error: err } = await client
-        .from('sim_jobs')
-        .delete()
-        .eq('id', jobId)
-        .eq('user_id', user.value.id)
-
-      if (err) throw err
+      await $fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' })
       jobs.value = jobs.value.filter((j) => j.job_id !== jobId)
       return true
     } catch (e: any) {
@@ -111,19 +100,9 @@ export function useJobHistory() {
         jobs.value = []
         return true
       }
-      await client.from('sim_recordings').delete().in('job_id', jobIds)
-      await client.from('sim_results').delete().in('job_id', jobIds)
-      await client.from('sim_insights').delete().in('job_id', jobIds)
-      // Remove all notifications linked to these jobs
       for (const jid of jobIds) {
-        await client.from('notifications').delete().eq('metadata->>job_id', jid)
+        await $fetch(`/api/jobs/${encodeURIComponent(jid)}`, { method: 'DELETE' })
       }
-      const { error: err } = await client
-        .from('sim_jobs')
-        .delete()
-        .eq('user_id', user.value.id)
-
-      if (err) throw err
       jobs.value = []
       return true
     } catch (e: any) {
@@ -150,9 +129,16 @@ export function useJobHistory() {
 
       const { data: shareRows } = await client
         .from('sim_job_team_shares')
-        .select('job_id')
+        .select('job_id, shared_by, job:sim_jobs(user_id)')
         .in('team_id', teamIds)
-      const sharedJobIds = [...new Set((shareRows ?? []).map((r: any) => r.job_id as string))]
+      const sharedJobIds = [
+        ...new Set((shareRows ?? [])
+          .filter((r: any) => {
+            const job = Array.isArray(r.job) ? r.job[0] : r.job
+            return job?.user_id && r.shared_by === job.user_id
+          })
+          .map((r: any) => r.job_id as string)),
+      ]
       if (sharedJobIds.length === 0) {
         jobs.value = []
         return []
