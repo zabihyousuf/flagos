@@ -1860,10 +1860,47 @@ async function fetchInsights(regenerate = false) {
 }
 
 async function loadCachedInsights() {
-  if (!job.jobId) return
-  const supabase = useSupabaseDB()
-  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).maybeSingle()
-  if (data?.insights) insightsData.value = data.insights as unknown as InsightItem[]
+  if (!job.jobId || !partial.value) return
+  try {
+    const res = await fetch('/api/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_id: job.jobId,
+        result_data: partial.value,
+        cache_only: true,
+      }),
+    })
+    if (!res.ok || !res.body) return
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const cached: InsightItem[] = []
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data: ')) continue
+        const payload = trimmed.slice(6)
+        if (payload === '[DONE]') continue
+        try {
+          const parsed = JSON.parse(payload)
+          if (parsed.icon && parsed.title && cached.length < 6) cached.push(parsed as InsightItem)
+        } catch { /* skip malformed */ }
+      }
+    }
+
+    if (cached.length > 0) insightsData.value = cached
+  } catch {
+    // Cache misses or auth failures should not break result viewing.
+  }
 }
 /** Replays modal (sidebar + player). */
 const replaysModalOpen = ref(false)
@@ -1955,10 +1992,16 @@ async function fetchRecordingJson(recordingId: string): Promise<Record<string, u
     .from('sim_recordings')
     .select('recording_json')
     .eq('id', recordingId)
+    .eq('job_id', job.jobId)
     .single()
   if (error || !data) return null
   const raw = (data as any).recording_json
-  const json = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? null)
+  let json: Record<string, unknown> | null = null
+  try {
+    json = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? null)
+  } catch {
+    return null
+  }
   if (json) {
     recordingJsonCache.value = new Map(recordingJsonCache.value).set(recordingId, json)
   }
