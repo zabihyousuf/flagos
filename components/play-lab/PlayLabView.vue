@@ -1514,6 +1514,7 @@ const runConfigLabel = computed(() => {
 })
 const { players, fetchPlayers } = usePlayers()
 const { teams, fetchTeams } = useTeams()
+const { activeTeamId } = useActiveContext()
 const { resolveRoster, resolveRosterWithFallback, countStarters } = useSimRoster(teams)
 const job = reactive(usePlayLabJob())
 const { isOpen: historyPanelOpen, close: closeHistoryPanel } = useSimHistoryPanel()
@@ -2031,7 +2032,7 @@ const rosterErrors = ref<RosterError[]>([])
 const defenseBasePlayerWarnings = ref<RosterError[]>([])
 
 const primaryTeamId = computed(() =>
-  teams.value.find((t) => t.name !== 'Free Agent')?.id ?? teams.value[0]?.id ?? ''
+  activeTeamId.value ?? teams.value.find((t) => t.name !== 'Free Agent')?.id ?? teams.value[0]?.id ?? ''
 )
 
 const defenseStarterCount = computed(() => {
@@ -2894,6 +2895,7 @@ async function runSimulation() {
       n_scenarios: effectiveScenarios * selectedDefPlays.length,
       n_iterations: effectiveIterations,
       auto_generate: true,
+      team_id: teamId,
     }
 
     if (!firstJobNavigated) {
