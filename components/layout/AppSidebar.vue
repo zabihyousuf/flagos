@@ -58,8 +58,8 @@
       </template>
     </div>
 
-    <!-- Quick Play Button (managers only) -->
-    <div v-if="!isPlayer" class="sidebar-quick-action">
+    <!-- Quick Play Button -->
+    <div class="sidebar-quick-action">
       <TooltipProvider :key="`quick-play-${collapsed}`" :delay-duration="0" :ignore-non-keyboard-focus="true">
         <Tooltip :ignore-non-keyboard-focus="true">
           <TooltipTrigger as-child>
@@ -76,6 +76,23 @@
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+    </div>
+
+    <!-- Mobile: Search, Settings, Notifications (desktop uses header utility icons) -->
+    <div v-if="isMobile" class="sidebar-mobile-utilities">
+      <button type="button" class="sidebar-nav-item w-full" @click="handleMobileSearch">
+        <Search class="sidebar-nav-icon" />
+        <span class="sidebar-nav-label">Search</span>
+      </button>
+      <NuxtLink to="/settings" class="sidebar-nav-item" @click="closeMobileNav">
+        <SettingsIcon class="sidebar-nav-icon" />
+        <span class="sidebar-nav-label">Settings</span>
+      </NuxtLink>
+      <NuxtLink to="/notifications" class="sidebar-nav-item sidebar-nav-item--notifications" @click="closeMobileNav">
+        <Bell class="sidebar-nav-icon" />
+        <span class="sidebar-nav-label">Notifications</span>
+        <span v-if="unreadCount > 0" class="sidebar-mobile-notif-badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+      </NuxtLink>
     </div>
 
     <!-- Navigation -->
@@ -123,6 +140,7 @@
                   <span v-if="navItemChip(item)" class="sidebar-nav-chip" :class="navItemChip(item) === 'Pro' ? 'sidebar-nav-chip--pro' : navItemChip(item) === 'Trial!' ? 'sidebar-nav-chip--trial' : navItemChip(item) === 'Upgrade' ? 'sidebar-nav-chip--upgrade' : 'sidebar-nav-chip--free'">{{ navItemChip(item) }}</span>
                 </a>
                 <button
+                  v-if="!isPlayer && !isMobile"
                   type="button"
                   class="sidebar-nav-button-group-trigger"
                   :class="historyPanelOpen ? 'rotate-180' : ''"
@@ -326,11 +344,6 @@ const { isDesktop } = useBreakpoint()
 const isMobile = computed(() => !isDesktop.value)
 const { isOpen: mobileNavOpen, close: closeMobileNav } = useAppNav()
 
-// Close mobile drawer on navigation
-watch(() => route.path, () => {
-  if (mobileNavOpen.value) closeMobileNav()
-})
-
 const collapsed = ref(false)
 const hovering = ref(false)
 const userMenuOpen = ref(false)
@@ -444,8 +457,20 @@ interface NavGroup {
   items: NavItem[]
 }
 
+import { toast } from 'vue-sonner'
+
 const { isManager, isPlayer } = useAccountType()
-const { allTeams: myTeams, activeTeam, activeTeamId, setActiveTeam, hasExplicitSelection } = useActiveContext()
+const { allTeams: myTeams, activeTeam, activeTeamId, setActiveTeam: _setActiveTeam, hasExplicitSelection } = useActiveContext()
+
+function setActiveTeam(teamId: string | null) {
+  if (teamId) {
+    const team = myTeams.value.find(t => t.id === teamId)
+    _setActiveTeam(teamId)
+    if (team) toast.success(`Switched to ${team.name}`)
+  } else {
+    _setActiveTeam(null)
+  }
+}
 const { fetchTeams } = useTeams()
 const { fetchMemberships } = useTeamMemberships()
 const teamSwitcherOpen = ref(false)
@@ -523,13 +548,13 @@ const sortedNavGroups = computed<NavGroup[]>(() =>
 )
 
 const displayNavGroups = computed<NavGroup[]>(() => {
-  if (!collapsed.value) return sortedNavGroups.value
+  if (!collapsed.value || isMobile.value) return sortedNavGroups.value
   return sortedNavGroups.value.map((group) => {
     if (group.label !== 'BLUR.AI') return group
     const items: NavItem[] = []
     for (const item of group.items) {
       items.push(item)
-      if (item.to === '/blurai/playlab') {
+      if (item.to === '/blurai/playlab' && !isPlayer.value) {
         items.push({ to: '__history__', label: 'Simulation history', icon: ChevronRight, isHistoryTrigger: true })
       }
     }
@@ -552,14 +577,21 @@ const visibleNavGroups = computed<NavGroup[]>(() => {
 })
 
 const { open: openSearch } = useAppSearch()
-const { isOpen: historyPanelOpen, toggle: toggleHistoryPanel } = useSimHistoryPanel()
+const { isOpen: historyPanelOpen, toggle: toggleHistoryPanel, close: closeHistoryPanel } = useSimHistoryPanel()
+
+function handleMobileSearch() {
+  openSearch()
+  closeMobileNav()
+}
 
 function openQuickPlay() {
   window.dispatchEvent(new CustomEvent('open-quick-play'))
 }
 
 function goToPlayLab() {
+  closeHistoryPanel()
   navigateTo('/blurai/playlab')
+  closeMobileNav()
 }
 
 async function handleLogout() {
@@ -761,6 +793,35 @@ async function handleLogout() {
 
 .collapsed .sidebar-quick-action {
   padding: 4px 10px 8px;
+}
+
+.sidebar-mobile-utilities {
+  flex-shrink: 0;
+  padding: 0 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+}
+
+.sidebar-nav-item--notifications {
+  position: relative;
+}
+
+.sidebar-mobile-notif-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: var(--color-destructive);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .quick-play-btn {

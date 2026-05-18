@@ -3,6 +3,7 @@
     <canvas
       ref="canvasRef"
       class="w-full h-full"
+      style="touch-action: none"
       :class="canvasCursor"
       @dragover.prevent
       @drop="handleDrop"
@@ -157,13 +158,20 @@ const chipPlayerHasRoute = computed(() => {
 })
 
 const { render } = useCanvasRenderer()
+const { isDesktop } = useBreakpoint()
+
+/** Desktop defense designer uses a locked LOS strip; mobile uses full field width like offense. */
+const defenseFitBounds = computed(() => props.playType === 'defense' && isDesktop.value)
+
+/** Larger player markers on mobile for touch targets; names stay desktop-sized. */
+const touchPlayerScale = computed(() => (isDesktop.value ? 1 : 1.5))
 
 const contentBoundsRef = computed(() => {
   if (props.viewMode !== 'fit') return undefined
-  if (!props.ghostPlayers?.length && props.playType !== 'defense') return undefined
+  if (!defenseFitBounds.value) return undefined
   const fs = fieldSettings.value
   const totalLength = fs.field_length + fs.endzone_size * 2
-  return computeFitContentBounds(canvasData.value.players, props.ghostPlayers ?? [], totalLength, {
+  return computeFitContentBounds(canvasData.value.players, [], totalLength, {
     endzoneSize: fs.endzone_size,
     fieldLength: fs.field_length,
     lineOfScrimmage: fs.line_of_scrimmage,
@@ -213,6 +221,7 @@ function requestRender() {
     selectedPlayerId: selectedPlayerId.value,
     viewMode: props.viewMode ?? 'fit',
     playType: props.playType,
+    defenseFitBounds: defenseFitBounds.value,
     ghostPlayers: props.ghostPlayers,
     showPlayerNames: props.showPlayerNames !== false,
     defaultPlayerLabelOnCanvas: props.defaultPlayerLabelOnCanvas ?? 'position',
@@ -221,6 +230,7 @@ function requestRender() {
     animatedBall: props.animatedBall,
     simulationMode: props.simulationMode,
     darkMode: theme.resolvedDark.value,
+    touchPlayerScale: touchPlayerScale.value,
   })
   lastViewTransform.value = view ?? null
 }
@@ -256,6 +266,7 @@ const { setupListeners, removeListeners } = useCanvasInteraction(canvasRef, {
   onSelectRoute: onSelectRoute,
   onDeselectRoute: onDeselectRoute,
   onMoveCoverageZone: updateCoverageZonePosition,
+  touchPlayerScale,
 })
 
 function handleSave() {
@@ -408,7 +419,7 @@ function resizeCanvas() {
   requestRender()
 }
 
-watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview, () => props.simulationMode, () => theme.resolvedDark.value], () => {
+watch([canvasData, zoom, panOffset, selectedPlayerId, () => props.viewMode, () => props.ghostPlayers, () => props.showPlayerNames, () => props.suggestedRoutePreview, () => props.simulationMode, () => theme.resolvedDark.value, touchPlayerScale], () => {
   requestRender()
 }, { deep: true })
 

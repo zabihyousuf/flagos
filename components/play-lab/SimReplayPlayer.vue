@@ -64,14 +64,18 @@
         <SkipForward :size="14" />
       </button>
 
-      <!-- Scrubber -->
+      <!-- Scrubber — h-8 gives a 32px touch zone; touch handlers handle iOS drag -->
       <input
+        ref="scrubberRef"
         type="range"
         :min="0"
         :max="totalTicks"
         :value="tick"
-        class="flex-1 h-1 accent-primary cursor-pointer"
+        class="flex-1 h-8 accent-primary cursor-pointer"
+        style="touch-action: none"
         @input="onScrub"
+        @touchstart.prevent="onScrubTouch"
+        @touchmove.prevent="onScrubTouch"
       />
 
       <!-- Time display -->
@@ -173,6 +177,7 @@ const theme = useTheme()
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const scrubberRef = ref<HTMLInputElement | null>(null)
 
 const tick = ref(0)
 const playing = ref(false)
@@ -257,6 +262,17 @@ function stepBack() { tick.value = Math.max(0, tick.value - 30); playing.value =
 function stepForward() { tick.value = Math.min(totalTicks.value, tick.value + 30); playing.value = false; renderFrame() }
 function onScrub(e: Event) {
   tick.value = Number((e.target as HTMLInputElement).value)
+  playing.value = false
+  renderFrame()
+}
+
+function onScrubTouch(e: TouchEvent) {
+  const input = scrubberRef.value
+  if (!input || e.touches.length === 0) return
+  const touch = e.touches[0]
+  const rect = input.getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width))
+  tick.value = Math.round(ratio * totalTicks.value)
   playing.value = false
   renderFrame()
 }

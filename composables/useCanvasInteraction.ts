@@ -1,6 +1,6 @@
 import type { CanvasData, CanvasPlayer, CanvasTool } from '~/lib/types'
 import type { ContentBounds, ViewTransform } from '~/composables/useCanvasRenderer'
-import { computeFieldRect, computeViewTransform } from '~/composables/useCanvasRenderer'
+import { computeFieldRect, computeViewTransform, computePlayerRadiusPx } from '~/composables/useCanvasRenderer'
 
 interface InteractionOptions {
   canvasData: Ref<CanvasData>
@@ -36,6 +36,8 @@ interface InteractionOptions {
   onDeselectRoute?: () => void
   /** When user drags an unlocked coverage zone, call with playerId and clamped field coords (0-1) */
   onMoveCoverageZone?: (playerId: string, x: number, y: number) => void
+  /** Match renderer touch scale for player hit targets on mobile */
+  touchPlayerScale?: Ref<number>
 }
 
 export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, options: InteractionOptions) {
@@ -106,8 +108,9 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
   function findPlayerAt(coords: { x: number; y: number }): CanvasPlayer | null {
     const fieldRect = getFieldRect()
     if (!fieldRect) return null
-    const isFitView = options.viewMode?.value === 'fit'
-    const radiusPx = isFitView ? Math.max(10, fieldRect.fieldW * 0.028) : Math.max(14, fieldRect.fieldW * 0.04)
+    const radiusPx = computePlayerRadiusPx(fieldRect.fieldW, options.viewMode?.value, {
+      touchPlayerScale: options.touchPlayerScale?.value ?? 1,
+    })
     const radius = radiusPx / fieldRect.fieldW
     const aspectScale = fieldRect.fieldH / fieldRect.fieldW
 
@@ -357,6 +360,27 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     options.onRequestRender()
   }
 
+  function touchToMouse(touch: Touch): MouseEvent {
+    return { clientX: touch.clientX, clientY: touch.clientY, button: 0 } as MouseEvent
+  }
+
+  function handleTouchStart(e: TouchEvent) {
+    if (e.touches.length !== 1) return
+    e.preventDefault()
+    handleMouseDown(touchToMouse(e.touches[0]))
+  }
+
+  function handleTouchMove(e: TouchEvent) {
+    if (e.touches.length !== 1) return
+    e.preventDefault()
+    handleMouseMove(touchToMouse(e.touches[0]))
+  }
+
+  function handleTouchEnd(e: TouchEvent) {
+    e.preventDefault()
+    handleMouseUp({} as MouseEvent)
+  }
+
   function setupListeners() {
     const canvas = canvasRef.value
     if (!canvas) return
@@ -366,6 +390,10 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     canvas.addEventListener('mousemove', handleMouseMove)
     canvas.addEventListener('mouseup', handleMouseUp)
     canvas.addEventListener('mouseleave', handleMouseUp)
+    // Touch equivalents — passive: false required so preventDefault() works
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false })
     // Zoom disabled
     // canvas.addEventListener('wheel', handleWheel, { passive: false })
   }
@@ -379,6 +407,9 @@ export function useCanvasInteraction(canvasRef: Ref<HTMLCanvasElement | null>, o
     canvas.removeEventListener('mousemove', handleMouseMove)
     canvas.removeEventListener('mouseup', handleMouseUp)
     canvas.removeEventListener('mouseleave', handleMouseUp)
+    canvas.removeEventListener('touchstart', handleTouchStart)
+    canvas.removeEventListener('touchmove', handleTouchMove)
+    canvas.removeEventListener('touchend', handleTouchEnd)
     canvas.removeEventListener('wheel', handleWheel)
   }
 

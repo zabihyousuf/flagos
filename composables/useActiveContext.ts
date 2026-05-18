@@ -8,24 +8,25 @@ export function useActiveContext() {
   const { teams } = useTeams()
   const { memberships, activeTeamId: storedActiveTeamId, setActiveTeam } = useTeamMemberships()
   const { profile } = useProfile()
+  const user = useSupabaseUser()
 
   const allTeams = computed<TeamContext[]>(() => {
     const seen = new Set<string>()
     const result: TeamContext[] = []
 
-    // Managed teams (coach role) take priority
-    for (const t of teams.value) {
-      if (t.name !== 'Free Agent' && !seen.has(t.id)) {
-        seen.add(t.id)
-        result.push({ id: t.id, name: t.name, role: 'coach' })
-      }
-    }
-
-    // Memberships (role from membership row — can be 'player' or 'coach')
+    // Memberships come first — they carry the authoritative role from the DB
     for (const m of memberships.value) {
       if (m.team && !seen.has(m.team_id)) {
         seen.add(m.team_id)
         result.push({ id: m.team_id, name: m.team!.name, role: m.role === 'coach' ? 'coach' : 'player' })
+      }
+    }
+
+    // Owned teams not yet covered by memberships (user is the creator → coach)
+    for (const t of teams.value) {
+      if (t.name !== 'Free Agent' && !seen.has(t.id) && t.user_id === user.value?.id) {
+        seen.add(t.id)
+        result.push({ id: t.id, name: t.name, role: 'coach' })
       }
     }
 

@@ -5,7 +5,7 @@
         <h2 class="text-2xl font-semibold tracking-tight font-display">{{ playbook?.name ?? 'Playbook' }}</h2>
         <p v-if="playbook?.description" class="text-muted-foreground text-sm mt-1">{{ playbook.description }}</p>
       </div>
-      <Button as-child>
+      <Button v-if="isManager" as-child>
         <NuxtLink :to="`/plays/new?playbookId=${playbookId}`">
           <Plus class="w-4 h-4 mr-2" />
           New Play
@@ -36,8 +36,8 @@
     <div v-else-if="plays.length === 0" class="text-center py-12">
       <Swords class="w-12 h-12 text-muted-foreground mx-auto mb-3" />
       <h3 class="font-medium text-lg">No plays yet</h3>
-      <p class="text-muted-foreground text-sm mt-1">Create your first play to start designing.</p>
-      <Button as-child class="mt-4">
+      <p class="text-muted-foreground text-sm mt-1">{{ isManager ? 'Create your first play to start designing.' : 'No plays in this playbook yet.' }}</p>
+      <Button v-if="isManager" as-child class="mt-4">
         <NuxtLink :to="`/plays/new?playbookId=${playbookId}`">
           <Plus class="w-4 h-4 mr-2" />
           Create Play
@@ -82,8 +82,9 @@
               :play="play"
               :variant="viewMode"
               @edit="navigateToPlay(play.id)"
-              :deleting="deletingId === play.id"
-              @delete="handleDelete(play.id)"
+              :deleting="isManager ? deletingId === play.id : false"
+              :show-delete="isManager"
+              @delete="isManager && handleDelete(play.id)"
               @share="openShareDialog(play)"
             />
           </div>
@@ -96,8 +97,9 @@
               :play="play"
               :variant="viewMode"
               @edit="navigateToPlay(play.id)"
-              :deleting="deletingId === play.id"
-              @delete="handleDelete(play.id)"
+              :deleting="isManager ? deletingId === play.id : false"
+              :show-delete="isManager"
+              @delete="isManager && handleDelete(play.id)"
               @share="openShareDialog(play)"
             />
           </div>
@@ -110,8 +112,9 @@
               :play="play"
               :variant="viewMode"
               @edit="navigateToPlay(play.id)"
-              :deleting="deletingId === play.id"
-              @delete="handleDelete(play.id)"
+              :deleting="isManager ? deletingId === play.id : false"
+              :show-delete="isManager"
+              @delete="isManager && handleDelete(play.id)"
               @share="openShareDialog(play)"
             />
           </div>
@@ -123,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'manager-only' })
+definePageMeta({})
 
 import type { Play, Playbook, Player } from '~/lib/types'
 import { Button } from '~/components/ui/button'
@@ -131,6 +134,8 @@ import { Card, CardContent } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import { Plus, Swords, LayoutGrid, List } from 'lucide-vue-next'
+
+const { isManager } = useAccountType()
 
 const route = useRoute()
 const router = useRouter()

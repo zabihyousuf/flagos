@@ -22,14 +22,36 @@ export function usePlaybooks() {
     loading.value = true
     error.value = null
     try {
+      // Fetch playbooks without nested join (nested RLS subqueries don't work reliably in PostgREST embedding)
       const { data, error: err } = await client
         .from('playbooks')
-        .select('*, plays(id)')
-        .eq('user_id', user.value.id)
+        .select('*')
         .order('updated_at', { ascending: false })
 
       if (err) throw err
-      playbooks.value = (data ?? []) as Playbook[]
+      const pbs = (data ?? []) as Playbook[]
+
+      // Fetch play counts separately — direct query correctly applies cross-table RLS
+      if (pbs.length > 0) {
+        const ids = pbs.map((p) => p.id)
+        const { data: playsData } = await client
+          .from('plays')
+          .select('id, playbook_id')
+          .in('playbook_id', ids)
+
+        const countMap = new Map<string, { id: string }[]>()
+        for (const play of playsData ?? []) {
+          const arr = countMap.get(play.playbook_id) ?? []
+          arr.push({ id: play.id })
+          countMap.set(play.playbook_id, arr)
+        }
+        playbooks.value = pbs.map((pb) => ({
+          ...pb,
+          plays: (countMap.get(pb.id) ?? []) as any,
+        }))
+      } else {
+        playbooks.value = pbs
+      }
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -69,7 +91,7 @@ export function usePlaybooks() {
         .from('playbooks')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .select('*, plays(id)')
+        .select('*')
         .single()
 
       if (err) throw err

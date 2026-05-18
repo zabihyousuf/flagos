@@ -33,7 +33,7 @@
             <Button size="icon" variant="ghost" :class="variant === 'list' ? 'h-7 w-7' : 'h-8 w-8'" @click.prevent="$emit('edit')">
               <Pencil :class="variant === 'list' ? 'w-3 h-3' : 'w-3.5 h-3.5'" />
             </Button>
-            <Button size="icon" variant="ghost" :class="[variant === 'list' ? 'h-7 w-7' : 'h-8 w-8', 'text-destructive']" :disabled="deleting" @click.prevent="$emit('delete')">
+            <Button v-if="showDelete" size="icon" variant="ghost" :class="[variant === 'list' ? 'h-7 w-7' : 'h-8 w-8', 'text-destructive']" :disabled="deleting" @click.prevent="$emit('delete')">
               <Loader2 v-if="deleting" :class="[variant === 'list' ? 'w-3 h-3' : 'w-3.5 h-3.5', 'animate-spin']" />
               <Trash2 v-else :class="variant === 'list' ? 'w-3 h-3' : 'w-3.5 h-3.5'" />
             </Button>
@@ -55,8 +55,9 @@ withDefaults(
     play: Play
     deleting?: boolean
     variant?: 'grid' | 'list'
+    showDelete?: boolean
   }>(),
-  { variant: 'grid' }
+  { variant: 'grid', showDelete: true }
 )
 
 defineEmits<{

@@ -14,7 +14,7 @@
     </div>
 
     <!-- Team cards (all users) -->
-    <div class="space-y-2 pl-1">
+    <div class="space-y-2 px-1">
       <div class="flex items-center justify-between">
         <h3 class="text-xs font-bold text-muted-foreground uppercase tracking-wide font-display">Teams</h3>
         <Button v-if="isManager" size="sm" variant="ghost" class="text-xs h-8" @click="teamDialogOpen = true">
@@ -97,7 +97,7 @@
                   <X class="w-3 h-3" />
                 </Button>
               </div>
-              <div class="flex gap-3 text-xs text-muted-foreground">
+              <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>OVR <span class="font-semibold text-primary">{{ slotScores[team.id]?.overall ?? 0 }}</span></span>
                 <span>OFF <span class="font-semibold text-chart-1">{{ slotScores[team.id]?.off ?? 0 }}</span></span>
                 <span>DEF <span class="font-semibold text-chart-4">{{ slotScores[team.id]?.def ?? 0 }}</span></span>
@@ -370,6 +370,13 @@
           </div>
         </div>
         <div class="squad-mobile-card-actions" @click.stop>
+          <button
+            class="squad-mobile-action-btn squad-mobile-action-btn--invite"
+            aria-label="Invite player"
+            @click="openInviteDialog(p)"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          </button>
           <button
             class="squad-mobile-action-btn squad-mobile-action-btn--edit"
             aria-label="Edit player"
@@ -1321,9 +1328,17 @@ const { settings: fieldSettings, fetchSettings: fetchFieldSettings } = useFieldS
 const { exportPlayers } = usePlayerExport()
 const { confirm } = useConfirm()
 
+import { toast } from 'vue-sonner'
+
 const { isManager, isPlayer } = useAccountType()
 const { memberships, fetchMemberships, leaveTeam } = useTeamMemberships()
-const { allTeams: allContextTeams, activeTeamId: contextActiveTeamId, setActiveTeam: setContextActiveTeam } = useActiveContext()
+const { allTeams: allContextTeams, activeTeamId: contextActiveTeamId, setActiveTeam: _setContextActiveTeam } = useActiveContext()
+
+function setContextActiveTeam(teamId: string) {
+  const team = allContextTeams.value.find(t => t.id === teamId)
+  _setContextActiveTeam(teamId)
+  if (team) toast.success(`Switched to ${team.name}`)
+}
 const { receivedRequests, fetchReceivedRequests, respondToRequest } = useTeamJoinRequests()
 const leavingTeamId = ref<string | null>(null)
 
@@ -1412,8 +1427,10 @@ async function handleLeaveTeam(teamId: string) {
 function getTeamRoster(teamId: string): Player[] {
   const team = teams.value.find(t => t.id === teamId)
   if (!team?.team_players) return []
-  const playerIds = new Set(team.team_players.map(tp => tp.player_id))
-  return players.value.filter(p => playerIds.has(p.id))
+  // Use the joined player data directly — players.value is only populated for coaches
+  return team.team_players
+    .map((tp: any) => tp.player)
+    .filter((p: any): p is Player => !!p)
 }
 
 async function handleApproveRequest(requestId: string) {
@@ -2293,19 +2310,19 @@ watch([dialogOpen, bulkImportOpen], ([dialog, bulk]) => {
 }, { immediate: false })
 
 onMounted(() => {
+  // Always fetch memberships so role resolves correctly regardless of profile load timing
+  fetchMemberships()
+  fetchTeams()
+  fetchPlayers()
   if (isManager.value) {
-    fetchPlayers()
-    fetchTeams()
     playerInvitesRef.fetchInvites()
-  } else if (isPlayer.value) {
-    fetchMemberships()
-    fetchPlayers()
-    fetchTeams()
-  } else {
-    fetchPlayers()
-    fetchTeams()
   }
 })
+
+// Fetch invites once role resolves to manager (profile may load after mount)
+watch(isManager, (val) => {
+  if (val) playerInvitesRef.fetchInvites()
+}, { once: true })
 </script>
 
 <style scoped>
@@ -2453,6 +2470,16 @@ onMounted(() => {
   transition: background 0.15s, color 0.15s;
 }
 
+.squad-mobile-action-btn--invite {
+  background: var(--color-accent);
+  color: var(--color-muted-foreground);
+}
+
+.squad-mobile-action-btn--invite:hover {
+  background: color-mix(in oklch, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
 .squad-mobile-action-btn--edit {
   background: var(--color-accent);
   color: var(--color-muted-foreground);
@@ -2504,6 +2531,10 @@ onMounted(() => {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-accent);
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .invite-link-text {

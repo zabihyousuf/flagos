@@ -48,6 +48,16 @@
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <Button
+              v-if="!isDesktop && isManager && effectiveJobId"
+              variant="outline"
+              size="sm"
+              class="h-8 gap-1.5 lg:hidden"
+              @click="goToMobileSimList"
+            >
+              <ChevronLeft class="w-3.5 h-3.5" />
+              Simulations
+            </Button>
+            <Button
               v-if="showShareButton"
               variant="outline"
               size="sm"
@@ -75,7 +85,7 @@
       </div>
       <div class="flex flex-1 min-h-0 flex-col lg:flex-row gap-4 lg:gap-6 pt-4 lg:pt-5 pb-5 lg:pb-6">
         <div
-          v-if="!isPlayer"
+          v-if="showManagerConfigPanel"
           class="flex items-stretch gap-0 shrink-0 transition-[width] duration-200 ease-out"
           :class="configRailed ? 'w-12' : 'w-full lg:w-[30%]'"
         >
@@ -507,19 +517,121 @@
         </template>
 
         <template v-else-if="!job?.jobId">
-          <div class="flex-1 flex flex-col items-center justify-center text-center p-8 min-h-[280px]">
-            <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <template v-if="isPlayer">
+          <!-- Coach mobile: list own simulations (replaces desktop history sidebar) -->
+          <template v-if="showMobileManagerSimList">
+            <div class="flex-1 flex flex-col min-h-0">
+              <div class="flex items-center justify-between gap-2 px-1 pb-3 shrink-0">
+                <p class="text-sm text-muted-foreground">Select a simulation to view results.</p>
+                <Button size="sm" class="h-8 shrink-0" @click="startNewMobileSimulation">
+                  New simulation
+                </Button>
+              </div>
+              <div v-if="sharedJobsLoading" class="flex-1 p-4 space-y-3 overflow-y-auto">
+                <div v-for="i in 4" :key="i" class="rounded-xl bg-card/80 p-4 shadow-sm space-y-2">
+                  <Skeleton class="h-4 w-48" />
+                  <Skeleton class="h-3 w-32" />
+                  <div class="flex gap-2"><Skeleton class="h-5 w-12 rounded-full" /><Skeleton class="h-3 w-24" /></div>
+                </div>
+              </div>
+              <div v-else class="flex-1 overflow-y-auto p-1">
+                <div v-if="managerPendingJobs.length > 0" class="mb-4 space-y-2">
+                  <h3 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">In progress</h3>
+                  <div class="grid gap-3">
+                    <NuxtLink
+                      v-for="sj in managerPendingJobs"
+                      :key="sj.job_id"
+                      :to="`/blurai/playlab/${sj.job_id}`"
+                      class="block rounded-xl bg-card border border-border p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+                    >
+                      <p class="font-medium text-sm truncate">{{ sj.job_metadata?.offensive_play_name ?? 'Play' }}</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">
+                        {{ sj.state === 'RUNNING' ? 'Running…' : 'Queued' }}
+                        <span v-if="sj.progress_percent != null"> · {{ Math.round(sj.progress_percent) }}%</span>
+                      </p>
+                    </NuxtLink>
+                  </div>
+                </div>
+                <div v-if="managerCompletedJobs.length > 0" class="space-y-2">
+                  <h3 class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Completed</h3>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <NuxtLink
+                      v-for="sj in managerCompletedJobs"
+                      :key="sj.job_id"
+                      :to="`/blurai/playlab/${sj.job_id}`"
+                      class="block rounded-xl bg-card border border-border p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+                    >
+                      <p class="font-medium text-sm truncate">{{ sj.job_metadata?.offensive_play_name ?? 'Play' }}</p>
+                      <p class="text-xs text-muted-foreground mt-0.5">{{ sharedJobFormatDate(sj.completed_at) }}</p>
+                      <div class="flex flex-wrap items-center gap-2 mt-2">
+                        <span
+                          v-if="sj.overall_success_rate != null"
+                          class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                          :class="sharedJobSuccessClass(sj.overall_success_rate)"
+                        >
+                          {{ Math.round(sj.overall_success_rate * 100) }}%
+                        </span>
+                        <span v-if="sj.job_metadata?.n_scenarios" class="text-xs text-muted-foreground">
+                          {{ sj.job_metadata.n_scenarios.toLocaleString() }} situations
+                        </span>
+                      </div>
+                    </NuxtLink>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+          <!-- Player: list shared jobs -->
+          <template v-else-if="isPlayer">
+            <div v-if="sharedJobsLoading" class="flex-1 p-4 space-y-3">
+              <div v-for="i in 4" :key="i" class="rounded-xl bg-card/80 p-4 shadow-sm space-y-2">
+                <Skeleton class="h-4 w-48" />
+                <Skeleton class="h-3 w-32" />
+                <div class="flex gap-2"><Skeleton class="h-5 w-12 rounded-full" /><Skeleton class="h-3 w-24" /></div>
+              </div>
+            </div>
+            <div v-else-if="sharedJobs.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-8 min-h-[280px]">
+              <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
               <h2 class="text-lg font-semibold font-display">No simulations shared yet</h2>
               <p class="text-sm text-muted-foreground mt-1">Your coaching staff will share Play Lab results here.</p>
-            </template>
-            <template v-else>
+            </div>
+            <div v-else class="flex-1 overflow-y-auto p-4">
+              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <NuxtLink
+                  v-for="sj in sharedJobs"
+                  :key="sj.job_id"
+                  :to="`/blurai/playlab/${sj.job_id}`"
+                  class="block rounded-xl bg-card border border-border p-4 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+                >
+                  <p class="font-medium text-sm truncate">{{ sj.job_metadata?.offensive_play_name ?? 'Play' }}</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">{{ sharedJobFormatDate(sj.completed_at) }}</p>
+                  <div class="flex flex-wrap items-center gap-2 mt-2">
+                    <span
+                      v-if="sj.overall_success_rate != null"
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                      :class="sharedJobSuccessClass(sj.overall_success_rate)"
+                    >
+                      {{ Math.round(sj.overall_success_rate * 100) }}%
+                    </span>
+                    <span v-if="sj.job_metadata?.n_scenarios" class="text-xs text-muted-foreground">
+                      {{ sj.job_metadata.n_scenarios.toLocaleString() }} situations
+                    </span>
+                  </div>
+                </NuxtLink>
+              </div>
+            </div>
+          </template>
+          <!-- Manager: empty state -->
+          <template v-else>
+            <div class="flex-1 flex flex-col items-center justify-center text-center p-8 min-h-[280px]">
+              <svg class="w-20 h-20 text-muted-foreground/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
               <h2 class="text-lg font-semibold font-display">Run a simulation to see results</h2>
               <p class="text-sm text-muted-foreground mt-1">Select a play, choose defense, and run.</p>
-            </template>
-          </div>
+            </div>
+          </template>
         </template>
 
         <template v-else-if="job?.status?.state === 'FAILED'">
@@ -994,40 +1106,44 @@
             <!-- Replays modal: left sidebar grouped by scenario, center = player -->
             <Dialog v-model:open="replaysModalOpen">
               <DialogContent class="w-[98vw] max-w-[calc(100%-2rem)] sm:max-w-[1800px] h-[92vh] max-h-[92vh] p-0 gap-0 overflow-hidden flex flex-col" :show-close-button="true">
-                <DialogHeader class="shrink-0 px-4 pt-4 pb-3 border-b border-border/60">
+                <DialogHeader class="shrink-0 px-4 pt-4 pb-3 border-b border-border/60 text-left">
                   <div class="flex items-center justify-between gap-2">
                     <div>
-                      <DialogTitle class="text-base font-medium">
+                      <DialogTitle class="text-base font-medium text-left">
                         Replays
                         <span class="text-xs font-normal text-muted-foreground ml-1">
                           ({{ filteredReplays.length }})
                         </span>
                       </DialogTitle>
-                      <p class="text-[11px] text-muted-foreground mt-0.5">
+                      <p class="text-[11px] text-muted-foreground mt-0.5 text-left">
                         Filter and sort saved replays for this simulation run.
                       </p>
                     </div>
                   </div>
                 </DialogHeader>
-                <div class="flex flex-1 min-h-0">
-                  <!-- Left: filter + replay list -->
-                  <aside class="w-64 shrink-0 border-r border-border/60 flex flex-col bg-muted/20">
-                    <!-- Filters -->
-                    <div class="shrink-0 p-3 space-y-3 border-b border-border/40">
-                      <div class="flex items-center justify-between gap-2">
+                <div class="flex flex-1 min-h-0 relative">
+                  <!-- Left: filter + replay list — full-screen on mobile when mobileReplayView === 'list' -->
+                  <aside
+                    class="flex-col bg-muted/20 w-full sm:flex sm:w-64 sm:shrink-0 sm:border-r border-border/60"
+                    :class="mobileReplayView === 'list' ? 'flex' : 'hidden sm:flex'"
+                  >
+                    <!-- Filters header row (always visible) -->
+                    <div class="shrink-0 p-3 border-b border-border/40">
+                      <div class="flex items-center justify-between gap-2 min-h-[44px] sm:min-h-0">
                         <button
                           type="button"
-                          class="text-[11px] font-semibold uppercase tracking-wider transition-colors rounded px-1 -mx-1"
+                          class="flex items-center gap-1.5 text-xs sm:text-[11px] font-semibold uppercase tracking-wider transition-colors rounded px-1 -mx-1"
                           :class="replayFiltersEnabled ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/60 hover:text-muted-foreground'"
                           @click="replayFiltersEnabled = !replayFiltersEnabled; if (!replayFiltersEnabled) { replayFilterType = ''; replayFilterOutcome = ''; replayFilterReceiver = '' }"
                         >
-                          Filters {{ replayFiltersEnabled ? 'on' : 'off' }}
+                          Filters
+                          <span class="text-[10px] font-normal opacity-70">{{ replayFiltersEnabled ? 'on' : 'off' }}</span>
                         </button>
                         <div class="flex items-center gap-1.5">
                           <!-- Sort toggle -->
                           <button
                             type="button"
-                            class="text-[10px] px-2 py-0.5 rounded-full bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            class="text-[11px] sm:text-[10px] h-8 sm:h-auto px-3 sm:px-2 py-1 sm:py-0.5 rounded-full bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                             @click="replaySortBy = replaySortBy === 'yards' ? 'outcome' : 'yards'"
                           >
                             Sort: {{ replaySortBy === 'yards' ? 'Yards' : 'Outcome' }}
@@ -1035,15 +1151,17 @@
                           <button
                             v-if="replayFiltersEnabled && (replayFilterType || replayFilterOutcome || replayFilterReceiver)"
                             type="button"
-                            class="text-[10px] px-2 py-0.5 rounded-full bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                            class="text-[11px] sm:text-[10px] h-8 sm:h-auto px-3 sm:px-2 py-1 sm:py-0.5 rounded-full bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                             @click="replayFilterType = ''; replayFilterOutcome = ''; replayFilterReceiver = ''"
                           >
                             Clear
                           </button>
                         </div>
                       </div>
+                      <!-- Filter pills — collapsible when disabled -->
                       <div
-                        class="space-y-2 transition-opacity"
+                        v-show="replayFiltersEnabled"
+                        class="space-y-2 mt-2 transition-opacity"
                         :class="replayFiltersEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'"
                       >
                         <!-- Highlight type filter pills -->
@@ -1051,12 +1169,12 @@
                           <p class="text-[10px] font-medium text-muted-foreground mb-1">
                             Highlight
                           </p>
-                          <div class="flex flex-wrap gap-1">
+                          <div class="flex flex-wrap gap-1.5">
                             <button
                               v-for="ht in availableHighlightTypes"
                               :key="ht.key"
                               type="button"
-                              class="text-[10px] px-1.5 py-0.5 rounded-full transition-colors"
+                              class="text-[11px] sm:text-[10px] px-2 py-1 sm:py-0.5 rounded-full transition-colors"
                               :class="replayFilterType === ht.key
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
@@ -1072,12 +1190,12 @@
                           <p class="text-[10px] font-medium text-muted-foreground mb-1">
                             Outcome
                           </p>
-                          <div class="flex flex-wrap gap-1">
+                          <div class="flex flex-wrap gap-1.5">
                             <button
                               v-for="oc in availableOutcomes"
                               :key="oc.key"
                               type="button"
-                              class="text-[10px] px-1.5 py-0.5 rounded-full transition-colors"
+                              class="text-[11px] sm:text-[10px] px-2 py-1 sm:py-0.5 rounded-full transition-colors"
                               :class="replayFilterOutcome === oc.key
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
@@ -1093,12 +1211,12 @@
                           <p class="text-[10px] font-medium text-muted-foreground mb-1">
                             Receiver
                           </p>
-                          <div class="flex flex-wrap gap-1">
+                          <div class="flex flex-wrap gap-1.5">
                             <button
                               v-for="rec in availableReceivers"
                               :key="rec.key"
                               type="button"
-                              class="text-[10px] px-1.5 py-0.5 rounded-full transition-colors truncate max-w-[120px]"
+                              class="text-[11px] sm:text-[10px] px-2 py-1 sm:py-0.5 rounded-full transition-colors truncate max-w-[140px] sm:max-w-[120px]"
                               :class="replayFilterReceiver === rec.key
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
@@ -1117,17 +1235,17 @@
                       <template v-if="replaysLoading">
                         <div class="space-y-0.5">
                           <Skeleton class="h-3 w-24 rounded px-2" />
-                          <div v-for="i in 6" :key="i" class="flex items-center gap-2 rounded-md px-2 py-1.5">
-                            <Skeleton class="h-1.5 w-1.5 shrink-0 rounded-full" />
+                          <div v-for="i in 6" :key="i" class="flex items-center gap-2 rounded-md px-2 py-2.5 sm:py-1.5">
+                            <Skeleton class="h-2 w-2 shrink-0 rounded-full" />
                             <div class="min-w-0 flex-1 space-y-1">
-                              <Skeleton class="h-3 w-full max-w-[140px]" />
-                              <Skeleton class="h-2.5 w-16" />
+                              <Skeleton class="h-3 w-full max-w-[180px]" />
+                              <Skeleton class="h-2.5 w-20" />
                             </div>
                           </div>
                         </div>
                       </template>
                       <template v-else>
-                        <div v-if="filteredReplaysGrouped.length === 0" class="px-2 py-6 text-xs text-muted-foreground">
+                        <div v-if="filteredReplaysGrouped.length === 0" class="px-2 py-6 text-sm sm:text-xs text-muted-foreground">
                           {{ replayFilterType || replayFilterOutcome || replayFilterReceiver ? 'No replays match filters.' : 'No replays saved for this run yet.' }}
                         </div>
                         <div v-for="group in filteredReplaysGrouped" :key="group.key" class="space-y-0.5">
@@ -1138,12 +1256,12 @@
                             v-for="item in group.items"
                             :key="item.id"
                             type="button"
-                            class="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                            class="w-full flex items-center gap-3 sm:gap-2 rounded-md px-3 sm:px-2 py-3 sm:py-1.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground min-h-[44px] sm:min-h-0"
                             :class="{ 'bg-accent/80 text-accent-foreground': selectedReplayInModal?.id === item.id }"
-                            @click="selectedReplayInModal = item"
+                            @click="selectedReplayInModal = item; mobileReplayView = 'player'"
                           >
                             <span
-                              class="shrink-0 w-1.5 h-1.5 rounded-full"
+                              class="shrink-0 w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full"
                               :class="{
                                 'bg-emerald-500': item.outcome === 'touchdown',
                                 'bg-destructive': item.outcome === 'interception' || item.outcome === 'safety',
@@ -1152,19 +1270,50 @@
                               }"
                             />
                             <div class="min-w-0 flex-1">
-                              <p class="text-xs font-medium truncate">{{ formatScenarioDisplay(item.scenario_label, item.defense_play_label) || item.scenario_group }}</p>
-                              <p class="text-[10px] text-muted-foreground flex gap-1.5">
+                              <p class="text-sm sm:text-xs font-medium truncate">{{ formatScenarioDisplay(item.scenario_label, item.defense_play_label) || item.scenario_group }}</p>
+                              <p class="text-xs sm:text-[10px] text-muted-foreground flex gap-1.5 mt-0.5">
                                 <span v-if="item.outcome" class="capitalize">{{ item.outcome }}</span>
                                 <span v-if="item.yardsGained != null" class="tabular-nums">{{ item.yardsGained }} yd</span>
                               </p>
                             </div>
+                            <!-- Mobile-only chevron hint -->
+                            <svg class="sm:hidden shrink-0 w-4 h-4 text-muted-foreground/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                           </button>
                         </div>
                       </template>
                     </nav>
                   </aside>
-                  <!-- Center: replay player -->
-                  <div class="flex-1 min-w-0 flex flex-col">
+                  <!-- Center: replay player — full-screen on mobile when mobileReplayView === 'player' -->
+                  <div
+                    class="flex-1 min-w-0 flex-col sm:flex"
+                    :class="mobileReplayView === 'player' ? 'flex' : 'hidden sm:flex'"
+                  >
+                    <!-- Mobile-only back bar -->
+                    <div class="sm:hidden shrink-0 flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-background">
+                      <button
+                        type="button"
+                        class="flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors -ml-1"
+                        @click="mobileReplayView = 'list'"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                        All replays
+                      </button>
+                      <div v-if="selectedReplayInModal" class="flex-1 min-w-0 text-right">
+                        <span
+                          v-if="selectedReplayInModal.outcome"
+                          class="inline-flex items-center capitalize text-xs font-medium px-2 py-0.5 rounded-full"
+                          :class="{
+                            'bg-emerald-500/15 text-emerald-600': selectedReplayInModal.outcome === 'touchdown',
+                            'bg-destructive/15 text-destructive': selectedReplayInModal.outcome === 'interception' || selectedReplayInModal.outcome === 'safety',
+                            'bg-amber-500/15 text-amber-600': selectedReplayInModal.outcome === 'flag pulled' || selectedReplayInModal.outcome === 'sack',
+                            'bg-muted/60 text-muted-foreground': !['touchdown','interception','safety','flag pulled','sack'].includes(selectedReplayInModal.outcome ?? ''),
+                          }"
+                        >
+                          {{ selectedReplayInModal.outcome }}
+                          <span v-if="selectedReplayInModal.yardsGained != null" class="ml-1 tabular-nums">· {{ selectedReplayInModal.yardsGained }} yd</span>
+                        </span>
+                      </div>
+                    </div>
                     <template v-if="selectedReplayInModal?.recording_json && (selectedReplayInModal.recording_json as any).player_traces">
                       <SimReplayPlayer
                         :recording="selectedReplayInModal.recording_json as any"
@@ -1178,8 +1327,10 @@
                         :show-player-names="fieldSettings?.show_player_names_on_canvas !== false"
                         :player-label-type="(fieldSettings?.default_player_label_on_canvas ?? 'position') as 'number' | 'position' | 'both' | 'none'"
                       />
-                      <div class="shrink-0 px-4 py-2.5 border-t border-border/60 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <!-- Footer: scenario info + controls -->
+                      <div class="shrink-0 px-4 py-3 sm:py-2.5 border-t border-border/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2 sm:gap-x-3 sm:gap-y-1 text-xs text-muted-foreground">
+                        <!-- Outcome + scenario label (hidden on mobile — shown in back bar instead) -->
+                        <div class="hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1">
                           <span
                             v-if="selectedReplayInModal.outcome"
                             class="capitalize font-medium px-1.5 py-0.5 rounded-md"
@@ -1194,10 +1345,15 @@
                           <span v-if="selectedReplayInModal.yardsGained != null" class="tabular-nums">{{ selectedReplayInModal.yardsGained }} yards</span>
                           <span class="text-muted-foreground/70">{{ formatScenarioDisplay(selectedReplayInModal.scenario_label, selectedReplayInModal.defense_play_label) }}</span>
                         </div>
-                        <div class="flex items-center gap-1.5">
+                        <!-- Scenario label on mobile -->
+                        <p class="sm:hidden text-xs text-muted-foreground/70 truncate">
+                          {{ formatScenarioDisplay(selectedReplayInModal.scenario_label, selectedReplayInModal.defense_play_label) }}
+                        </p>
+                        <!-- Controls row -->
+                        <div class="flex items-center gap-2 sm:gap-1.5 sm:ml-auto">
                           <button
                             type="button"
-                            class="px-2 py-1 rounded-md text-[11px] font-medium transition-colors"
+                            class="flex-1 sm:flex-none h-9 sm:h-auto px-3 sm:px-2 py-2 sm:py-1 rounded-lg sm:rounded-md text-sm sm:text-[11px] font-medium transition-colors"
                             :class="fieldSettings?.replay_auto_play !== false ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
                             title="Start playback when you select a replay"
                             @click="updateSettings({ replay_auto_play: fieldSettings?.replay_auto_play === false })"
@@ -1206,7 +1362,7 @@
                           </button>
                           <button
                             type="button"
-                            class="px-2 py-1 rounded-md text-[11px] font-medium transition-colors"
+                            class="flex-1 sm:flex-none h-9 sm:h-auto px-3 sm:px-2 py-2 sm:py-1 rounded-lg sm:rounded-md text-sm sm:text-[11px] font-medium transition-colors"
                             :class="fieldSettings?.replay_loop === true ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'"
                             title="Loop replay until paused"
                             @click="updateSettings({ replay_loop: !fieldSettings?.replay_loop })"
@@ -1216,7 +1372,7 @@
                           <button
                             v-if="selectedReplayInModal?.id"
                             type="button"
-                            class="px-2 py-1 rounded-md text-[11px] font-medium transition-colors bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            class="flex-1 sm:flex-none h-9 sm:h-auto px-3 sm:px-2 py-2 sm:py-1 rounded-lg sm:rounded-md text-sm sm:text-[11px] font-medium transition-colors bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
                             title="Copy replay ID to clipboard"
                             @click="copyReplayId(selectedReplayInModal.id)"
                           >
@@ -1308,7 +1464,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import { Search, ChevronDown, Play as PlayIcon, Film, PanelLeftClose, Sparkles, ArrowUpDown, Users } from 'lucide-vue-next'
+import { Search, ChevronDown, ChevronLeft, Play as PlayIcon, Film, PanelLeftClose, Sparkles, ArrowUpDown, Users } from 'lucide-vue-next'
 import type { AggregatedStats } from '~/composables/usePlayLabJob'
 import type { RosterError } from '~/composables/useSimRoster'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
@@ -1426,6 +1582,8 @@ const user = useSupabaseUser()
 const { profile } = useProfile()
 const { hasProAccess, hasSimulationAccess, isPaidPro, isTrialing, trialDaysLeft } = usePlanAccess()
 const { isManager, isPlayer } = useAccountType()
+const { isDesktop } = useBreakpoint()
+const mobileManagerView = ref<'list' | 'new'>('list')
 const { shares: jobShares, fetchSharesForJob, shareJob, unshareJob } = useSimJobShares()
 const shareDialogOpen = ref(false)
 const shareToggleLoading = ref(false)
@@ -1518,6 +1676,51 @@ const { resolveRoster, resolveRosterWithFallback, countStarters } = useSimRoster
 const job = reactive(usePlayLabJob())
 const { isOpen: historyPanelOpen, close: closeHistoryPanel } = useSimHistoryPanel()
 const jobHistory = useJobHistory()
+const sharedJobs = jobHistory.jobs
+const sharedJobsLoading = jobHistory.loading
+
+const managerBatchJobs = computed(() =>
+  sharedJobs.value.filter((j) => j.job_type === 'batch_sim'),
+)
+const managerHasSims = computed(() => managerBatchJobs.value.length > 0)
+const managerPendingJobs = computed(() =>
+  managerBatchJobs.value.filter((j) => j.state === 'PENDING' || j.state === 'RUNNING').slice(0, 25),
+)
+const managerCompletedJobs = computed(() =>
+  managerBatchJobs.value
+    .filter((j) => j.state === 'COMPLETED' || j.state === 'FAILED')
+    .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? ''))
+    .slice(0, 50),
+)
+
+const showMobileManagerSimList = computed(
+  () =>
+    isManager.value &&
+    !isDesktop.value &&
+    !effectiveJobId.value &&
+    managerHasSims.value &&
+    mobileManagerView.value === 'list',
+)
+
+const showManagerConfigPanel = computed(() => {
+  if (isPlayer.value) return false
+  if (isDesktop.value) return true
+  if (effectiveJobId.value) return true
+  if (mobileManagerView.value === 'new') return true
+  return !managerHasSims.value
+})
+
+function goToMobileSimList() {
+  job.reset()
+  configRailed.value = false
+  mobileManagerView.value = 'list'
+  navigateTo('/blurai/playlab')
+}
+
+function startNewMobileSimulation() {
+  mobileManagerView.value = 'new'
+  navigateTo({ path: '/blurai/playlab', query: { new: '1' } })
+}
 const worstOpen = ref(false)
 type WorstSortKey = 'worst' | 'best' | 'name' | 'sims'
 const worstSortBy = ref<WorstSortKey>('worst')
@@ -1667,6 +1870,9 @@ const replaysModalOpen = ref(false)
 const selectedReplayInModal = ref<PlayLabReplay | null>(null)
 const replayRecordingLoading = ref(false)
 const replayIdCopied = ref(false)
+/** Mobile: 'list' shows the sidebar, 'player' shows the replay canvas. Desktop always shows both. */
+const mobileReplayView = ref<'list' | 'player'>('list')
+watch(replaysModalOpen, (open) => { if (!open) mobileReplayView.value = 'list' })
 
 async function copyReplayId(id: string) {
   try {
@@ -2944,6 +3150,45 @@ onMounted(() => {
   ensurePlaysLoaded()
   job.probeEngine()
 })
+
+watch(
+  [isPlayer, isDesktop],
+  ([player, desktop]) => {
+    if (player) jobHistory.fetchSharedJobs()
+    else if (!desktop) jobHistory.fetchJobs()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => route.query.new,
+  (v) => {
+    if (v === '1') mobileManagerView.value = 'new'
+    else if (!effectiveJobId.value && managerHasSims.value) mobileManagerView.value = 'list'
+  },
+  { immediate: true },
+)
+
+watch(effectiveJobId, (id) => {
+  if (id) mobileManagerView.value = 'list'
+})
+
+watch(isDesktop, (desktop) => {
+  if (desktop) closeHistoryPanel()
+})
+
+function sharedJobFormatDate(iso: string | undefined): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  } catch { return '—' }
+}
+
+function sharedJobSuccessClass(rate: number): string {
+  if (rate < 0.4) return 'bg-destructive/90 text-destructive-foreground'
+  if (rate < 0.65) return 'bg-amber-500/90 text-amber-950'
+  return 'bg-emerald-600/90 text-white'
+}
 
 let _authSub: { unsubscribe: () => void } | null = null
 if (import.meta.client) {

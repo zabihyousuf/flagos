@@ -501,6 +501,11 @@ onMounted(() => {
     fetchTeams()
   }
 })
+
+// Re-fetch if role resolves after mount (profile loads async)
+watch(isPlayer, (val, oldVal) => {
+  if (val !== oldVal) fetchAllPlays()
+}, { once: true })
 </script>
 
 <style scoped>

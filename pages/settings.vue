@@ -129,25 +129,14 @@
               </div>
             </div>
 
-            <!-- Default starting players (one value for both offense and defense) -->
+            <!-- Default starting players: locked to 5v5 -->
             <div class="general-row">
-              <Label class="general-label">Default starters</Label>
+              <Label class="general-label">Format</Label>
               <div class="general-control">
-                <Select
-                  :model-value="String(settings.default_offense_starter_count ?? settings.default_defense_starter_count ?? 5)"
-                  @update:model-value="(v: any) => {
-                    const n = parseInt(String(v), 10)
-                    updateSettings({ default_offense_starter_count: n, default_defense_starter_count: n })
-                  }"
-                >
-                  <SelectTrigger class="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="n in [5, 6, 7, 8]" :key="n" :value="String(n)">{{ n }} players</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p class="text-xs text-muted-foreground mt-1.5">Used for both offense and defense: play designer formation and Auto Start on the squad page.</p>
+                <div class="inline-flex items-center h-9 px-3 rounded-md border bg-muted/40 text-sm font-medium text-foreground w-[120px]">
+                  5v5
+                </div>
+                <p class="text-xs text-muted-foreground mt-1.5">FlagOS is optimized for 5v5 flag football.</p>
               </div>
             </div>
 
@@ -1235,13 +1224,22 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: -24px 16px 16px 16px;
+  margin: 12px 12px 16px 12px;
   border-radius: 16px;
   border: 1px solid var(--color-border);
   background: var(--color-card);
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   flex-shrink: 0;
   min-height: min-content;
+  /* Prevent card from overflowing its flex container */
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1280px) {
+  .field-config-card {
+    margin: -24px 16px 16px 16px;
+  }
 }
 
 .field-config-header {

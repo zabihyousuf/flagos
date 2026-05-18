@@ -189,14 +189,12 @@ async function handleDelete(id: string) {
 }
 
 onMounted(() => {
-  if (isManager.value) {
-    fetchPlaybooks()
-  } else if (isPlayer.value) {
-    fetchAccessiblePlaybooks()
-  } else {
-    fetchPlaybooks()
-  }
+  fetchPlaybooks()
 })
+
+watch(isPlayer, (player) => {
+  if (player) fetchAccessiblePlaybooks()
+}, { immediate: true })
 </script>
 
 <style scoped>

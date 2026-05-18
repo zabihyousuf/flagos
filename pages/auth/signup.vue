@@ -157,16 +157,11 @@
         <!-- Coach-only fields -->
         <template v-if="accountType === 'manager'">
           <div class="space-y-2">
-            <Label for="starter_count" class="text-foreground font-medium">Players per side</Label>
-            <Select v-model="starterCount" required>
-              <SelectTrigger id="starter_count" class="h-11 bg-muted/40 border-border focus:bg-background transition-colors">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="n in [5, 6, 7, 8]" :key="n" :value="String(n)">{{ n }}v{{ n }}</SelectItem>
-              </SelectContent>
-            </Select>
-            <p class="text-xs text-muted-foreground">Used for play designer formations (e.g. 5v5, 7v7). Change anytime in Settings.</p>
+            <Label class="text-foreground font-medium">Format</Label>
+            <div class="h-11 bg-muted/40 border border-border rounded-md flex items-center px-3 text-sm text-foreground font-medium">
+              5v5
+            </div>
+            <p class="text-xs text-muted-foreground">FlagOS is optimized for 5v5 flag football.</p>
           </div>
           <div class="space-y-2">
             <Label for="team_name" class="text-foreground font-medium">

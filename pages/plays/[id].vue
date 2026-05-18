@@ -2,42 +2,45 @@
   <div class="play-designer-page h-full w-full flex flex-col overflow-hidden py-4 px-4">
     <!-- Header Bar: 3-zone layout so toolbar stays visually centered -->
     <div class="play-designer-header h-12 bg-card flex items-center px-4 shrink-0 gap-2 lg:gap-4 rounded-lg shadow-md">
-      <!-- Left: Play name + play type -->
-      <div class="flex-1 min-w-0 flex items-center gap-1.5">
+      <!-- Left: Play name + play type (mobile: type pills aligned right) -->
+      <div class="pd-header-main flex-1 min-w-0 flex items-center gap-1.5">
         <!-- Editable Play Name -->
-        <div class="pd-play-name-wrapper w-36 shrink-0" v-if="currentPlay">
+        <div class="pd-play-name-wrapper min-w-0 flex-1 lg:flex-none lg:w-36 lg:shrink-0" v-if="currentPlay">
           <input
             v-model="currentPlay.name"
-            class="w-full bg-transparent text-sm font-medium truncate border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
+            class="pd-play-name-input w-full min-w-0 bg-transparent text-sm font-medium border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1 py-0.5 transition-colors"
+            :title="currentPlay.name"
             @change="handleNameChange"
           />
         </div>
         <span v-else class="text-sm font-medium">Loading...</span>
 
-        <!-- Play type: Offensive / Defensive (disabled for saved plays) -->
-        <div class="pd-play-type flex items-center gap-2 ml-2 shrink-0" v-if="currentPlay">
-          <span class="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">Play type</span>
-          <div class="flex items-center bg-muted rounded-full p-0.5">
+        <!-- Play type: Offensive / Defensive (disabled for saved plays) — desktop header row -->
+        <div class="pd-play-type flex items-center gap-1.5 lg:gap-2 ml-1 lg:ml-2 shrink-0 min-w-0" v-if="currentPlay">
+          <span class="hidden lg:inline text-[12px] font-semibold text-muted-foreground uppercase tracking-wider shrink-0">Play type</span>
+          <div class="flex items-center bg-muted rounded-full p-0.5 min-w-0">
             <button
-              class="px-2 py-0.5 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+              type="button"
+              class="px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-[12px] font-medium rounded-full transition-colors flex items-center gap-0.5 sm:gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none shrink-0"
               :class="currentPlay.play_type === 'offense'
                 ? 'bg-primary/15 text-primary shadow-sm border border-primary/30'
                 : 'text-primary/70 hover:bg-primary/10 hover:text-primary'"
               :disabled="playId !== 'new'"
               @click="handleTypeChange('offense')"
             >
-              <Swords class="w-3 h-3" />
+              <Swords class="w-3 h-3 shrink-0" />
               <span>Offense</span>
             </button>
             <button
-              class="px-2 py-0.5 text-[12px] font-medium rounded-full transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
+              type="button"
+              class="px-1.5 sm:px-2 py-0.5 text-[11px] sm:text-[12px] font-medium rounded-full transition-colors flex items-center gap-0.5 sm:gap-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none min-w-0 max-w-[7.5rem] sm:max-w-none"
               :class="currentPlay.play_type === 'defense'
                 ? 'bg-destructive/15 text-destructive shadow-sm border border-destructive/30'
                 : 'text-destructive/70 hover:bg-destructive/10 hover:text-destructive'"
               :disabled="playId !== 'new'"
               @click="handleTypeChange('defense')"
             >
-              <Shield class="w-3 h-3" />
+              <Shield class="w-3 h-3 shrink-0" />
               <span>Defense</span>
             </button>
           </div>
@@ -194,7 +197,7 @@
       <!-- Right: Ghost defense (offense only) + View Toggle + Save -->
       <div class="pd-header-right flex-1 min-w-0 flex items-center justify-end gap-2">
         <!-- Ghost defense overlay: pick a defensive play to show as ghosts -->
-        <div v-if="currentPlay?.play_type === 'offense'" class="pd-ghost-defense">
+        <div v-if="currentPlay?.play_type === 'offense'" class="pd-ghost-defense hidden lg:block">
         <DropdownMenu v-model:open="ghostDropdownOpen">
           <TooltipProvider>
             <Tooltip>
@@ -221,13 +224,13 @@
             <DropdownMenuItem
               class="text-[12px]"
               :class="!ghostPlayers.length ? 'bg-accent' : ''"
-              @click="setGhostFromPlay(null)"
+              @click="onGhostDefenseMenuSelect(null)"
             >
               <span class="truncate">None</span>
             </DropdownMenuItem>
             <template v-if="defensePlaysForGhost.length === 0 && !ghostPlaysLoading">
               <DropdownMenuItem disabled class="text-muted-foreground text-[12px]">
-                No defense plays in this playbook
+                {{ ghostDefenseEmptyLabel }}
               </DropdownMenuItem>
             </template>
             <template v-else-if="ghostPlaysLoading && defensePlaysForGhost.length === 0">
@@ -240,9 +243,9 @@
               :key="play.id"
               class="text-[12px]"
               :class="ghostPlayId === play.id ? 'bg-accent' : ''"
-              @click="setGhostFromPlay(play)"
+              @click="onGhostDefenseMenuSelect(play)"
             >
-              <span class="truncate">{{ play.name }}</span>
+              <span class="truncate">{{ ghostDefenseOptionLabel(play) }}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -287,7 +290,7 @@
 
         <Button
           size="sm"
-          class="h-8 px-3"
+          class="pd-header-save hidden lg:inline-flex h-8 shrink-0 px-3"
           :disabled="(!cIsDirty && playId !== 'new') || loading"
           @click="handleSaveClick"
         >
@@ -383,66 +386,188 @@
         class="flex-1 min-w-0 flex flex-col items-center play-canvas-column"
         :class="viewMode === 'full' ? 'justify-center' : 'justify-end'"
       >
-        <!-- Mobile toolbar strip: shown inside canvas column so it auto-hides with the column on roster/details panels -->
-        <div v-if="canvasReady" class="pd-mobile-toolbar-strip">
-          <CanvasToolbar
-            :selected-tool="cSelectedTool"
-            :can-undo="cCanUndo"
-            :can-redo="cCanRedo"
-            :can-set-primary-target="canSetPrimaryTarget"
-            :selected-player-is-primary="selectedPlayerIsPrimary"
-            :motion-tool-disabled="motionToolDisabled"
-            :read-order-disabled="readOrderDisabled"
-            :route-tools-disabled="currentPlay?.play_type === 'defense'"
-            :erase-tool-disabled="currentPlay?.play_type === 'defense'"
-            :show-zone-position-button="showZonePositionButton"
-            :zone-position-unlocked="zonePositionUnlocked"
-            @select-tool="onSetTool"
-            @clear-routes="onClearAllRoutes"
-            @set-primary-target="onSetPrimaryTarget"
-            @toggle-zone-position="onToggleZonePosition"
-            @undo="onUndo"
-            @redo="onRedo"
-          />
-          <div class="h-5 w-px min-w-px mx-1 shrink-0 bg-foreground/20" aria-hidden="true" />
-          <DropdownMenu v-if="currentPlay?.play_type === 'offense'" v-model:open="mobilePlayTestSpeedOpen">
-            <DropdownMenuTrigger as-child>
-              <Button variant="ghost" size="sm" class="h-8 gap-1 text-muted-foreground shrink-0 font-medium">
-                <span class="text-[12px]">{{ playTest.playbackSpeed.value === 1 ? '1×' : playTest.playbackSpeed.value + '×' }}</span>
-                <ChevronDown class="w-3 h-3 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" class="w-32">
-              <DropdownMenuItem
-                v-for="speed in playTestSpeedOptions"
-                :key="speed"
-                class="text-[12px]"
-                :class="playTest.playbackSpeed.value === speed ? 'bg-accent' : ''"
-                @select="playTest.playbackSpeed.value = speed"
-              >
-                {{ speed }}×
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            v-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value !== 'play_over'"
-            size="icon"
-            variant="ghost"
-            class="h-8 w-8 shrink-0 text-green-500 hover:text-green-600 hover:bg-green-500/10"
-            :disabled="loading || playTest.isRunning.value || !anyOffensePlayerHasRoute"
-            @click="runPlayTest"
+        <!-- Mobile action strip: undo/redo + play test (top of canvas) -->
+        <div v-if="canvasReady" class="pd-mobile-action-strip">
+          <div class="pd-mobile-action-strip__leading">
+          <button class="pd-mobile-act-btn" :disabled="!cCanUndo" @click="onUndo" aria-label="Undo">
+            <Undo2 class="pd-mobile-act-icon" />
+          </button>
+          <button class="pd-mobile-act-btn" :disabled="!cCanRedo" @click="onRedo" aria-label="Redo">
+            <Redo2 class="pd-mobile-act-icon" />
+          </button>
+          <template v-if="currentPlay?.play_type === 'offense'">
+            <div class="pd-mobile-act-sep" aria-hidden="true" />
+            <DropdownMenu v-model:open="mobilePlayTestSpeedOpen">
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="sm" class="h-10 gap-1 text-muted-foreground shrink-0 font-medium px-2">
+                  <span class="text-[13px]">{{ playTest.playbackSpeed.value === 1 ? '1×' : playTest.playbackSpeed.value + '×' }}</span>
+                  <ChevronDown class="w-3.5 h-3.5 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" class="w-32">
+                <DropdownMenuItem
+                  v-for="speed in playTestSpeedOptions"
+                  :key="speed"
+                  class="text-[12px]"
+                  :class="playTest.playbackSpeed.value === speed ? 'bg-accent' : ''"
+                  @select="playTest.playbackSpeed.value = speed"
+                >
+                  {{ speed }}×
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              v-if="playTest.simulationState.value !== 'play_over'"
+              class="pd-mobile-act-btn pd-mobile-act-btn--green"
+              :disabled="loading || playTest.isRunning.value || !anyOffensePlayerHasRoute"
+              aria-label="Test play"
+              @click="runPlayTest"
+            >
+              <Play class="pd-mobile-act-icon" />
+            </button>
+            <button
+              v-else
+              class="pd-mobile-act-btn pd-mobile-act-btn--green"
+              aria-label="Reset play test"
+              @click="playTest.clearOverlay()"
+            >
+              <RotateCcw class="pd-mobile-act-icon" />
+            </button>
+          </template>
+          </div>
+          <div v-if="currentPlay?.play_type === 'offense'" class="pd-mobile-coverage-wrap">
+            <DropdownMenu v-model:open="ghostMobileDropdownOpen">
+              <DropdownMenuTrigger as-child>
+                <button
+                  type="button"
+                  class="pd-mobile-coverage-btn w-full min-w-0"
+                  :class="ghostPlayers.length ? 'pd-mobile-coverage-btn--active' : ''"
+                  :title="ghostMobileLabelTitle"
+                  aria-label="Defensive coverage overlay"
+                >
+                  <Shield class="pd-mobile-coverage-icon shrink-0" />
+                  <span class="pd-mobile-coverage-label">{{ ghostMobileLabel }}</span>
+                  <ChevronDown class="pd-mobile-coverage-chevron shrink-0 opacity-50" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="max-h-[280px] w-56 overflow-y-auto">
+                <DropdownMenuItem
+                  class="text-[12px]"
+                  :class="!ghostPlayers.length ? 'bg-accent' : ''"
+                  @click="onGhostDefenseMenuSelect(null)"
+                >
+                  <span class="truncate">None</span>
+                </DropdownMenuItem>
+                <template v-if="defensePlaysForGhost.length === 0 && !ghostPlaysLoading">
+                  <DropdownMenuItem disabled class="text-[12px] text-muted-foreground">
+                    {{ ghostDefenseEmptyLabel }}
+                  </DropdownMenuItem>
+                </template>
+                <template v-else-if="ghostPlaysLoading && defensePlaysForGhost.length === 0">
+                  <DropdownMenuItem disabled class="text-[12px] text-muted-foreground">
+                    Loading…
+                  </DropdownMenuItem>
+                </template>
+                <DropdownMenuItem
+                  v-for="play in defensePlaysForGhost"
+                  :key="'strip-' + play.id"
+                  class="text-[12px]"
+                  :class="ghostPlayId === play.id ? 'bg-accent' : ''"
+                  @click="onGhostDefenseMenuSelect(play)"
+                >
+                  <span class="truncate">{{ ghostDefenseOptionLabel(play) }}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <!-- Mobile left tools group: drawing tools (absolute, left side of canvas) -->
+        <div
+          v-if="canvasReady"
+          class="pd-mobile-tools-left"
+          @click="onMobileToolBarTap"
+          @touchstart.passive="onMobileToolBarTouch"
+        >
+          <!-- Select -->
+          <button
+            class="pd-mobile-tool-btn"
+            :class="cSelectedTool === 'select' ? 'pd-mobile-tool-btn--active' : ''"
+            aria-label="Select"
+            @click="onSetTool('select')"
           >
-            <Play class="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            v-else-if="currentPlay?.play_type === 'offense' && playTest.simulationState.value === 'play_over'"
-            size="icon"
-            variant="ghost"
-            class="h-8 w-8 shrink-0 text-green-500 hover:text-green-600 hover:bg-green-500/10"
-            @click="playTest.clearOverlay()"
+            <MousePointer2 class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Route tools (offense only) -->
+          <button
+            v-for="tool in mobileRouteTools"
+            :key="tool.id"
+            class="pd-mobile-tool-btn"
+            :class="cSelectedTool === tool.id ? 'pd-mobile-tool-btn--active' : ''"
+            :disabled="currentPlay?.play_type === 'defense'"
+            :aria-label="tool.label"
+            @click="onSetTool(tool.id)"
           >
-            <RotateCcw class="w-3.5 h-3.5" />
-          </Button>
+            <component :is="tool.icon" class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Motion -->
+          <button
+            class="pd-mobile-tool-btn"
+            :class="cSelectedTool === 'motion' ? 'pd-mobile-tool-btn--active' : ''"
+            :disabled="motionToolDisabled"
+            aria-label="Motion"
+            @click="onSetTool('motion')"
+          >
+            <Move class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Read Order -->
+          <button
+            class="pd-mobile-tool-btn"
+            :class="cSelectedTool === 'readorder' ? 'pd-mobile-tool-btn--active' : ''"
+            :disabled="readOrderDisabled"
+            aria-label="Read progression"
+            @click="onSetTool('readorder')"
+          >
+            <ListOrdered class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Zone position (defense: coverage player selected) -->
+          <button
+            v-if="showZonePositionButton"
+            class="pd-mobile-tool-btn"
+            :class="zonePositionUnlocked ? 'pd-mobile-tool-btn--active' : ''"
+            aria-label="Zone position"
+            @click="onToggleZonePosition"
+          >
+            <Crosshair class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Primary target (offense: receiver with route selected) -->
+          <button
+            v-if="canSetPrimaryTarget"
+            class="pd-mobile-tool-btn pd-mobile-tool-btn--amber"
+            :class="selectedPlayerIsPrimary ? 'pd-mobile-tool-btn--active-amber' : ''"
+            aria-label="Set primary target"
+            @click="onSetPrimaryTarget"
+          >
+            <Target class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Erase -->
+          <button
+            class="pd-mobile-tool-btn"
+            :class="cSelectedTool === 'erase' ? 'pd-mobile-tool-btn--active' : ''"
+            :disabled="currentPlay?.play_type === 'defense'"
+            aria-label="Erase route"
+            @click="onSetTool('erase')"
+          >
+            <Eraser class="pd-mobile-tool-icon" />
+          </button>
+          <!-- Clear all routes -->
+          <button
+            class="pd-mobile-tool-btn pd-mobile-tool-btn--destructive"
+            aria-label="Clear all routes"
+            @click="onClearAllRoutes"
+          >
+            <Trash2 class="pd-mobile-tool-icon" />
+          </button>
         </div>
 
         <div class="play-print-header" aria-hidden="true">
@@ -511,18 +636,31 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Roster</span>
       </button>
-      <button class="pd-tab-btn" :class="{ 'pd-tab-btn--active': activePanel === 'details' }" @click="setPanel('details')">
+      <button v-if="cSelectedPlayer" class="pd-tab-btn" :class="{ 'pd-tab-btn--active': activePanel === 'details' }" @click="setPanel('details')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         <span>Details</span>
       </button>
     </div>
+
+    <Teleport to="body">
+      <Transition name="pd-tip">
+        <div
+          v-if="mobileTipVisible"
+          class="pd-mobile-tool-tip"
+          :style="mobileTipStyle"
+          aria-hidden="true"
+        >
+          {{ mobileTipLabel }}
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { CanvasData, CanvasPlayer, CanvasTool, Player, RouteSegment } from '~/lib/types'
 import { DEFAULT_FIELD_SETTINGS } from '~/lib/constants'
-import { Check, Maximize2, Fullscreen, ChevronDown, Play, RotateCcw } from 'lucide-vue-next'
+import { Check, Maximize2, Fullscreen, ChevronDown, Play, RotateCcw, Undo2, Redo2, MousePointer2, Minus, Spline, GitBranch, Move, ListOrdered, Crosshair, Eraser, Trash2, Target } from 'lucide-vue-next'
 import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
@@ -573,6 +711,7 @@ const { profile, fetchProfile } = useProfile()
 const { teams, fetchTeams } = useTeams()
 const playTest = usePlayTest()
 const { activePanel, setPanel } = usePlayDesignerUI()
+const playDesignerChrome = usePlayDesignerChrome()
 const { isDesktop } = useBreakpoint()
 const { isManager, isPlayer } = useAccountType()
 const { activeTeamId } = useActiveContext()
@@ -582,20 +721,88 @@ const playTestSpeedOpen = ref(false)
 const mobilePlayTestSpeedOpen = ref(false)
 const playTestSpeedOptions = [0.5, 1, 1.5, 2, 2.5, 3]
 
+/** Brief tooltip shown when a left-toolbar tool is tapped on mobile (teleported to body). */
+const mobileTipLabel = ref('')
+const mobileTipVisible = ref(false)
+const mobileTipX = ref(0)
+const mobileTipY = ref(0)
+let mobileTipTimer: ReturnType<typeof setTimeout> | null = null
+
+const mobileTipStyle = computed(() => ({
+  top: `${mobileTipY.value}px`,
+  left: `${mobileTipX.value}px`,
+}))
+
+function showMobileToolTip(btn: HTMLElement) {
+  const label = btn.getAttribute('aria-label')
+  if (!label) return
+  const rect = btn.getBoundingClientRect()
+  mobileTipX.value = rect.right + 10
+  mobileTipY.value = rect.top + rect.height / 2
+  mobileTipLabel.value = label
+  mobileTipVisible.value = true
+  if (mobileTipTimer) clearTimeout(mobileTipTimer)
+  mobileTipTimer = setTimeout(() => { mobileTipVisible.value = false }, 1800)
+}
+
+function onMobileToolBarTap(e: MouseEvent) {
+  const btn = (e.target as HTMLElement).closest('button')
+  if (!btn) return
+  showMobileToolTip(btn)
+}
+
+function onMobileToolBarTouch(e: TouchEvent) {
+  const btn = (e.target as HTMLElement).closest('button')
+  if (!btn) return
+  showMobileToolTip(btn)
+}
+
+const mobileRouteTools = [
+  { id: 'straight' as CanvasTool, label: 'Straight route', icon: Minus },
+  { id: 'curve' as CanvasTool, label: 'Curve route', icon: Spline },
+  { id: 'option' as CanvasTool, label: 'Option route', icon: GitBranch },
+]
+
 const viewMode = ref<'fit' | 'full'>('fit')
 
-// Restore saved view mode when play loads; use default from settings for new plays
+// Restore saved view mode on desktop; on mobile/tablet match new-play behavior (default_play_view only).
+// Saved plays often persist view_mode: 'full', which shrinks the canvas vs a new draft (typically fit).
 watch(
-  () => [playId.value, currentPlay.value?.canvas_data?.view_mode, fieldSettings.value?.default_play_view] as const,
-  ([id, saved, defaultView]) => {
-    if (id === 'new') {
-      viewMode.value = defaultView === 'full' ? 'full' : 'fit'
+  () =>
+    [
+      playId.value,
+      currentPlay.value?.canvas_data?.view_mode,
+      fieldSettings.value?.default_play_view,
+      isDesktop.value,
+    ] as const,
+  ([id, saved, defaultView, desktop]) => {
+    const fromSettings = defaultView === 'full' ? 'full' : 'fit'
+    if (!desktop) {
+      viewMode.value = fromSettings
       return
     }
-    if (saved === 'fit' || saved === 'full') viewMode.value = saved
+    if (id === 'new') {
+      viewMode.value = fromSettings
+      return
+    }
+    if (saved === 'fit' || saved === 'full') {
+      viewMode.value = saved
+      return
+    }
+    viewMode.value = fromSettings
   },
-  { immediate: true }
+  { immediate: true },
 )
+
+/** Value stored on canvas_data.view_mode when saving (mobile UI forces fit from settings; keep saved preference for desktop). */
+function viewModeToPersist(): 'fit' | 'full' {
+  if (!isDesktop.value && playId.value !== 'new') {
+    const saved = currentPlay.value?.canvas_data?.view_mode
+    if (saved === 'fit' || saved === 'full') return saved
+  }
+  return viewMode.value
+}
+
 const canvasRef = ref<InstanceType<typeof PlayCanvas> | null>(null)
 const canvasReady = ref(false)
 
@@ -606,13 +813,37 @@ const suggestedRoutePreview = ref<{ playerId: string; route: { segments: RouteSe
 const ghostPlayers = ref<CanvasPlayer[]>([])
 const ghostPlayId = ref<string | null>(null)
 const ghostDropdownOpen = ref(false)
-const defensePlaysForGhost = ref<Array<{ id: string; name: string; canvas_data: CanvasData }>>([])
+const ghostMobileDropdownOpen = ref(false)
+type GhostDefenseOption = { id: string; name: string; canvas_data: CanvasData; _playbookName?: string }
+const defensePlaysForGhost = ref<GhostDefenseOption[]>([])
 const ghostPlaysLoading = ref(false)
-const ghostLabel = computed(() =>
-  ghostPlayers.value.length
-    ? (defensePlaysForGhost.value.find((p) => p.id === ghostPlayId.value)?.name ?? 'Ghost defense')
-    : 'Defense'
+const ghostLabel = computed(() => {
+  if (!ghostPlayers.value.length) return 'Defensive coverage'
+  const selected = defensePlaysForGhost.value.find((p) => p.id === ghostPlayId.value)
+  return selected ? ghostDefenseOptionLabel(selected) : 'Ghost defense'
+})
+
+/** Mobile action-strip button label (truncated via CSS when long). */
+const ghostMobileLabel = computed(() => {
+  if (!ghostPlayers.value.length) return 'Defense'
+  const selected = defensePlaysForGhost.value.find((p) => p.id === ghostPlayId.value)
+  if (!selected) return 'Defense'
+  return ghostDefenseOptionLabel(selected)
+})
+
+const ghostMobileLabelTitle = computed(() =>
+  ghostPlayers.value.length ? ghostMobileLabel.value : undefined,
 )
+
+const ghostDefenseEmptyLabel = computed(() =>
+  activeTeamId.value
+    ? 'No defense plays in team playbooks'
+    : 'No defensive plays yet'
+)
+
+function ghostDefenseOptionLabel(play: GhostDefenseOption) {
+  return play._playbookName ? `${play.name} · ${play._playbookName}` : play.name
+}
 
 // Safe computed accessors — proxyRefs auto-unwraps exposed refs, so no .value needed
 const cPlayers = computed(() => canvasRef.value?.canvasData?.players ?? [])
@@ -623,6 +854,13 @@ const cSelectedTool = computed<CanvasTool>(() => canvasRef.value?.selectedTool ?
 // Clear suggested route preview when selected player changes
 watch(cSelectedPlayerId, () => {
   suggestedRoutePreview.value = null
+})
+
+// Auto-dismiss details panel when selection is cleared
+watch(cSelectedPlayer, (player) => {
+  if (!player && activePanel.value === 'details') {
+    setPanel('canvas')
+  }
 })
 
 const cIsDirty = computed(() => {
@@ -818,7 +1056,7 @@ async function handleSaveData(data: CanvasData) {
   const payload: CanvasData = {
     ...data,
     ghost_defense_play_id: ghostPlayId.value ?? null,
-    view_mode: viewMode.value,
+    view_mode: viewModeToPersist(),
   }
   if (playId.value === 'new') {
     currentPlay.value.canvas_data = payload
@@ -931,6 +1169,8 @@ async function handleTypeChange(type: 'offense' | 'defense') {
   if (type === 'defense') {
     ghostPlayers.value = []
     ghostPlayId.value = null
+    ghostDropdownOpen.value = false
+    ghostMobileDropdownOpen.value = false
     // Offense-only tools: switch to select when going to defense
     const offenseOnlyTools: CanvasTool[] = ['straight', 'curve', 'option', 'motion', 'readorder', 'erase']
     if (canvasRef.value && offenseOnlyTools.includes(canvasRef.value.selectedTool)) {
@@ -964,6 +1204,18 @@ function handleSaveClick() {
   }
 }
 
+watch(
+  [cIsDirty, playId, loading],
+  () => {
+    playDesignerChrome.setSave({
+      disabled: (!cIsDirty.value && playId.value !== 'new') || loading.value,
+      label: playId.value === 'new' ? 'Save Play' : 'Save Changes',
+      onSave: handleSaveClick,
+    })
+  },
+  { immediate: true },
+)
+
 import { toast } from 'vue-sonner'
 
 async function onConfirmSave(data: { playbookId: string, name: string }) {
@@ -975,7 +1227,7 @@ async function onConfirmSave(data: { playbookId: string, name: string }) {
     const canvasData: CanvasData = {
       ...(canvasRef.value?.getExportData() || currentPlay.value.canvas_data),
       ghost_defense_play_id: ghostPlayId.value ?? null,
-      view_mode: viewMode.value,
+      view_mode: viewModeToPersist(),
     }
 
     // Player save flow: use team-scoped endpoint
@@ -1047,25 +1299,43 @@ async function fetchDefensePlaysForGhost() {
   if (!user.value) return
   ghostPlaysLoading.value = true
   try {
+    let playbookIds: string[] = []
+    if (activeTeamId.value) {
+      const { data: tpRows } = await client
+        .from('team_playbooks')
+        .select('playbook_id')
+        .eq('team_id', activeTeamId.value)
+      playbookIds = (tpRows ?? []).map((r) => r.playbook_id)
+    }
+
     let query = client
       .from('plays')
-      .select('id, name, canvas_data')
-      .eq('user_id', user.value.id)
+      .select('id, name, canvas_data, playbook_id, playbooks!inner(name)')
       .eq('play_type', 'defense')
       .order('updated_at', { ascending: false })
-    if (currentPlay.value?.playbook_id) {
-      query = query.eq('playbook_id', currentPlay.value.playbook_id)
+
+    if (playbookIds.length > 0) {
+      query = query.in('playbook_id', playbookIds)
+    } else if (isPlayer.value) {
+      defensePlaysForGhost.value = []
+      return
+    } else {
+      query = query.eq('user_id', user.value.id)
     }
+
     const { data } = await query
-    defensePlaysForGhost.value = (data ?? []) as unknown as Array<{ id: string; name: string; canvas_data: CanvasData }>
+    defensePlaysForGhost.value = (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      canvas_data: p.canvas_data as CanvasData,
+      _playbookName: p.playbooks?.name as string | undefined,
+    }))
   } finally {
     ghostPlaysLoading.value = false
   }
 }
 
-function setGhostFromPlay(
-  play: { id: string; name: string; canvas_data: CanvasData } | null
-) {
+function setGhostFromPlay(play: GhostDefenseOption | null) {
   if (!play) {
     ghostPlayers.value = []
     ghostPlayId.value = null
@@ -1074,6 +1344,12 @@ function setGhostFromPlay(
   const players = play.canvas_data?.players ?? []
   ghostPlayers.value = JSON.parse(JSON.stringify(players))
   ghostPlayId.value = play.id
+}
+
+function onGhostDefenseMenuSelect(play: GhostDefenseOption | null) {
+  setGhostFromPlay(play)
+  ghostDropdownOpen.value = false
+  ghostMobileDropdownOpen.value = false
 }
 
 /** Restore ghost defense overlay from saved canvas_data.ghost_defense_play_id (on load) */
@@ -1107,18 +1383,23 @@ async function loadGhostPlayById(gid: string) {
     .eq('id', gid)
     .single()
   if (play) {
-    const typed = play as unknown as { id: string; name: string; canvas_data: CanvasData }
+    const typed = play as unknown as { id: string; name: string; canvas_data: CanvasData; playbooks?: { name?: string } }
     ghostPlayId.value = typed.id
     ghostPlayers.value = JSON.parse(JSON.stringify(typed.canvas_data?.players ?? []))
-    defensePlaysForGhost.value = [typed]
+    defensePlaysForGhost.value = [{
+      id: typed.id,
+      name: typed.name,
+      canvas_data: typed.canvas_data,
+      _playbookName: typed.playbooks?.name,
+    }]
   } else {
     ghostPlayers.value = []
     ghostPlayId.value = null
   }
 }
 
-watch(ghostDropdownOpen, (open) => {
-  if (open && currentPlay.value?.play_type === 'offense') {
+watch([ghostDropdownOpen, ghostMobileDropdownOpen], ([deskOpen, mobOpen]) => {
+  if ((deskOpen || mobOpen) && currentPlay.value?.play_type === 'offense') {
     fetchDefensePlaysForGhost()
   }
 })
@@ -1166,10 +1447,12 @@ function handleDesignerKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  playDesignerChrome.activate()
   window.addEventListener('keydown', handleDesignerKeydown)
 })
 
 onUnmounted(() => {
+  playDesignerChrome.deactivate()
   window.removeEventListener('keydown', handleDesignerKeydown)
 })
 
@@ -1313,28 +1596,269 @@ onMounted(async () => {
   color: var(--color-primary);
 }
 
-/* ── Mobile toolbar strip (lives inside canvas column) ──────────── */
-.pd-mobile-toolbar-strip {
+/* ── Mobile action strip + tools group: hidden on desktop ───────── */
+.pd-mobile-action-strip,
+.pd-mobile-tools-left {
   display: none;
 }
 
 @media (max-width: 1023px) {
-  .pd-mobile-toolbar-strip {
+  .pd-mobile-action-strip {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     flex-shrink: 0;
     width: 100%;
-    padding: 4px 8px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 5px 10px 5px 8px;
+    gap: 4px;
+    background: #ffffff;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    /* Only round the top-right; top-left is flush with the tools column */
+    border-radius: 0 12px 0 0;
+  }
+
+  :global(html.dark) .pd-mobile-action-strip {
     background: var(--color-card);
-    border-bottom: 1px solid var(--color-border);
-    border-radius: 12px 12px 0 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    gap: 2px;
   }
-  .pd-mobile-toolbar-strip::-webkit-scrollbar {
-    display: none;
+
+  .pd-mobile-action-strip__leading {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
   }
+
+  .pd-mobile-act-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--color-muted-foreground);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .pd-mobile-act-btn:hover:not(:disabled) {
+    background: var(--color-accent);
+    color: var(--color-foreground);
+  }
+
+  .pd-mobile-act-btn--green {
+    color: oklch(0.627 0.194 149.214);
+  }
+
+  .pd-mobile-act-btn--green:hover:not(:disabled) {
+    background: oklch(0.627 0.194 149.214 / 0.1);
+    color: oklch(0.527 0.194 149.214);
+  }
+
+  .pd-mobile-act-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .pd-mobile-act-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pd-mobile-act-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--color-border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  .pd-mobile-coverage-wrap {
+    margin-left: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 52%;
+    overflow: hidden;
+  }
+
+  .pd-mobile-coverage-wrap > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pd-mobile-coverage-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 36px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 8px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    overflow: hidden;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  .pd-mobile-coverage-label {
+    flex: 1 1 0%;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-align: left;
+  }
+
+  .pd-mobile-coverage-chevron {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
+  .pd-mobile-coverage-btn:hover {
+    background: var(--color-accent);
+    color: var(--color-foreground);
+  }
+
+  .pd-mobile-coverage-btn--active {
+    border-color: color-mix(in oklch, var(--color-primary) 50%, transparent);
+    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+    color: var(--color-primary);
+  }
+
+  .pd-mobile-coverage-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ── Mobile left tools group: full-height white rail, tools stacked top → bottom ── */
+  .pd-mobile-tools-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    background: #ffffff;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    border-radius: 12px 0 0 0;
+    padding: 10px 4px 12px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :global(html.dark) .pd-mobile-tools-left {
+    background: var(--color-card);
+  }
+
+  .pd-mobile-tool-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--color-muted-foreground);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .pd-mobile-tool-btn:hover:not(:disabled) {
+    background: var(--color-accent);
+    color: var(--color-foreground);
+  }
+
+  .pd-mobile-tool-btn--active {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .pd-mobile-tool-btn--active:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .pd-mobile-tool-btn--amber {
+    color: oklch(0.7 0.15 70);
+  }
+
+  .pd-mobile-tool-btn--active-amber {
+    background: oklch(0.7 0.15 70 / 0.15);
+    color: oklch(0.6 0.15 70);
+  }
+
+  .pd-mobile-tool-btn--destructive:hover:not(:disabled) {
+    background: oklch(0.628 0.258 29.234 / 0.1);
+    color: oklch(0.628 0.258 29.234);
+  }
+
+  .pd-mobile-tool-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .pd-mobile-tool-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Tool tip: fixed overlay (teleported to body) to the right of the tapped button */
+  .pd-mobile-tool-tip {
+    position: fixed;
+    transform: translateY(-50%);
+    background: var(--color-foreground);
+    color: var(--color-background);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 6px 10px;
+    border-radius: 7px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 9999;
+    max-width: min(16rem, calc(100vw - 4rem));
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Arrow pointing left */
+  .pd-mobile-tool-tip::before {
+    content: '';
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-right-color: var(--color-foreground);
+  }
+
+  /* Fade in/out */
+  .pd-tip-enter-active { transition: opacity 0.12s ease; }
+  .pd-tip-leave-active { transition: opacity 0.25s ease; }
+  .pd-tip-enter-from,
+  .pd-tip-leave-to { opacity: 0; }
+
 }
 
 /* ── Mobile: hide header elements that don't fit ────────────────── */
@@ -1343,26 +1867,58 @@ onMounted(async () => {
   .pd-toolbar-section {
     display: none;
   }
-  .pd-play-type {
-    display: none;
-  }
-  .pd-ghost-defense {
-    display: none;
-  }
   .pd-view-toggle {
     display: none;
   }
   .pd-share-print {
     display: none;
   }
-  /* Right section shrinks to just the Save button */
+  /* Save lives in canvas app bar on mobile; hide header right cluster */
   .pd-header-right {
-    flex: none;
+    display: none;
   }
-  /* Name input expands to fill remaining header space */
+  /* Title row: name left, offense/defense pills flush right */
+  .pd-header-main {
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+  }
   .pd-play-name-wrapper {
+    flex: 1 1 0%;
     width: auto;
-    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .pd-play-name-input {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pd-play-name-input:focus {
+    white-space: normal;
+    text-overflow: clip;
+    overflow: visible;
+  }
+
+  .pd-play-type {
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .pd-play-type > div {
+    padding: 3px;
+  }
+  .pd-play-type button {
+    padding: 6px 12px;
+    font-size: 13px;
+    gap: 6px;
+  }
+  .pd-play-type button .w-3 {
+    width: 14px;
+    height: 14px;
   }
 
   /* Tighten page padding on mobile */
@@ -1370,8 +1926,9 @@ onMounted(async () => {
     padding: 8px;
   }
   .play-designer-header {
-    padding-left: 8px;
-    padding-right: 8px;
+    min-height: 48px;
+    height: auto;
+    padding: 8px;
     gap: 8px;
   }
 }
@@ -1438,17 +1995,57 @@ onMounted(async () => {
     overflow-y: auto;
   }
 
-  /* Canvas column: toolbar at top, canvas fills remaining space */
-  .play-canvas-column {
-    justify-content: flex-start;
+  /*
+   * Canvas panel grid:
+   *   col 1 (48px) | col 2 (1fr)
+   *   row 1 (auto) |  action strip (right only)
+   *   row 2 (1fr)  |  canvas
+   *
+   * Tools-left spans rows 1–2 so its first button aligns with the action strip.
+   */
+  .panel--canvas .play-canvas-column {
+    display: grid !important;
+    grid-template-columns: 48px 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+    min-height: 0;
+    justify-items: stretch;
+    align-items: stretch;
+    /* Override flex justify-end/center from play-canvas-column utility classes */
+    justify-content: start !important;
+    align-content: start !important;
   }
 
-  /* Canvas wrapper fills remaining space after the toolbar strip */
+  /* Action strip: right column, row 1 only */
+  .panel--canvas .play-canvas-column .pd-mobile-action-strip {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Tools left: full-height white rail in column 1 (action strip + canvas rows) */
+  .panel--canvas .play-canvas-column .pd-mobile-tools-left {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: stretch;
+    justify-self: stretch;
+    z-index: 20;
+  }
+
+  /* Print header is aria-hidden and display:none — keep out of grid flow */
+  .panel--canvas .play-canvas-column .play-print-header {
+    display: none;
+  }
+
+  /* Canvas wrapper: right column, row 2 */
   .panel--canvas .play-canvas-column .play-canvas-wrapper {
-    flex: 1;
+    grid-column: 2;
+    grid-row: 2;
     width: 100%;
     max-width: 100% !important;
-    height: auto;
+    height: 100%;
     min-height: 0;
   }
 }

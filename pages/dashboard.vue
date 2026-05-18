@@ -226,22 +226,30 @@ async function fetchRecentPlays() {
   const user = useSupabaseUser()
   if (!user.value) return
 
+  // Avoid the PostgREST embedded-join RLS issue: fetch plays then playbook names separately
   const { data } = await client
     .from('plays')
-    .select('*, playbooks!inner(name)')
-    .eq('user_id', user.value.id)
+    .select('id, name, play_type, updated_at, playbook_id, user_id')
     .order('updated_at', { ascending: false })
-    .limit(3)
+    .limit(5)
 
-  if (data) {
-    recentPlays.value = data.map((p: any) => ({
-      ...p,
-      _playbookName: p.playbooks?.name,
-    }))
-  }
+  if (!data?.length) return
+
+  const playbookIds = [...new Set(data.map((p: any) => p.playbook_id as string))]
+  const { data: pbData } = await client
+    .from('playbooks')
+    .select('id, name')
+    .in('id', playbookIds)
+
+  const pbMap = new Map((pbData ?? []).map((pb: any) => [pb.id as string, pb.name as string]))
+
+  recentPlays.value = data.map((p: any) => ({
+    ...p,
+    _playbookName: pbMap.get(p.playbook_id) ?? 'Unknown playbook',
+  }))
 }
 
-// All plays stats (separate from recentPlays which is limited to 3)
+// All plays stats (separate from recentPlays which is limited to 5)
 const totalPlayCount = ref(0)
 const offensePlayCount = ref(0)
 const defensePlayCount = ref(0)
@@ -253,7 +261,6 @@ async function fetchPlayStats() {
   const { data } = await client
     .from('plays')
     .select('play_type')
-    .eq('user_id', user.value.id)
 
   if (data) {
     totalPlayCount.value = data.length
@@ -311,15 +318,30 @@ function formatDate(dateStr: string) {
 }
 
 onMounted(async () => {
-  await Promise.all([
-    fetchPlaybooks(),
-    fetchPlayers(),
-    fetchTeams(),
-    fetchProfile(),
-    fetchRecentPlays(),
-    fetchPlayStats(),
-  ])
-  ready.value = true
+  const user = useSupabaseUser()
+
+  async function loadDashboard() {
+    await Promise.all([
+      fetchPlaybooks(),
+      fetchPlayers(),
+      fetchTeams(),
+      fetchProfile(),
+      fetchRecentPlays(),
+      fetchPlayStats(),
+    ])
+    ready.value = true
+  }
+
+  if (user.value) {
+    await loadDashboard()
+  } else {
+    const unwatch = watch(user, async (u) => {
+      if (u) {
+        unwatch()
+        await loadDashboard()
+      }
+    })
+  }
 })
 </script>
 

@@ -39,9 +39,26 @@ export interface RenderOptions {
   hideField?: boolean
   /** When true, draw players as plain colored dots (no labels, shapes, shadows, or coverage lines). */
   dotMode?: boolean
+  /** When true (desktop defense designer), use locked LOS strip fit bounds. Off on mobile for full sideline view. */
+  defenseFitBounds?: boolean
+  /** Extra scale for player markers and labels on touch/mobile play designer (default 1). */
+  touchPlayerScale?: number
 }
 
 const PADDING = 12
+
+/** Player marker radius in field pixels — shared by renderer and hit-testing. */
+export function computePlayerRadiusPx(
+  fieldW: number,
+  viewMode: 'fit' | 'full' | undefined,
+  opts?: { previewScale?: number; touchPlayerScale?: number },
+): number {
+  const scale = opts?.previewScale ?? 1
+  const touchScale = opts?.touchPlayerScale ?? 1
+  const isFitView = viewMode === 'fit'
+  let radius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
+  return Math.max(scale < 1 ? 1.5 : 3, radius * scale * touchScale)
+}
 
 /** When a player is selected, non-selected content is faded to this opacity. Same in light and dark mode for consistency. */
 function getFadedAlpha(_darkMode: boolean): number {
@@ -106,7 +123,7 @@ export type ContentBounds = { minX: number; minY: number; maxX: number; maxY: nu
  * Compute the effective zoom and pan for a given view mode.
  * - 'full': Center the field and show all of it (zoom=1, no pan).
  * - 'fit' (no contentBounds): Cover zoom; vertical pan biased so LOS/players stay in view.
- * - 'fit' (with contentBounds, e.g. ghost defense): Zoom out so offense + defense + LOS all fit;
+ * - 'fit' (with contentBounds, defense play design): Zoom to the fixed LOS window;
  *   field stays centered and locked (no pan to follow content).
  */
 export function computeViewTransform(
@@ -128,7 +145,7 @@ export function computeViewTransform(
     const yardHeight = fieldH / totalLength
     const viewAspect = logicalW / logicalH
 
-    // When we have content bounds (defense fit or ghost defense): fit exactly the content
+    // When we have content bounds (defense play design): fit exactly the content
     // window (7 yd back / 15 yd past LOS + players) and center the view on that window so
     // the visible range is exactly the bounds, not a field-centered symmetric window.
     if (options.contentBounds) {
@@ -325,9 +342,8 @@ export function useCanvasRenderer() {
             fieldLength: options.fieldLength,
             lineOfScrimmage: options.lineOfScrimmage,
           })
-        : options.viewMode === 'fit' &&
-          (options.ghostPlayers?.length || options.playType === 'defense')
-          ? computeFitContentBounds(data.players, options.ghostPlayers ?? [], fieldRect.totalLength, {
+        : options.viewMode === 'fit' && options.defenseFitBounds && options.playType === 'defense'
+          ? computeFitContentBounds(data.players, [], fieldRect.totalLength, {
               endzoneSize: options.endzoneSize,
               fieldLength: options.fieldLength,
               lineOfScrimmage: options.lineOfScrimmage,
@@ -1279,13 +1295,14 @@ export function useCanvasRenderer() {
     const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
     const ghostOpacity = 0.5
     const scale = options.previewScale ?? 1
+    const touchScale = options.touchPlayerScale ?? 1
 
     players.forEach((player) => {
       // In simulation mode, use animated position if available
       const animPos = options.animatedPositions?.get(player.id)
       const px = (animPos?.x ?? player.x) * fieldW
       const py = (animPos?.y ?? player.y) * fieldH
-      const radius = Math.max(scale < 1 ? 1.5 : 3, Math.max(12, fieldW * 0.035) * scale)
+      const radius = Math.max(scale < 1 ? 1.5 : 3, Math.max(12, fieldW * 0.035) * scale * touchScale)
       const color = POSITION_COLORS[player.position] || '#ef4444'
       const isRusher = player.designation === 'R' || player.position === 'RSH'
 
@@ -1347,10 +1364,17 @@ export function useCanvasRenderer() {
     const { fieldLength, endzoneSize } = options
     const yardHeight = fieldH / (fieldLength + endzoneSize * 2)
     const scale = options.previewScale ?? 1
+    const touchScale = options.touchPlayerScale ?? 1
 
-    const isFitView = options.viewMode === 'fit'
-    let playerRadius = isFitView ? Math.max(10, fieldW * 0.028) : Math.max(14, fieldW * 0.04)
-    playerRadius = Math.max(scale < 1 ? 1.5 : 3, playerRadius * scale)
+    const playerRadius = computePlayerRadiusPx(fieldW, options.viewMode, {
+      previewScale: scale,
+      touchPlayerScale: touchScale,
+    })
+    /** Name font uses desktop-sized radius so mobile circles stay large without oversized names. */
+    const nameLabelRadius = computePlayerRadiusPx(fieldW, options.viewMode, {
+      previewScale: scale,
+      touchPlayerScale: 1,
+    })
 
     const hasSelectionFocus = !options.simulationMode && !!options.selectedPlayerId
 
@@ -1492,7 +1516,7 @@ export function useCanvasRenderer() {
           : ''
         if (label) {
           const labelMinFont = scale < 1 ? radius * 0.65 : 6
-          ctx.font = `bold ${Math.max(labelMinFont, radius * 0.35)}px Oracle Sans, sans-serif`
+          ctx.font = `bold ${Math.max(labelMinFont, radius * 0.38)}px Oracle Sans, sans-serif`
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           ctx.fillText(label, px, py)
@@ -1505,7 +1529,8 @@ export function useCanvasRenderer() {
         ctx.fillStyle = '#1e293b' // Dark text for contrast on light field
         ctx.shadowColor = 'rgba(255, 255, 255, 0.9)' // Light shadow for subtle depth
         ctx.shadowBlur = 2
-        ctx.font = `600 ${Math.max(10, radius * 0.45)}px Oracle Sans, sans-serif`
+        const nameFontSize = Math.max(9, nameLabelRadius * 0.42)
+        ctx.font = `600 ${nameFontSize}px Oracle Sans, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.fillText(player.name, px, py + radius + 5)
@@ -1568,13 +1593,17 @@ export function useCanvasRenderer() {
     const yardHeight = fieldH / totalLength
 
     const scale = options.previewScale ?? 1
+    const touchScale = options.touchPlayerScale ?? 1
     // LOS Y position
     const losY = yardHeight * (endzoneSize + fieldLength - lineOfScrimmage)
     
     // QA is 5 yards back (down/higher Y) from LOS
     const qbY = losY + (5 * yardHeight)
     const qbX = fieldW * 0.5
-    const radius = Math.max(scale < 1 ? 1.5 : 3, Math.max(14, fieldW * 0.04) * scale)
+    const radius = computePlayerRadiusPx(fieldW, options.viewMode, {
+      previewScale: scale,
+      touchPlayerScale: touchScale,
+    })
 
     ctx.save()
     // Solid circle with QB label (rusher target reference)

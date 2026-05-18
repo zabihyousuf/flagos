@@ -209,7 +209,11 @@ export function usePlaySimulation() {
     losY = (fieldSettings.endzone_size + fieldSettings.field_length - fieldSettings.line_of_scrimmage) * oneYard
 
     // Find QB and Center
-    const qbCanvas = offensePlayers.find(p => p.position === 'QB' || p.designation === 'Q' || p.designation === 'QB')
+    const qbCanvas =
+      offensePlayers.find(p => p.position === 'QB' || p.designation === 'Q' || p.designation === 'QB') ??
+      // Fallback: any player with no route (typically the QB stands back) or just the first player
+      offensePlayers.find(p => !p.route?.segments?.length) ??
+      offensePlayers[0]
     const centerCanvas = offensePlayers.find(p => p.position === 'C' || p.designation === 'C')
     qbId = qbCanvas?.id ?? null
     centerId = centerCanvas?.id ?? null

@@ -52,7 +52,7 @@
       </Transition>
 
       <AppSidebar />
-      <SimHistorySidebar @select-job="onSelectHistoryJob" />
+      <SimHistorySidebar v-if="isManager && isDesktop" @select-job="onSelectHistoryJob" />
       <div
         class="flex flex-col flex-1 min-w-0 overflow-hidden bg-background"
         @click="maybeCloseHistoryPanel"
@@ -93,6 +93,7 @@
 import { Menu, Bell, Search, Settings } from 'lucide-vue-next'
 
 useTheme() // Apply theme and listen for system preference changes
+const { isManager } = useAccountType()
 useHead({ title: 'FlagLab' })
 const route = useRoute()
 

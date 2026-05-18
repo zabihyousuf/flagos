@@ -31,13 +31,33 @@ export function useTeamPlaybooks() {
         .select('playbook:playbooks(id, name, description, user_id, created_at, updated_at)')
       const raw = (data ?? []) as { playbook: Playbook | null }[]
       const seen = new Set<string>()
-      accessiblePlaybooks.value = raw
+      const pbs = raw
         .flatMap((row) => (row.playbook ? [row.playbook] : []))
         .filter((p) => {
           if (seen.has(p.id)) return false
           seen.add(p.id)
           return true
         })
+
+      if (pbs.length > 0) {
+        const ids = pbs.map((p) => p.id)
+        const { data: playsData } = await client
+          .from('plays')
+          .select('id, playbook_id')
+          .in('playbook_id', ids)
+        const countMap = new Map<string, { id: string }[]>()
+        for (const play of playsData ?? []) {
+          const arr = countMap.get(play.playbook_id) ?? []
+          arr.push({ id: play.id })
+          countMap.set(play.playbook_id, arr)
+        }
+        accessiblePlaybooks.value = pbs.map((pb) => ({
+          ...pb,
+          plays: (countMap.get(pb.id) ?? []) as any,
+        }))
+      } else {
+        accessiblePlaybooks.value = []
+      }
     } finally {
       loading.value = false
     }
