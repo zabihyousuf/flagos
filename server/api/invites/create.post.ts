@@ -51,6 +51,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Not authorized to invite for this team' })
   }
 
+  if (player_id) {
+    const { data: teamPlayer } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', team_id)
+      .eq('player_id', player_id)
+      .maybeSingle()
+
+    if (!teamPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Player is not on this team' })
+    }
+  }
+
+  const inviteRole = role === 'coach' ? 'coach' : 'player'
+
   // Create invite record
   const { data: invite, error: insertErr } = await admin
     .from('player_invites')
@@ -59,7 +74,7 @@ export default defineEventHandler(async (event) => {
       player_id: player_id ?? null,
       email,
       invited_by: user.id,
-      role,
+      role: inviteRole,
     })
     .select()
     .single()
