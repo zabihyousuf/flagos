@@ -7,6 +7,35 @@ interface InsightItem {
   sentiment: 'positive' | 'negative' | 'neutral'
 }
 
+async function canAccessJob(supabase: ReturnType<typeof serverSupabaseServiceRole>, jobId: string, userId: string): Promise<boolean> {
+  const { data: job, error: jobError } = await supabase
+    .from('sim_jobs')
+    .select('id, user_id')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (jobError || !job) return false
+  if (job.user_id === userId) return true
+
+  const { data: memberships } = await supabase
+    .from('team_memberships')
+    .select('team_id')
+    .eq('user_id', userId)
+
+  const teamIds = (memberships ?? []).map((row: { team_id: string }) => row.team_id)
+  if (teamIds.length === 0) return false
+
+  const { data: share } = await supabase
+    .from('sim_job_team_shares')
+    .select('id')
+    .eq('job_id', jobId)
+    .in('team_id', teamIds)
+    .limit(1)
+    .maybeSingle()
+
+  return Boolean(share)
+}
+
 function formatBreakdown(buckets: Record<string, any>): string {
   return Object.entries(buckets)
     .map(([key, v]: [string, any]) => {
@@ -103,6 +132,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = serverSupabaseServiceRole(event)
+  const authorized = await canAccessJob(supabase, job_id, user.id)
+  if (!authorized) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
 
   if (!regenerate) {
     const { data: existing } = await supabase

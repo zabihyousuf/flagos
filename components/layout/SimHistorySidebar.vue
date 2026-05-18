@@ -367,7 +367,8 @@ async function deleteJob(jobId: string) {
     variant: 'destructive',
   })
   if (!ok) return
-  await deleteJobFromDb(jobId)
+  const success = await deleteJobFromDb(jobId)
+  if (!success) return
   dismissByJobId(jobId)
   const currentId = route.params.id as string | undefined
   if (currentId === jobId) {
@@ -384,12 +385,13 @@ async function deleteAll() {
     variant: 'destructive',
   })
   if (!ok) return
-  // Clear notifications for all jobs being deleted
-  for (const job of batchSimJobs.value) {
-    dismissByJobId(job.job_id)
-  }
+  const deletedJobIds = batchSimJobs.value.map((job) => job.job_id)
   const success = await deleteAllJobs()
   if (success) {
+    // Clear notifications locally after the server has removed the jobs and linked notifications.
+    for (const jobId of deletedJobIds) {
+      dismissByJobId(jobId)
+    }
     const currentId = route.params.id as string | undefined
     if (currentId) navigateTo('/blurai/playlab')
   }
