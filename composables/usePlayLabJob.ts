@@ -249,6 +249,7 @@ export function usePlayLabJob() {
   const config = useRuntimeConfig()
   const engine = useEngineClient()
   const supabase = useSupabaseDB()
+  const user = useSupabaseUser()
   const baseUrl = engine.baseUrl
   const useStub = !baseUrl
 
@@ -266,6 +267,28 @@ export function usePlayLabJob() {
   let resultTimer: ReturnType<typeof setInterval> | null = null
   let elapsedTimer: ReturnType<typeof setInterval> | null = null
   let stubTimer: ReturnType<typeof setTimeout> | null = null
+
+  async function canAccessJob(raw: Record<string, any>): Promise<boolean> {
+    if (!user.value?.id) return false
+    if (raw.user_id === user.value.id) return true
+
+    const { data: memberships } = await supabase
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.value.id)
+    const teamIds = (memberships ?? []).map((m: any) => m.team_id)
+    if (teamIds.length === 0) return false
+
+    const { data: share } = await supabase
+      .from('sim_job_team_shares')
+      .select('id')
+      .eq('job_id', raw.id)
+      .in('team_id', teamIds)
+      .limit(1)
+      .maybeSingle()
+
+    return !!share
+  }
 
   function clearTimers() {
     if (statusTimer) {
@@ -419,10 +442,11 @@ export function usePlayLabJob() {
     if (!jobId.value || useStub) return
     const { data, error } = await supabase
       .from('sim_jobs')
-      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
+      .select('id, user_id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
       .eq('id', jobId.value)
       .single()
     if (error || !data) return
+    if (!(await canAccessJob(data))) return
     const normalized = normalizeJobStatus(data)
     console.log('[poll-status]', normalized.state, normalized.progress_percent?.toFixed(0) + '%', normalized.progress_label)
     status.value = normalized
@@ -502,10 +526,11 @@ export function usePlayLabJob() {
     if (useStub) return null
     const { data, error } = await supabase
       .from('sim_jobs')
-      .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
+      .select('id, user_id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
       .eq('id', id)
       .single()
     if (error || !data) return null
+    if (!(await canAccessJob(data))) return null
     return normalizeJobStatus(data)
   }
 
@@ -544,19 +569,20 @@ export function usePlayLabJob() {
   }
 
   async function loadResult(id: string): Promise<boolean> {
-    const [jobRes, resultRes] = await Promise.all([
-      supabase
-        .from('sim_jobs')
-        .select('id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
-        .eq('id', id)
-        .single(),
-      supabase
-        .from('sim_results')
-        .select('result_json')
-        .eq('job_id', id)
-        .single(),
-    ])
-    if (jobRes.error || !jobRes.data || resultRes.error || !resultRes.data?.result_json) return false
+    const jobRes = await supabase
+      .from('sim_jobs')
+      .select('id, user_id, job_type, status, progress, progress_label, error, created_at, completed_at, job_metadata')
+      .eq('id', id)
+      .single()
+    if (jobRes.error || !jobRes.data) return false
+    if (!(await canAccessJob(jobRes.data))) return false
+
+    const resultRes = await supabase
+      .from('sim_results')
+      .select('result_json')
+      .eq('job_id', id)
+      .single()
+    if (resultRes.error || !resultRes.data?.result_json) return false
     const normalized = normalizeJobStatus(jobRes.data)
     const resultData = resultRes.data.result_json as Record<string, any>
     jobId.value = id

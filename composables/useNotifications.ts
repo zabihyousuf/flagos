@@ -121,11 +121,16 @@ export function useNotifications() {
   }
 
   async function markAsRead(id: string) {
+    if (!user.value) return
     const read_at = new Date().toISOString()
     notifications.value = notifications.value.map((n) =>
       n.id === id ? { ...n, read: true, read_at } : n,
     )
-    await client.from('notifications').update({ read: true, read_at }).eq('id', id)
+    await client
+      .from('notifications')
+      .update({ read: true, read_at })
+      .eq('id', id)
+      .eq('user_id', user.value.id)
   }
 
   async function markAllRead() {
@@ -155,8 +160,13 @@ export function useNotifications() {
   }
 
   async function dismiss(id: string) {
+    if (!user.value) return
     notifications.value = notifications.value.filter((n) => n.id !== id)
-    await client.from('notifications').delete().eq('id', id)
+    await client
+      .from('notifications')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.value.id)
   }
 
   /** Remove all notifications linked to a specific job (called when job is deleted). */

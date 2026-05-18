@@ -51,15 +51,37 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Not authorized to invite for this team' })
   }
 
+  if (player_id) {
+    const { data: teamPlayer, error: teamPlayerErr } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', team_id)
+      .eq('player_id', player_id)
+      .maybeSingle()
+
+    if (teamPlayerErr) {
+      throw createError({ statusCode: 400, statusMessage: teamPlayerErr.message ?? 'Failed to verify roster player' })
+    }
+    if (!teamPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Player is not on this team' })
+    }
+  }
+
+  const inviteRole = role === 'coach' ? 'coach' : 'player'
+  const inviteEmail = email.trim().toLowerCase()
+  if (!inviteEmail) {
+    throw createError({ statusCode: 400, statusMessage: 'email is required' })
+  }
+
   // Create invite record
   const { data: invite, error: insertErr } = await admin
     .from('player_invites')
     .insert({
       team_id,
       player_id: player_id ?? null,
-      email,
+      email: inviteEmail,
       invited_by: user.id,
-      role,
+      role: inviteRole,
     })
     .select()
     .single()

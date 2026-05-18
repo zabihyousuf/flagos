@@ -39,7 +39,29 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, statusMessage: 'Invite expired' })
   }
 
-  const inviteRole: string = (invite as any).role ?? 'player'
+  const inviteEmail = invite.email.trim().toLowerCase()
+  const userEmail = user.email?.trim().toLowerCase()
+  if (!userEmail || userEmail !== inviteEmail) {
+    throw createError({ statusCode: 403, statusMessage: 'Invite is for a different email address' })
+  }
+
+  const inviteRole: 'player' | 'coach' = (invite as any).role === 'coach' ? 'coach' : 'player'
+
+  if (invite.player_id) {
+    const { data: teamPlayer, error: teamPlayerErr } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', invite.team_id)
+      .eq('player_id', invite.player_id)
+      .maybeSingle()
+
+    if (teamPlayerErr) {
+      throw createError({ statusCode: 400, statusMessage: teamPlayerErr.message ?? 'Failed to verify roster player' })
+    }
+    if (!teamPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Invite player is not on this team' })
+    }
+  }
 
   // Create team membership (upsert — idempotent if already a member)
   const { data: membership, error: memberErr } = await admin
@@ -57,6 +79,7 @@ export default defineEventHandler(async (event) => {
     .from('player_invites')
     .update({ used_at: new Date().toISOString() })
     .eq('id', invite.id)
+    .is('used_at', null)
 
   // Link player roster row to auth account if player_id was specified
   if (invite.player_id) {
