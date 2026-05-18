@@ -1576,9 +1576,14 @@ async function fetchInsights(regenerate = false) {
 }
 
 async function loadCachedInsights() {
-  if (!job.jobId) return
+  if (!job.jobId || !user.value?.id) return
   const supabase = useSupabaseDB()
-  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).maybeSingle()
+  const { data } = await supabase
+    .from('sim_insights')
+    .select('insights')
+    .eq('job_id', job.jobId)
+    .eq('user_id', user.value.id)
+    .maybeSingle()
   if (data?.insights) insightsData.value = data.insights as InsightItem[]
 }
 /** Replays modal (sidebar + player). */
@@ -1621,6 +1626,12 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
   replaysLoading.value = true
   if (poll) awaitingReplays.value = true
   try {
+    if (jobId !== job.jobId) {
+      replaysFromDb.value = []
+      awaitingReplays.value = false
+      return
+    }
+
     const supabase = useSupabaseDB()
     const { data, error } = await supabase
       .from('sim_recordings')
@@ -1663,11 +1674,13 @@ async function fetchReplaysForJob(jobId: string, { poll = false }: { poll?: bool
 async function fetchRecordingJson(recordingId: string): Promise<Record<string, unknown> | null> {
   const cached = recordingJsonCache.value.get(recordingId)
   if (cached) return cached
+  if (!job.jobId) return null
   const supabase = useSupabaseDB()
   const { data, error } = await supabase
     .from('sim_recordings')
     .select('recording_json')
     .eq('id', recordingId)
+    .eq('job_id', job.jobId)
     .single()
   if (error || !data) return null
   const raw = (data as any).recording_json
