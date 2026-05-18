@@ -76,11 +76,25 @@ export function useJobHistory() {
   async function deleteJob(jobId: string): Promise<boolean> {
     if (!user.value) return false
     try {
+      const { data: ownedJob, error: jobErr } = await client
+        .from('sim_jobs')
+        .select('id')
+        .eq('id', jobId)
+        .eq('user_id', user.value.id)
+        .maybeSingle()
+
+      if (jobErr) throw jobErr
+      if (!ownedJob) throw new Error('Simulation not found')
+
       await client.from('sim_recordings').delete().eq('job_id', jobId)
       await client.from('sim_results').delete().eq('job_id', jobId)
       await client.from('sim_insights').delete().eq('job_id', jobId)
       // Remove notifications linked to this job
-      await client.from('notifications').delete().eq('metadata->>job_id', jobId)
+      await client
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.value.id)
+        .eq('metadata->>job_id', jobId)
       const { error: err } = await client
         .from('sim_jobs')
         .delete()
@@ -116,7 +130,11 @@ export function useJobHistory() {
       await client.from('sim_insights').delete().in('job_id', jobIds)
       // Remove all notifications linked to these jobs
       for (const jid of jobIds) {
-        await client.from('notifications').delete().eq('metadata->>job_id', jid)
+        await client
+          .from('notifications')
+          .delete()
+          .eq('user_id', user.value.id)
+          .eq('metadata->>job_id', jid)
       }
       const { error: err } = await client
         .from('sim_jobs')
