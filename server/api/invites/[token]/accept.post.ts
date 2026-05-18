@@ -1,6 +1,10 @@
 import { serverSupabaseUser } from '#supabase/server'
 import { createClient } from '@supabase/supabase-js'
 
+function normalizeEmail(email: string | null | undefined): string {
+  return (email ?? '').trim().toLowerCase()
+}
+
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user?.id) {
@@ -39,7 +43,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 410, statusMessage: 'Invite expired' })
   }
 
-  const inviteRole: string = (invite as any).role ?? 'player'
+  if (normalizeEmail(user.email) !== normalizeEmail(invite.email)) {
+    throw createError({ statusCode: 403, statusMessage: 'Sign in with the invited email address to accept this invite' })
+  }
+
+  const inviteRole: string = (invite as any).role === 'coach' ? 'coach' : 'player'
 
   // Create team membership (upsert — idempotent if already a member)
   const { data: membership, error: memberErr } = await admin
@@ -52,14 +60,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: memberErr.message })
   }
 
-  // Mark invite as used
-  await admin
-    .from('player_invites')
-    .update({ used_at: new Date().toISOString() })
-    .eq('id', invite.id)
-
   // Link player roster row to auth account if player_id was specified
   if (invite.player_id) {
+    const { data: rosterRow } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', invite.team_id)
+      .eq('player_id', invite.player_id)
+      .maybeSingle()
+
+    if (!rosterRow) {
+      throw createError({ statusCode: 400, statusMessage: 'Invite player is not on this team roster' })
+    }
+
     await admin
       .from('players')
       .update({ linked_user_id: user.id })
@@ -73,6 +86,19 @@ export default defineEventHandler(async (event) => {
       .update({ account_type: 'player' })
       .eq('id', user.id)
       .eq('account_type', 'manager')
+  }
+
+  // Mark invite as used with a compare-and-set so two sessions cannot consume it twice.
+  const { data: consumedInvite } = await admin
+    .from('player_invites')
+    .update({ used_at: new Date().toISOString() })
+    .eq('id', invite.id)
+    .is('used_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (!consumedInvite) {
+    throw createError({ statusCode: 410, statusMessage: 'Invite already used' })
   }
 
   // Fetch team info to check coach's subscription for plan inheritance

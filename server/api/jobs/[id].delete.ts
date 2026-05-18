@@ -22,7 +22,35 @@ export default defineEventHandler(async (event) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
-  await supabase.from('sim_results').delete().eq('job_id', jobId)
+  const { data: job, error: jobErr } = await supabase
+    .from('sim_jobs')
+    .select('id')
+    .eq('id', jobId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (jobErr) {
+    throw createError({ statusCode: 400, statusMessage: jobErr.message ?? 'Failed to verify job ownership' })
+  }
+
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+
+  const cleanupSteps = [
+    supabase.from('sim_recordings').delete().eq('job_id', jobId),
+    supabase.from('sim_insights').delete().eq('job_id', jobId),
+    supabase.from('sim_results').delete().eq('job_id', jobId),
+    supabase.from('sim_job_team_shares').delete().eq('job_id', jobId),
+    supabase.from('notifications').delete().eq('metadata->>job_id', jobId),
+  ]
+
+  for (const step of cleanupSteps) {
+    const { error: cleanupErr } = await step
+    if (cleanupErr) {
+      throw createError({ statusCode: 400, statusMessage: cleanupErr.message ?? 'Failed to delete job data' })
+    }
+  }
 
   const { error } = await supabase
     .from('sim_jobs')
