@@ -69,7 +69,7 @@
         <!-- Success: email sent -->
         <div v-if="signupDone" class="join-email-sent">
           <p class="text-sm text-muted-foreground">
-            We sent a confirmation link to <strong>{{ invite.email }}</strong>.
+            We sent a confirmation link to <strong>{{ signupEmail }}</strong>.
             Click it to activate your account — then come back here to accept the invite.
           </p>
           <NuxtLink :to="`/auth/login?invite=${token}`" class="join-link mt-3 block">
@@ -95,12 +95,12 @@
               id="join-email"
               v-model="signupEmail"
               type="email"
-              :placeholder="invite.email"
+              placeholder="you@example.com"
               required
               autocomplete="email"
               class="h-11 bg-muted/40 border-border focus:bg-background transition-colors"
             />
-            <p v-if="signupEmail && signupEmail !== invite.email" class="join-email-hint">
+            <p v-if="invite.email && signupEmail && signupEmail !== invite.email" class="join-email-hint">
               This invite was sent to {{ invite.email }}. Using a different email creates a separate account.
             </p>
           </div>
@@ -163,7 +163,7 @@ const user = useSupabaseUser()
 const { playerInheritedPlan } = usePlanAccess()
 
 interface InviteInfo {
-  email: string
+  email: string | null
   expires_at: string
   team: { id: string; name: string; description?: string } | null
   player: { id: string; name: string } | null
@@ -191,7 +191,7 @@ onMounted(async () => {
   try {
     const data = await $fetch<InviteInfo>(`/api/invites/${token.value}/validate`)
     invite.value = data
-    signupEmail.value = data.email
+    signupEmail.value = data.email ?? ''
     if (data.player?.name) displayName.value = data.player.name
   } catch (e: any) {
     const msg = e.data?.statusMessage ?? e.message ?? 'Invalid invite'

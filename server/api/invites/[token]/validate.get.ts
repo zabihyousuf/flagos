@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { isLinkOnlyInviteEmail } from '~/lib/constants'
 
 export default defineEventHandler(async (event) => {
   const token = getRouterParam(event, 'token')
@@ -35,7 +36,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    email: invite.email,
+    email: isLinkOnlyInviteEmail(invite.email) ? null : invite.email,
     team: invite.team,
     player: (Array.isArray(invite.player) ? invite.player[0] : invite.player) as { id: string; name: string } | null,
     expires_at: invite.expires_at,

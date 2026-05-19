@@ -21,6 +21,13 @@ export const POSITION_LABELS: Record<string, string> = {
   MLB: 'Middle Linebacker',
 }
 
+/** Stored in player_invites.email when the coach shares a link only (no email sent). */
+export const LINK_ONLY_INVITE_EMAIL = 'link-only@flaglab.invite'
+
+export function isLinkOnlyInviteEmail(email: string | null | undefined): boolean {
+  return !email || email === LINK_ONLY_INVITE_EMAIL
+}
+
 /** Defaults for new players. When backfilling existing players, new attributes are inferred from
  * current values (e.g. reaction_time from speed+agility+football_iq, reach from height,
  * body_control_balance from agility+evasion, offense/defense new attrs from related existing attrs).

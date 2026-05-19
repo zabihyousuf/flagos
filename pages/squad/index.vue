@@ -1181,9 +1181,9 @@
         <!-- Sent confirmation state -->
         <template v-if="inviteToken">
           <DialogHeader>
-            <DialogTitle>Invite sent!</DialogTitle>
+            <DialogTitle>Invite link ready</DialogTitle>
             <DialogDescription>
-              An email was sent to <strong>{{ inviteEmail }}</strong>. Share the link below as a backup.
+              Share this link with {{ inviteTargetPlayer?.name ?? 'them' }} so they can join your team on FlagOS.
             </DialogDescription>
           </DialogHeader>
           <div class="py-2 space-y-3">
@@ -1201,12 +1201,11 @@
           </DialogFooter>
         </template>
 
-        <!-- Email entry state -->
         <template v-else>
           <DialogHeader>
             <DialogTitle>Invite to FlagOS</DialogTitle>
             <DialogDescription>
-              Send an invite link to {{ inviteTargetPlayer?.name ?? 'this person' }} so they can join your team on FlagOS.
+              Create an invite link for {{ inviteTargetPlayer?.name ?? 'this person' }} and share it with them directly.
             </DialogDescription>
           </DialogHeader>
           <div class="space-y-4 py-2">
@@ -1235,22 +1234,13 @@
                 </SelectContent>
               </Select>
             </div>
-            <div class="space-y-2">
-              <Label>Email address</Label>
-              <Input
-                v-model="inviteEmail"
-                type="email"
-                placeholder="email@example.com"
-                @keyup.enter="sendInvite"
-              />
-            </div>
             <p v-if="inviteError" class="text-sm text-destructive">{{ inviteError }}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" @click="inviteDialogOpen = false">Cancel</Button>
-            <Button :disabled="!inviteEmail.trim() || inviteLoading" @click="sendInvite">
+            <Button :disabled="!inviteTeamId || inviteLoading" @click="sendInvite">
               <Loader2 v-if="inviteLoading" class="w-4 h-4 mr-2 animate-spin" />
-              Send Invite
+              Create invite link
             </Button>
           </DialogFooter>
         </template>
@@ -1348,7 +1338,6 @@ const squadTab = ref<'roster' | 'requests'>('roster')
 // Invite dialog state
 const inviteDialogOpen = ref(false)
 const inviteTargetPlayer = ref<Player | null>(null)
-const inviteEmail = ref('')
 const inviteRole = ref<'player' | 'coach'>('player')
 const inviteTeamId = ref<string | null>(null)
 const inviteLoading = ref(false)
@@ -1381,7 +1370,6 @@ const pendingInvitePlayerIds = computed(() => {
 
 function openInviteDialog(player: Player) {
   inviteTargetPlayer.value = player
-  inviteEmail.value = ''
   inviteRole.value = 'player'
   inviteError.value = null
   inviteToken.value = null
@@ -1391,11 +1379,11 @@ function openInviteDialog(player: Player) {
 }
 
 async function sendInvite() {
-  if (!inviteEmail.value.trim() || !inviteTeamId.value) return
+  if (!inviteTeamId.value) return
   inviteLoading.value = true
   inviteError.value = null
   try {
-    const result = await playerInvitesRef.createInvite(inviteTargetPlayer.value?.id ?? null, inviteEmail.value.trim(), inviteRole.value)
+    const result = await playerInvitesRef.createInvite(inviteTargetPlayer.value?.id ?? null, inviteRole.value)
     if (result) {
       inviteToken.value = result.token
       invitedPlayerIds.value = new Set([...invitedPlayerIds.value, inviteTargetPlayer.value?.id ?? ''])

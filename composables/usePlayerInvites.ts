@@ -29,13 +29,13 @@ export function usePlayerInvites(teamId: Ref<string | null>) {
     }
   }
 
-  async function createInvite(playerId: string | null, email: string, role: 'player' | 'coach' = 'player'): Promise<PlayerInvite | null> {
+  async function createInvite(playerId: string | null, role: 'player' | 'coach' = 'player'): Promise<PlayerInvite | null> {
     if (!teamId.value) return null
     error.value = null
     try {
       const res = await $fetch<PlayerInvite>('/api/invites/create', {
         method: 'POST',
-        body: { team_id: teamId.value, player_id: playerId, email, role },
+        body: { team_id: teamId.value, player_id: playerId, role },
       })
       invites.value.unshift(res)
       return res
