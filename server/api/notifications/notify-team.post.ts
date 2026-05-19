@@ -78,7 +78,10 @@ export default defineEventHandler(async (event) => {
     metadata: metadata ?? null,
   }))
 
-  await admin.from('notifications').insert(rows)
+  const { error: insertErr } = await admin.from('notifications').insert(rows)
+  if (insertErr) {
+    throw createError({ statusCode: 500, statusMessage: insertErr.message ?? 'Failed to notify team' })
+  }
 
   return { notified_count: rows.length }
 })

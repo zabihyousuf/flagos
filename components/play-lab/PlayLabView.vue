@@ -1860,9 +1860,14 @@ async function fetchInsights(regenerate = false) {
 }
 
 async function loadCachedInsights() {
-  if (!job.jobId) return
+  if (!job.jobId || !user.value) return
   const supabase = useSupabaseDB()
-  const { data } = await supabase.from('sim_insights').select('insights').eq('job_id', job.jobId).maybeSingle()
+  const { data } = await supabase
+    .from('sim_insights')
+    .select('insights')
+    .eq('job_id', job.jobId)
+    .eq('user_id', user.value.id)
+    .maybeSingle()
   if (data?.insights) insightsData.value = data.insights as unknown as InsightItem[]
 }
 /** Replays modal (sidebar + player). */
