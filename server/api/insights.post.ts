@@ -79,6 +79,53 @@ Rules:
 - Return ONLY the JSON array, no markdown`
 }
 
+async function requireJobAccess(supabase: any, jobId: string, userId: string): Promise<{ id: string; user_id: string | null }> {
+  const { data: job, error: jobErr } = await supabase
+    .from('sim_jobs')
+    .select('id, user_id')
+    .eq('id', jobId)
+    .maybeSingle()
+
+  if (jobErr) {
+    throw createError({ statusCode: 400, statusMessage: jobErr.message ?? 'Failed to load job' })
+  }
+  if (!job) {
+    throw createError({ statusCode: 404, statusMessage: 'Job not found' })
+  }
+  if (job.user_id === userId) {
+    return job
+  }
+
+  const { data: shares, error: sharesErr } = await supabase
+    .from('sim_job_team_shares')
+    .select('team_id')
+    .eq('job_id', jobId)
+
+  if (sharesErr) {
+    throw createError({ statusCode: 400, statusMessage: sharesErr.message ?? 'Failed to verify job access' })
+  }
+
+  const teamIds = [...new Set((shares ?? []).map((share: { team_id: string }) => share.team_id))]
+  if (teamIds.length > 0) {
+    const { data: membership, error: membershipErr } = await supabase
+      .from('team_memberships')
+      .select('id')
+      .eq('user_id', userId)
+      .in('team_id', teamIds)
+      .limit(1)
+      .maybeSingle()
+
+    if (membershipErr) {
+      throw createError({ statusCode: 400, statusMessage: membershipErr.message ?? 'Failed to verify team membership' })
+    }
+    if (membership) {
+      return job
+    }
+  }
+
+  throw createError({ statusCode: 403, statusMessage: 'Not authorized to access this job' })
+}
+
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
@@ -103,6 +150,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = serverSupabaseServiceRole(event)
+  const authorizedJob = await requireJobAccess(supabase, job_id, user.id)
 
   if (!regenerate) {
     const { data: existing } = await supabase
@@ -222,7 +270,7 @@ export default defineEventHandler(async (event) => {
       if (allEmittedItems.length > 0) {
         try {
           await supabase.from('sim_insights').upsert(
-            { job_id, user_id: user!.id, insights: allEmittedItems, model: 'gpt-4o-mini' },
+            { job_id, user_id: authorizedJob.user_id ?? user!.id, insights: allEmittedItems, model: 'gpt-4o-mini' },
             { onConflict: 'job_id' },
           )
         } catch { /* best effort save */ }
