@@ -560,7 +560,7 @@ export function usePlayLabJob() {
     const normalized = normalizeJobStatus(jobRes.data)
     const resultData = resultRes.data.result_json as Record<string, any>
     jobId.value = id
-    status.value = { ...normalized, state: 'COMPLETED' as JobState }
+    status.value = normalized
     result.value = resultData as BatchSimResult
     partialResult.value = resultToPartial(resultData)
     isLoadedResult.value = true
