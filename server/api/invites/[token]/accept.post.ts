@@ -1,6 +1,10 @@
 import { serverSupabaseUser } from '#supabase/server'
 import { createClient } from '@supabase/supabase-js'
 
+function normalizeEmail(email: string | null | undefined) {
+  return email?.trim().toLowerCase() ?? ''
+}
+
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user?.id) {
@@ -38,8 +42,40 @@ export default defineEventHandler(async (event) => {
   if (new Date(invite.expires_at) < new Date()) {
     throw createError({ statusCode: 410, statusMessage: 'Invite expired' })
   }
+  if (normalizeEmail(invite.email) !== normalizeEmail(user.email)) {
+    throw createError({ statusCode: 403, statusMessage: 'Invite is for a different email address' })
+  }
 
-  const inviteRole: string = (invite as any).role ?? 'player'
+  const inviteRole = (invite as any).role === 'coach' ? 'coach' : 'player'
+
+  if (invite.player_id) {
+    const { data: teamPlayer, error: teamPlayerErr } = await admin
+      .from('team_players')
+      .select('id')
+      .eq('team_id', invite.team_id)
+      .eq('player_id', invite.player_id)
+      .maybeSingle()
+
+    if (teamPlayerErr) {
+      throw createError({ statusCode: 500, statusMessage: teamPlayerErr.message })
+    }
+    if (!teamPlayer) {
+      throw createError({ statusCode: 400, statusMessage: 'Invite player does not belong to this team' })
+    }
+
+    const { data: player, error: playerErr } = await admin
+      .from('players')
+      .select('linked_user_id')
+      .eq('id', invite.player_id)
+      .maybeSingle()
+
+    if (playerErr) {
+      throw createError({ statusCode: 500, statusMessage: playerErr.message })
+    }
+    if (player?.linked_user_id && player.linked_user_id !== user.id) {
+      throw createError({ statusCode: 409, statusMessage: 'Player is already linked to another account' })
+    }
+  }
 
   // Create team membership (upsert — idempotent if already a member)
   const { data: membership, error: memberErr } = await admin
@@ -53,10 +89,20 @@ export default defineEventHandler(async (event) => {
   }
 
   // Mark invite as used
-  await admin
+  const { data: consumed, error: consumeErr } = await admin
     .from('player_invites')
     .update({ used_at: new Date().toISOString() })
     .eq('id', invite.id)
+    .is('used_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (consumeErr) {
+    throw createError({ statusCode: 500, statusMessage: consumeErr.message })
+  }
+  if (!consumed) {
+    throw createError({ statusCode: 410, statusMessage: 'Invite already used' })
+  }
 
   // Link player roster row to auth account if player_id was specified
   if (invite.player_id) {
